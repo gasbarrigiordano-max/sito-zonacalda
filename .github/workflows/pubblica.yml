@@ -1,0 +1,24 @@
+# Chiede a GitHub Pages di ripubblicare il sito a ogni push su main.
+# Serve perché i push fatti da app non avviano da soli la pubblicazione.
+name: pubblica sito
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  pages: write
+
+jobs:
+  pubblica:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Richiedi una nuova pubblicazione a GitHub Pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -sSf -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/pages/builds"
