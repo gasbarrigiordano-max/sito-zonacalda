@@ -1,9 +1,6 @@
-// Zonacalda — accensione dell'insegna e conto alla rovescia.
+// Zonacalda — accensione dell'insegna.
 
 (() => {
-  const APERTURA = new Date('2026-11-14T23:00:00+01:00'); // sab 14.11, 23:00 ora italiana
-  const CHIUSURA = new Date('2026-11-15T06:00:00+01:00'); // fino a quando vale "fa caldo."
-
   /* ---------- accensione a sfarfallio ---------- */
   const root = document.documentElement;
   if (root.classList.contains('accendi')) {
@@ -54,35 +51,5 @@
       root.classList.remove('accendi');
       document.querySelectorAll('.logo .g').forEach((el) => el.getAnimations().forEach((a) => a.cancel()));
     }, Math.max(ultimo, 350 + 1500) + 100);
-  }
-
-  /* ---------- conto alla rovescia ---------- */
-  const frase = document.getElementById('frase');
-  const conto = document.getElementById('conto');
-  const due = (n) => String(n).padStart(2, '0');
-
-  const aggiorna = () => {
-    const ora = new Date();
-    const ms = APERTURA - ora;
-    if (ora >= CHIUSURA) {
-      frase.textContent = 'ci vediamo.';
-      conto.textContent = '';
-      return false;
-    }
-    if (ms <= 0) {
-      frase.textContent = 'fa caldo. 😈';
-      conto.textContent = '';
-      return true;
-    }
-    const s = Math.floor(ms / 1000);
-    const g = Math.floor(s / 86400);
-    conto.textContent = g >= 1
-      ? `-${g} ${g === 1 ? 'giorno' : 'giorni'}.`
-      : `-${due(Math.floor(s / 3600))}:${due(Math.floor(s / 60) % 60)}:${due(s % 60)}.`;
-    return true;
-  };
-
-  if (aggiorna()) {
-    const id = setInterval(() => { if (!aggiorna()) clearInterval(id); }, 1000);
   }
 })();
