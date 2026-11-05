@@ -1,5 +1,5 @@
-# Chiede a GitHub Pages di ripubblicare il sito a ogni push su main.
-# Serve perché i push fatti da app non avviano da soli la pubblicazione.
+# Pubblica il sito su GitHub Pages a ogni push su main.
+# In Settings → Pages la sorgente deve essere "GitHub Actions".
 name: pubblica sito
 
 on:
@@ -8,19 +8,29 @@ on:
   workflow_dispatch:
 
 permissions:
+  contents: read
   pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
 jobs:
   pubblica:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - name: Richiedi una nuova pubblicazione a GitHub Pages
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - uses: actions/checkout@v4
+      - name: Prepara i file del sito (senza strumenti e automazioni)
         run: |
-          code=$(curl -sS -o risposta.json -w "%{http_code}" -X POST \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/pages/builds")
-          echo "::notice::pages/builds HTTP $code $(tr -d '\n' < risposta.json)"
-          [ "$code" -lt 300 ]
+          mkdir _site
+          cp index.html 404.html style.css main.js _site/
+          cp -r assets _site/
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4
