@@ -1,6 +1,6 @@
 // Collegamento al Foglio Google (app web di Apps Script).
 // Dopo aver pubblicato lo script, incolla qui il suo indirizzo (finisce con /exec).
-window.ZC_API = '';
+window.ZC_API = 'https://script.google.com/macros/s/AKfycbyakWB6E706wOyMkoUBbZ63Xl1SCep-R2ZdfEgkdQ_fqHFBSaYokAaiQbnr9MHy0duT/exec';
 
 window.zcApi = async function (dati) {
   if (!window.ZC_API) return { ok: false, errore: 'non_attivo' };
