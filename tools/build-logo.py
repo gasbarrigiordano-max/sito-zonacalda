@@ -1,4 +1,4 @@
-"""Genera gli SVG neon animabili (logo e codice 0053) dentro index.html.
+"""Genera gli SVG neon animabili (logo e codice 00053) dentro index.html.
 
 I tracciati vengono copiati identici dai file in assets/; vengono solo raggruppati
 (per lettera / per cifra) e sovrapposti negli strati della luce neon:
@@ -78,11 +78,13 @@ logo_svg = neon_svg("zc", (-75, -74, 1344, 544), logo_groups, "logo",
                     "ZONACALDA, club use. Insegna neon rossa: la O è un diavoletto con le corna.",
                     "logo-t", draw=("o",))
 
-# ---------- codice 0053 ----------
-cod = paths((ASSETS / "zonacalda-0053-linee.svg").read_text(), "codice")
-assert len(cod) == 7
-cod_groups = [("k1", cod[0:1], "s"), ("k2", cod[1:2], "s"), ("k3", cod[2:5], "s"), ("k4", cod[5:7], "s")]
-cod_svg = neon_svg("zk", (-60, -58, 470, 222), cod_groups, "codice", "0053", "codice-t")
+# ---------- codice 00053 ----------
+cod = paths((ASSETS / "zonacalda-00053-linee.svg").read_text(), "codice")
+assert len(cod) == 8
+cod_groups = [("k1", cod[0:1], "s"), ("k2", cod[1:2], "s"), ("k3", cod[2:3], "s"),
+              ("k4", cod[3:6], "s"), ("k5", cod[6:8], "s")]
+# inclinazione: stessa rotazione del file sorgente, applicata da CSS (.codice)
+cod_svg = neon_svg("zk", (-60, -70, 550, 250), cod_groups, "codice", "00053", "codice-t")
 
 html = ROOT / "index.html"
 page = inject(inject(html.read_text(), "LOGO", logo_svg), "CODICE", cod_svg)

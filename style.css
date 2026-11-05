@@ -33,9 +33,9 @@ main {
 .insegna { margin: 0 0 1rem; width: 100%; display: flex; justify-content: center; }
 .logo {
   display: block;
-  width: min(118vw, 980px);   /* il viewBox include l'alone: si può sbordare */
+  width: min(118vw, 860px, 130vh);   /* il viewBox include l'alone: si può sbordare */
   height: auto;
-  margin-inline: calc((min(118vw, 980px) - 100%) / -2);
+  margin-inline: calc((min(118vw, 860px, 130vh) - 100%) / -2);
   overflow: visible;
 }
 .tube.ly .k-s { stroke-width: 8.85; }   /* 7.7 × 1.15 */
@@ -93,7 +93,15 @@ footer {
   min-height: 4.5rem;
   margin: 0;
 }
-.codice { display: block; width: clamp(120px, 16vw, 170px); height: auto; overflow: visible; }
+.codice {
+  --w: min(48vw, 270px);        /* su telefono: stessa scala delle lettere del logo */
+  display: block;
+  width: var(--w);
+  height: auto;
+  margin-block: calc(var(--w) * -.14);   /* l'alone non occupa spazio */
+  overflow: visible;
+  transform: rotate(-5deg);
+}
 .sr-only {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
