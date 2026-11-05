@@ -38,9 +38,15 @@
     return sbagliato(null, '') || true;
   };
 
+  // prima di martedì 10.11 la lista non è "chiusa": non è ancora aperta
+  const APERTURA = new Date('2026-11-10T00:00:00+01:00');
+  const chiusa = () => (new Date() < APERTURA
+    ? esito('presto.', 'la lista apre martedì. 😈')
+    : esito('lista chiusa.', 'ci vediamo alla prossima. 😈'));
+
   // lista aperta?
   zcApi({ azione: 'lista' }).then((r) => {
-    if (r.ok && r.aperta === false) esito('lista chiusa.', 'ci vediamo alla prossima. 😈');
+    if (r.ok && r.aperta === false) chiusa();
     if (r.errore === 'non_attivo') esito('presto.', 'la lista apre a breve.');
   });
 
@@ -71,7 +77,7 @@
     if (r.ok && r.gia) return esito('sei già in lista.', 'se tocca a te, ti scriviamo. 😈');
     if (r.ok) return esito('sei in lista.', 'se tocca a te, ti scriviamo. 😈');
     const msg = {
-      chiusa: () => esito('lista chiusa.', 'ci vediamo alla prossima. 😈'),
+      chiusa: () => chiusa(),
       eta: () => esito('non ancora.', 'serve avere almeno ' + ETA_MINIMA + ' anni. ci vediamo più avanti.'),
       email: () => sbagliato('email', 'controlla l\'email.'),
       telefono: () => sbagliato('telefono', 'controlla il numero.'),
