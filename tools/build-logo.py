@@ -27,11 +27,13 @@ def paths(txt, group_id):
     return re.findall(r'd="([^"]+)"', body)
 
 
-def neon_svg(prefix, vb, groups, cls, title, title_id, draw=()):
-    """groups: lista di (id, tracciati, tipo). tipo s = scala 1, v/u = scala .25."""
+def neon_svg(prefix, vb, groups, cls, title, title_id, draw=(), view=None):
+    """groups: lista di (id, tracciati, tipo). tipo s = scala 1, v/u = scala .25.
+    vb = area degli aloni (filtri); view = parte mostrata (di default tutta)."""
+    view = view or vb
     out = ['<svg class="%s" xmlns="http://www.w3.org/2000/svg" viewBox="%s %s %s %s" '
            'fill="none" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="%s">'
-           % ((cls,) + vb + (title_id,)),
+           % ((cls,) + view + (title_id,)),
            '<title id="%s">%s</title>' % (title_id, title), "<defs>"]
     for name, color, sd, op, w in LAYERS:
         if sd:
@@ -76,7 +78,9 @@ logo_groups = [
 ]
 logo_svg = neon_svg("zc", (-75, -74, 1344, 544), logo_groups, "logo",
                     "ZONACALDA, club use. Insegna neon rossa: la O è un diavoletto con le corna.",
-                    "logo-t", draw=("o",))
+                    "logo-t", draw=("o",),
+                    # vista più stretta: sul telefono il logo riempie lo schermo senza sbordare
+                    view=(-25, -74, 1244, 544))
 
 # ---------- codice 00053 ----------
 cod = paths((ASSETS / "zonacalda-00053-linee.svg").read_text(), "codice")

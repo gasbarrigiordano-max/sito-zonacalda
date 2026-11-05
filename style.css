@@ -7,7 +7,13 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
-html { background: var(--nero); color: var(--testo); }
+html {
+  background: var(--nero);
+  color: var(--testo);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
 
 body {
   margin: 0;
@@ -17,6 +23,9 @@ body {
   flex-direction: column;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  /* l'alone del logo sborda dai lati: senza questo il telefono rimpicciolisce la pagina */
+  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 main {
@@ -25,7 +34,7 @@ main {
   flex-direction: column;
   align-items: center;
   gap: .9rem;
-  padding: clamp(2rem, 12vh, 7rem) 16px 0;
+  padding: calc(clamp(2rem, 12svh, 7rem) + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
   text-align: center;
 }
 
@@ -33,9 +42,9 @@ main {
 .insegna { margin: 0 0 1rem; width: 100%; display: flex; justify-content: center; }
 .logo {
   display: block;
-  width: min(118vw, 860px, 130vh);   /* il viewBox include l'alone: si può sbordare */
+  width: min(100vw, 800px, 120svh);   /* a tutta larghezza sul telefono */
   height: auto;
-  margin-inline: calc((min(118vw, 860px, 130vh) - 100%) / -2);
+  margin-inline: calc((min(100vw, 800px, 120svh) - 100%) / -2);
   overflow: visible;
 }
 .tube.ly .k-s { stroke-width: 8.85; }   /* 7.7 × 1.15 */
@@ -74,7 +83,10 @@ main {
   font-size: 1.05rem;
   text-decoration: none;
   border-bottom: 1px solid currentColor;
-  padding: .5rem 0 .15rem;   /* area di tocco più alta */
+  min-height: 44px;          /* area di tocco comoda col pollice */
+  display: inline-flex;
+  align-items: flex-end;
+  padding: 0 .5rem .15rem;
 }
 .ig:hover, .ig:focus-visible { color: var(--rosso); }
 :focus-visible { outline: 2px solid var(--rosso); outline-offset: 4px; }
@@ -105,4 +117,12 @@ footer {
 .sr-only {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* telefono in orizzontale: logo più contenuto, il resto scorre con calma */
+@media (orientation: landscape) and (max-height: 520px) {
+  main { padding-top: max(1.25rem, env(safe-area-inset-top)); gap: .6rem; }
+  .logo { width: min(100vw, 120svh); margin-block: -4svh; margin-inline: calc((min(100vw, 120svh) - 100%) / -2); }
+  .codice { --w: min(36vw, 220px); }
+  .firma { min-height: 7rem; }
 }
