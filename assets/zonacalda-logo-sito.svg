@@ -1,0 +1,121 @@
+<svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="-25 -74 1244 544" fill="none" stroke-linecap="round" stroke-linejoin="round">
+<title id="logo-s">ZONACALDA, club use</title>
+<defs>
+<style>.tube .k-s{stroke-width:8.85}.tube .k-v{stroke-width:20.24}.tube .k-u{stroke-width:13.23}.core .k-s{stroke-width:3.23}.core .k-v{stroke-width:7.39}.core .k-u{stroke-width:4.87}</style>
+<filter id="zs-h0" filterUnits="userSpaceOnUse" x="-75" y="-74" width="1344" height="544"><feGaussianBlur stdDeviation="45"/></filter>
+<filter id="zs-h1" filterUnits="userSpaceOnUse" x="-75" y="-74" width="1344" height="544"><feGaussianBlur stdDeviation="20"/></filter>
+<filter id="zs-h2" filterUnits="userSpaceOnUse" x="-75" y="-74" width="1344" height="544"><feGaussianBlur stdDeviation="8"/></filter>
+<filter id="zs-h3" filterUnits="userSpaceOnUse" x="-75" y="-74" width="1344" height="544"><feGaussianBlur stdDeviation="3"/></filter>
+<filter id="zs-cg" filterUnits="userSpaceOnUse" x="-75" y="-74" width="1344" height="544"><feGaussianBlur stdDeviation="1.2"/></filter>
+<g id="zs-o"><path d="M220 197C225 197 242 193 251 195C259 197 267 201 271 208C275 215 274 225 275 235C276 244 278 255 276 264C275 272 271 278 265 283C260 288 252 293 243 295C235 297 222 300 214 297C206 295 202 287 196 280C190 273 179 264 177 255C174 246 179 236 181 228C184 220 185 211 191 205C197 199 209 194 218 192C227 191 242 197 247 198"/><path d="M207 200C204 199 194 201 190 194C186 188 184 161 185 158C186 156 193 173 198 179C204 185 214 191 217 194"/><path d="M256 206C260 205 274 207 280 199C286 192 292 164 290 161C288 159 274 177 267 182C260 188 252 193 249 195"/><path d="M199 228C201 229 207 235 212 238C217 242 225 246 228 248"/><path d="M201 241C203 243 208 252 211 254C215 255 221 251 223 250"/><path d="M261 240C259 240 251 243 247 245C242 247 237 252 235 253"/><path d="M258 243C256 245 251 253 247 255C243 256 238 252 236 251"/><path d="M204 267C206 270 211 280 217 283C224 286 235 290 243 287C250 284 260 269 263 265"/><path d="M266 267C267 267 267 267 268 266C268 265 270 263 271 263"/></g>
+<g id="zs-z"><path d="M69 157C75 157 94 156 108 157C122 158 144 161 151 162"/><path d="M154 162C146 170 121 196 106 211C90 226 69 247 61 254"/><path d="M59 261C67 259 92 250 107 250C123 250 144 259 151 260"/></g>
+<g id="zs-n"><path d="M324 301C322 291 314 261 312 241C309 221 308 191 307 180"/><path d="M305 185C313 193 337 217 351 235C365 254 384 285 390 295"/><path d="M393 293C391 282 387 247 384 227C380 206 375 180 373 170"/></g>
+<g id="zs-a1"><path d="M442 299C443 289 448 257 451 238C454 219 458 193 459 184"/><path d="M460 184C465 192 480 217 490 233C500 249 517 273 523 281"/><path d="M447 254C451 253 463 249 471 247C480 246 495 245 499 245"/></g>
+<g id="zs-c"><path d="M634 192C629 187 615 168 605 166C594 164 578 171 570 180C562 190 555 208 555 222C556 236 565 255 573 264C582 273 594 279 604 277C615 276 631 259 636 255"/></g>
+<g id="zs-a2"><path d="M676 268C679 256 688 219 693 198C698 177 704 150 707 141"/><path d="M708 144C713 152 727 176 738 193C749 211 769 240 775 249"/><path d="M689 226C694 223 708 211 718 209C728 206 745 209 751 210"/></g>
+<g id="zs-l"><path d="M802 150C804 159 810 184 812 201C813 217 811 241 811 250"/><path d="M816 248C818 248 820 250 828 248C836 245 858 236 864 233"/></g>
+<g id="zs-d"><path d="M896 146C897 156 897 184 899 202C900 221 906 250 907 260"/><path d="M895 152C904 152 930 144 946 150C961 155 981 173 988 185C994 196 991 209 985 220C978 232 962 248 949 255C935 261 910 258 902 259"/></g>
+<g id="zs-a3"><path d="M1034 268C1036 257 1041 226 1047 206C1053 185 1066 155 1070 145"/><path d="M1057 146C1064 154 1085 179 1098 195C1111 211 1129 233 1135 241"/><path d="M1042 223C1048 221 1068 214 1079 211C1091 209 1107 209 1113 208"/></g>
+<g id="zs-vl"><g transform="scale(.25)"><path d="M2343 543C2344 523 2345 463 2348 423C2351 383 2358 324 2360 304"/><path d="M2345 539C2360 527 2407 488 2437 463C2468 438 2512 403 2527 391"/><path d="M2356 305C2365 306 2394 304 2410 309C2426 314 2437 326 2451 333C2466 341 2483 347 2496 357C2509 366 2523 386 2529 392"/><path d="M2344 530C2349 513 2361 463 2371 427C2380 391 2396 332 2401 313"/><path d="M2346 539C2355 521 2380 467 2397 432C2414 397 2442 346 2451 328"/><path d="M2341 532C2355 517 2400 473 2426 443C2451 414 2483 371 2494 356"/><path d="M2344 534C2342 540 2337 559 2332 572C2327 585 2317 603 2314 609"/><path d="M2352 531C2349 537 2338 565 2337 566C2335 567 2341 541 2342 536"/></g></g>
+<g id="zs-vr"><g transform="scale(.25)"><path d="M4253 457C4251 437 4245 378 4243 339C4241 300 4240 241 4239 221"/><path d="M4252 454C4237 442 4193 405 4162 382C4132 359 4087 326 4072 315"/><path d="M4240 227C4231 226 4201 220 4185 224C4169 227 4159 240 4145 248C4130 256 4111 262 4098 273C4085 284 4072 307 4067 314"/><path d="M4252 455C4247 436 4236 375 4225 337C4213 299 4191 246 4185 228"/><path d="M4251 454C4241 436 4212 384 4195 350C4177 315 4154 265 4146 248"/><path d="M4254 457C4241 442 4201 396 4176 365C4151 335 4116 289 4104 274"/><path d="M4251 457C4253 463 4262 483 4267 494C4273 505 4280 518 4282 523"/><path d="M4254 452C4255 456 4261 473 4261 474C4261 474 4255 458 4253 454"/></g></g>
+<g id="zs-u"><g transform="scale(.25)"><path d="M2158 1272C2153 1271 2138 1262 2129 1261C2121 1261 2112 1262 2108 1270C2103 1278 2098 1296 2100 1308C2101 1320 2109 1334 2115 1341C2121 1347 2128 1350 2136 1349C2143 1347 2155 1333 2159 1330"/><path d="M2200 1260C2200 1268 2198 1292 2197 1308C2195 1323 2194 1346 2193 1353"/><path d="M2191 1344C2195 1345 2205 1350 2213 1350C2220 1350 2232 1343 2236 1342"/><path d="M2254 1260C2255 1270 2256 1303 2259 1317C2261 1331 2265 1337 2270 1344C2276 1350 2285 1354 2292 1354C2299 1353 2310 1348 2313 1341C2317 1334 2316 1326 2315 1312C2315 1298 2311 1264 2310 1254"/><path d="M2361 1247C2360 1256 2355 1283 2355 1300C2354 1317 2356 1340 2357 1348"/><path d="M2355 1258C2361 1257 2381 1249 2389 1251C2398 1253 2406 1261 2406 1269C2406 1277 2398 1294 2390 1299C2381 1304 2362 1300 2357 1300"/><path d="M2352 1297C2359 1297 2385 1296 2394 1301C2403 1305 2407 1316 2407 1323C2406 1331 2400 1342 2391 1346C2381 1349 2357 1345 2350 1345"/><path d="M2488 1260C2488 1269 2486 1299 2488 1313C2490 1327 2494 1339 2499 1344C2504 1349 2512 1344 2519 1343C2525 1342 2533 1345 2537 1339C2541 1334 2543 1322 2544 1307C2544 1293 2539 1263 2538 1254"/><path d="M2631 1275C2628 1272 2621 1257 2614 1254C2607 1252 2597 1257 2591 1262C2585 1267 2580 1276 2580 1284C2581 1292 2588 1303 2595 1309C2601 1314 2613 1312 2618 1317C2623 1322 2628 1333 2626 1339C2623 1344 2611 1348 2604 1349C2597 1351 2586 1351 2582 1347C2577 1343 2579 1331 2578 1327"/><path d="M2653 1268C2652 1275 2645 1295 2646 1308C2646 1322 2653 1341 2655 1348"/><path d="M2650 1267C2654 1267 2667 1265 2675 1265C2682 1266 2691 1270 2695 1270"/><path d="M2647 1308C2651 1307 2665 1303 2672 1303C2679 1304 2686 1308 2689 1309"/><path d="M2652 1344C2655 1344 2663 1346 2671 1347C2678 1347 2695 1347 2700 1347"/></g></g>
+</defs>
+<g class="ly h0 tube" stroke="#ff0f19" filter="url(#zs-h0)" opacity=".5">
+<use href="#zs-o" class="g g-o k-s"/>
+<use href="#zs-z" class="g g-z k-s"/>
+<use href="#zs-n" class="g g-n k-s"/>
+<use href="#zs-a1" class="g g-a1 k-s"/>
+<use href="#zs-c" class="g g-c k-s"/>
+<use href="#zs-a2" class="g g-a2 k-s"/>
+<use href="#zs-l" class="g g-l k-s"/>
+<use href="#zs-d" class="g g-d k-s"/>
+<use href="#zs-a3" class="g g-a3 k-s"/>
+<use href="#zs-vl" class="g g-vl k-v"/>
+<use href="#zs-vr" class="g g-vr k-v"/>
+<use href="#zs-u" class="g g-u k-u"/>
+</g>
+<g class="ly h1 tube" stroke="#ff141e" filter="url(#zs-h1)" opacity=".6">
+<use href="#zs-o" class="g g-o k-s"/>
+<use href="#zs-z" class="g g-z k-s"/>
+<use href="#zs-n" class="g g-n k-s"/>
+<use href="#zs-a1" class="g g-a1 k-s"/>
+<use href="#zs-c" class="g g-c k-s"/>
+<use href="#zs-a2" class="g g-a2 k-s"/>
+<use href="#zs-l" class="g g-l k-s"/>
+<use href="#zs-d" class="g g-d k-s"/>
+<use href="#zs-a3" class="g g-a3 k-s"/>
+<use href="#zs-vl" class="g g-vl k-v"/>
+<use href="#zs-vr" class="g g-vr k-v"/>
+<use href="#zs-u" class="g g-u k-u"/>
+</g>
+<g class="ly h2 tube" stroke="#ff1923" filter="url(#zs-h2)" opacity=".75">
+<use href="#zs-o" class="g g-o k-s"/>
+<use href="#zs-z" class="g g-z k-s"/>
+<use href="#zs-n" class="g g-n k-s"/>
+<use href="#zs-a1" class="g g-a1 k-s"/>
+<use href="#zs-c" class="g g-c k-s"/>
+<use href="#zs-a2" class="g g-a2 k-s"/>
+<use href="#zs-l" class="g g-l k-s"/>
+<use href="#zs-d" class="g g-d k-s"/>
+<use href="#zs-a3" class="g g-a3 k-s"/>
+<use href="#zs-vl" class="g g-vl k-v"/>
+<use href="#zs-vr" class="g g-vr k-v"/>
+<use href="#zs-u" class="g g-u k-u"/>
+</g>
+<g class="ly h3 tube" stroke="#ff2d37" filter="url(#zs-h3)" opacity=".8">
+<use href="#zs-o" class="g g-o k-s"/>
+<use href="#zs-z" class="g g-z k-s"/>
+<use href="#zs-n" class="g g-n k-s"/>
+<use href="#zs-a1" class="g g-a1 k-s"/>
+<use href="#zs-c" class="g g-c k-s"/>
+<use href="#zs-a2" class="g g-a2 k-s"/>
+<use href="#zs-l" class="g g-l k-s"/>
+<use href="#zs-d" class="g g-d k-s"/>
+<use href="#zs-a3" class="g g-a3 k-s"/>
+<use href="#zs-vl" class="g g-vl k-v"/>
+<use href="#zs-vr" class="g g-vr k-v"/>
+<use href="#zs-u" class="g g-u k-u"/>
+</g>
+<g class="ly tb tube" stroke="#ff2634">
+<use href="#zs-o" class="g g-o k-s"/>
+<use href="#zs-z" class="g g-z k-s"/>
+<use href="#zs-n" class="g g-n k-s"/>
+<use href="#zs-a1" class="g g-a1 k-s"/>
+<use href="#zs-c" class="g g-c k-s"/>
+<use href="#zs-a2" class="g g-a2 k-s"/>
+<use href="#zs-l" class="g g-l k-s"/>
+<use href="#zs-d" class="g g-d k-s"/>
+<use href="#zs-a3" class="g g-a3 k-s"/>
+<use href="#zs-vl" class="g g-vl k-v"/>
+<use href="#zs-vr" class="g g-vr k-v"/>
+<use href="#zs-u" class="g g-u k-u"/>
+</g>
+<g class="ly cr core" stroke="#ffc8cd">
+<use href="#zs-o" class="g g-o k-s"/>
+<use href="#zs-z" class="g g-z k-s"/>
+<use href="#zs-n" class="g g-n k-s"/>
+<use href="#zs-a1" class="g g-a1 k-s"/>
+<use href="#zs-c" class="g g-c k-s"/>
+<use href="#zs-a2" class="g g-a2 k-s"/>
+<use href="#zs-l" class="g g-l k-s"/>
+<use href="#zs-d" class="g g-d k-s"/>
+<use href="#zs-a3" class="g g-a3 k-s"/>
+<use href="#zs-vl" class="g g-vl k-v"/>
+<use href="#zs-vr" class="g g-vr k-v"/>
+<use href="#zs-u" class="g g-u k-u"/>
+</g>
+<g class="ly cg core" stroke="#ff96a0" filter="url(#zs-cg)" opacity=".8">
+<use href="#zs-o" class="g g-o k-s"/>
+<use href="#zs-z" class="g g-z k-s"/>
+<use href="#zs-n" class="g g-n k-s"/>
+<use href="#zs-a1" class="g g-a1 k-s"/>
+<use href="#zs-c" class="g g-c k-s"/>
+<use href="#zs-a2" class="g g-a2 k-s"/>
+<use href="#zs-l" class="g g-l k-s"/>
+<use href="#zs-d" class="g g-d k-s"/>
+<use href="#zs-a3" class="g g-a3 k-s"/>
+<use href="#zs-vl" class="g g-vl k-v"/>
+<use href="#zs-vr" class="g g-vr k-v"/>
+<use href="#zs-u" class="g g-u k-u"/>
+</g>
+</svg>

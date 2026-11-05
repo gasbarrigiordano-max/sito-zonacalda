@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zonacalda — lista</title>
+<meta name="description" content="zonacalda. lista d'attesa. non entrano tutti.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#050505">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="../assets/zonacalda-diavolo-linee.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<meta property="og:title" content="Zonacalda — lista">
+<meta property="og:description" content="lista d'attesa. non entrano tutti. 😈">
+<meta property="og:image" content="https://www.zonacaldaclubuse.it/assets/og-zonacalda.png">
+<link rel="stylesheet" href="../style.css">
+<link rel="stylesheet" href="../pagine.css">
+<script src="../js/api.js" defer></script>
+<script src="lista.js" defer></script>
+</head>
+<body>
+<header class="testa"><a href="../"><img src="../assets/zonacalda-logo-sito.svg" width="1244" height="544" alt="ZONACALDA, club use"></a></header>
+
+<main class="pagina">
+  <h1>lista.</h1>
+  <p class="sotto">non entrano tutti. se tocca a te, ti scriviamo.</p>
+
+  <form id="modulo" novalidate>
+    <label>nome
+      <input type="text" name="nome" autocomplete="given-name" autocapitalize="words" maxlength="60" required>
+    </label>
+    <label>cognome
+      <input type="text" name="cognome" autocomplete="family-name" autocapitalize="words" maxlength="60" required>
+    </label>
+    <label>data di nascita
+      <input type="date" name="nascita" autocomplete="bday" min="1926-01-01" max="2010-12-31" required>
+    </label>
+    <label>email
+      <input type="email" name="email" autocomplete="email" inputmode="email" autocapitalize="off" maxlength="120" required>
+    </label>
+    <label>telefono
+      <input type="tel" name="telefono" autocomplete="tel" inputmode="tel" placeholder="+39 …" maxlength="20" required>
+    </label>
+    <label>instagram <span class="facoltativo">(facoltativo)</span>
+      <input type="text" name="instagram" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="@" maxlength="40">
+    </label>
+    <div class="trappola" aria-hidden="true">
+      <label>sito <input type="text" name="sito" tabindex="-1" autocomplete="off"></label>
+    </div>
+
+    <label class="spunta"><input type="checkbox" name="informativa" required>
+      <span>ho letto l'<a href="../privacy/" target="_blank" rel="noopener">informativa privacy</a> e ho almeno 23 anni.</span>
+    </label>
+    <label class="spunta"><input type="checkbox" name="prossime">
+      <span>avvisatemi anche per le prossime serate. <span class="facoltativo">(facoltativo)</span></span>
+    </label>
+
+    <p class="errore" id="errore" role="alert"></p>
+    <button class="bottone" type="submit" id="invia">mettimi in lista.</button>
+  </form>
+
+  <div class="esito" id="esito" hidden aria-live="polite">
+    <p class="grande" id="esito-titolo"></p>
+    <p id="esito-testo"></p>
+  </div>
+
+  <p class="nota">23+. invito personale. <a href="../privacy/">privacy.</a></p>
+</main>
+</body>
+</html>

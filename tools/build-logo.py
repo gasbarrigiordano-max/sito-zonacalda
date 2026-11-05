@@ -27,7 +27,7 @@ def paths(txt, group_id):
     return re.findall(r'd="([^"]+)"', body)
 
 
-def neon_svg(prefix, vb, groups, cls, title, title_id, draw=(), view=None):
+def neon_svg(prefix, vb, groups, cls, title, title_id, draw=(), view=None, standalone=False):
     """groups: lista di (id, tracciati, tipo). tipo s = scala 1, v/u = scala .25.
     vb = area degli aloni (filtri); view = parte mostrata (di default tutta)."""
     view = view or vb
@@ -35,6 +35,10 @@ def neon_svg(prefix, vb, groups, cls, title, title_id, draw=(), view=None):
            'fill="none" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="%s">'
            % ((cls,) + view + (title_id,)),
            '<title id="%s">%s</title>' % (title_id, title), "<defs>"]
+    if standalone:
+        # spessori dei tubi (nel sito li dà style.css; qui servono dentro il file)
+        out.append("<style>.tube .k-s{stroke-width:8.85}.tube .k-v{stroke-width:20.24}.tube .k-u{stroke-width:13.23}"
+                   ".core .k-s{stroke-width:3.23}.core .k-v{stroke-width:7.39}.core .k-u{stroke-width:4.87}</style>")
     for name, color, sd, op, w in LAYERS:
         if sd:
             out.append('<filter id="%s-%s" filterUnits="userSpaceOnUse" x="%s" y="%s" width="%s" height="%s">'
@@ -89,6 +93,11 @@ cod_groups = [("k1", cod[0:1], "s"), ("k2", cod[1:2], "s"), ("k3", cod[2:3], "s"
               ("k4", cod[3:6], "s"), ("k5", cod[6:8], "s")]
 # inclinazione: stessa rotazione del file sorgente, applicata da CSS (.codice)
 cod_svg = neon_svg("zk", (-60, -70, 550, 250), cod_groups, "codice", "00053", "codice-t")
+
+# versione statica per l'intestazione delle altre pagine
+statico = neon_svg("zs", (-75, -74, 1344, 544), logo_groups, "logo", "ZONACALDA, club use", "logo-s",
+                   view=(-25, -74, 1244, 544), standalone=True)
+(ASSETS / "zonacalda-logo-sito.svg").write_text(statico.replace(' role="img" aria-labelledby="logo-s"', '') + "\n")
 
 html = ROOT / "index.html"
 page = inject(inject(html.read_text(), "LOGO", logo_svg), "CODICE", cod_svg)

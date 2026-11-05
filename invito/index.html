@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zonacalda — invito</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#050505">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="../assets/zonacalda-diavolo-linee.svg" type="image/svg+xml">
+<meta property="og:title" content="Zonacalda — invito">
+<meta property="og:description" content="invito personale. vale solo per te. 😈">
+<meta property="og:image" content="https://www.zonacaldaclubuse.it/assets/og-zonacalda.png">
+<link rel="stylesheet" href="../style.css">
+<link rel="stylesheet" href="../pagine.css">
+<style>
+  .pagina { text-align: center; }
+  .quando { justify-content: center; }
+  .scelta { display: grid; gap: .75rem; margin-top: 1.5rem; }
+  .qr { background: #fff; padding: 14px; border-radius: 14px; width: min(78vw, 280px); margin: 1.25rem auto .75rem;
+        box-shadow: 0 0 0 2px var(--rosso), 0 0 28px rgba(255, 20, 36, .55); }
+  .qr svg, .qr img { display: block; width: 100%; height: auto; }
+  .luogo { color: var(--testo); font-size: 1.05rem; margin: 1rem 0 0; white-space: pre-line; }
+  .regole { color: var(--tenue); font-size: .9rem; line-height: 1.5; margin: 1rem 0 1.5rem; }
+  .conto { font-variant-numeric: tabular-nums; color: var(--testo); }
+</style>
+<script src="../js/api.js" defer></script>
+<script src="../vendor/qrcode.js" defer></script>
+<script src="invito.js" defer></script>
+</head>
+<body>
+<header class="testa"><a href="../"><img src="../assets/zonacalda-logo-sito.svg" width="1244" height="544" alt="ZONACALDA, club use"></a></header>
+
+<main class="pagina" aria-live="polite">
+  <p class="sotto" id="carico">un attimo…</p>
+
+  <!-- invitato: deve scegliere -->
+  <section id="s-invitato" hidden>
+    <h1 id="ciao">sei dentro.</h1>
+    <p class="sotto">sabato ##.## · 23:00</p>
+    <p>hai tempo fino alle <span class="conto" id="scade"></span> per confermare.</p>
+    <div class="scelta">
+      <button class="bottone" id="si">ci sono.</button>
+      <button class="bottone secondario" id="no">non ce la faccio.</button>
+    </div>
+    <p class="errore" id="errore" role="alert"></p>
+  </section>
+
+  <!-- confermato: QR -->
+  <section id="s-confermato" hidden>
+    <h1 id="ciao2">ci vediamo.</h1>
+    <p class="sotto">sabato ##.## · 23:00</p>
+    <div class="qr" id="qr" role="img" aria-label="codice QR personale per l'ingresso"></div>
+    <p class="luogo" id="luogo"></p>
+    <p class="regole">ingresso garantito fino alle 00:30.<br>porta un documento: l'invito vale solo per te.<br>23+.</p>
+    <button class="bottone" id="scarica">scarica l'invito.</button>
+  </section>
+
+  <section class="esito" id="s-altro" hidden>
+    <p class="grande" id="altro-titolo"></p>
+    <p id="altro-testo"></p>
+  </section>
+</main>
+</body>
+</html>

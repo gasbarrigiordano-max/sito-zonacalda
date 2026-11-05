@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zonacalda — porta</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#050505">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="../assets/zonacalda-diavolo-linee.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../style.css">
+<link rel="stylesheet" href="../pagine.css">
+<style>
+  body { min-height: 100svh; }
+  .porta { max-width: 520px; width: 100%; margin: 0 auto; padding: calc(.75rem + env(safe-area-inset-top)) 12px calc(1rem + env(safe-area-inset-bottom)); }
+  .barra { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; }
+  .barra img { width: 150px; height: auto; margin: -14px -10px -14px -14px; }
+  .contatore { text-align: right; font-variant-numeric: tabular-nums; }
+  .contatore b { font-size: 2.25rem; line-height: 1; }
+  .contatore span { color: var(--tenue); font-size: .85rem; display: block; }
+  .riga { display: flex; gap: .5rem; margin: .75rem 0; }
+  .riga .bottone { min-height: 46px; font-size: .95rem; }
+  .avviso { background: #2a1a05; color: #ffcf7a; border-radius: 10px; padding: .6rem .8rem; font-size: .9rem; margin: .5rem 0; }
+  .camera { position: relative; background: #111; border-radius: 14px; overflow: hidden; aspect-ratio: 1; }
+  .camera video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .camera .mirino { position: absolute; inset: 18%; border: 3px solid rgba(255, 38, 52, .9); border-radius: 18px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, .35); }
+  .camera p { position: absolute; inset: auto 0 10px; text-align: center; margin: 0; color: #ddd; font-size: .85rem; }
+  .scheda { border-radius: 16px; padding: 1.1rem 1rem; margin: .75rem 0; text-align: center; }
+  .scheda h2 { margin: 0 0 .25rem; font-size: 1.6rem; text-transform: none; }
+  .scheda p { margin: .2rem 0; }
+  .scheda .bottone { margin-top: .9rem; min-height: 60px; font-size: 1.2rem; }
+  .ok { background: #08361a; box-shadow: inset 0 0 0 2px #2bd46a; }
+  .no { background: #3a0a0e; box-shadow: inset 0 0 0 2px #ff3b4a; }
+  .forse { background: #3a2a05; box-shadow: inset 0 0 0 2px #ffb020; }
+  .grosso { font-size: 1.15rem; font-weight: 700; letter-spacing: .02em; }
+  .risultati { list-style: none; padding: 0; margin: .5rem 0; }
+  .risultati button { width: 100%; text-align: left; background: #141313; color: var(--testo); border: 1px solid #262424; border-radius: 10px; padding: .8rem; margin-bottom: .4rem; font: inherit; min-height: 52px; }
+  .risultati small { color: var(--tenue); }
+</style>
+<script src="../js/api.js" defer></script>
+<script src="../vendor/jsQR.js" defer></script>
+<script src="porta.js" defer></script>
+</head>
+<body>
+<main class="porta">
+
+  <!-- accesso -->
+  <section id="accesso" class="pagina" style="padding:0">
+    <div class="testa"><img src="../assets/zonacalda-logo-sito.svg" width="1244" height="544" alt="ZONACALDA, club use"></div>
+    <h1>porta.</h1>
+    <form id="f-pin">
+      <label>PIN
+        <input type="password" name="pin" inputmode="numeric" autocomplete="current-password" required>
+      </label>
+      <p class="errore" id="err-pin" role="alert"></p>
+      <button class="bottone" type="submit">entra.</button>
+    </form>
+  </section>
+
+  <!-- lavoro -->
+  <section id="lavoro" hidden>
+    <div class="barra">
+      <img src="../assets/zonacalda-logo-sito.svg" width="1244" height="544" alt="ZONACALDA">
+      <div class="contatore" aria-live="polite">
+        <b id="dentro">0</b><b style="color:var(--tenue);font-size:1.25rem"> / <span id="capienza" style="display:inline;font-size:inherit">300</span></b>
+        <span id="dettaglio">ospiti 0 · staff 0 · attesi 0</span>
+      </div>
+    </div>
+    <p class="avviso" id="avviso-0030" hidden>dopo le 00:30 l'ingresso garantito è finito: chi non ha confermato entra solo se c'è posto.</p>
+
+    <div class="riga">
+      <button class="bottone" id="b-scan">📷 scansiona</button>
+      <button class="bottone secondario" id="b-cerca">🔎 cerca nome</button>
+    </div>
+
+    <div id="scan" hidden>
+      <div class="camera">
+        <video id="video" playsinline muted></video>
+        <div class="mirino"></div>
+        <p id="scan-msg">inquadra il QR dell'invito</p>
+      </div>
+    </div>
+
+    <div id="cerca" hidden>
+      <input type="search" id="q" placeholder="nome o cognome" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <ul class="risultati" id="risultati"></ul>
+    </div>
+
+    <div id="scheda" class="scheda" hidden aria-live="assertive"></div>
+
+    <div class="riga" style="margin-top:1.25rem">
+      <button class="bottone secondario" id="staff-meno">staff −1</button>
+      <button class="bottone secondario" id="staff-piu">staff +1</button>
+    </div>
+    <div class="riga">
+      <button class="bottone secondario" id="esci">esci</button>
+    </div>
+  </section>
+</main>
+</body>
+</html>
