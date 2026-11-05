@@ -16,7 +16,7 @@ const SERATA = {
   confermeMax: 315,                  // oltre questo numero: "posti finiti."
   oreConferma: 12,                   // tempo per confermare un invito
   garantitoFino: '2026-11-15T00:30:00+01:00',
-  sito: 'https://www.zonacaldaclubuse.it/',
+  sito: 'https://zonacaldaclubuse.it/',
 };
 
 const FOGLIO = 'iscritti';

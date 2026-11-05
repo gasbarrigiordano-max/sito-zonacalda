@@ -42,7 +42,7 @@ Dividetevi le righe in 2-3 persone. Il menu **Riepilogo** dice quante email rest
 ## 3. Alla porta
 
 **Prima della serata**
-- Ogni persona alla porta apre **www.zonacaldaclubuse.it/porta/** sul telefono e inserisce il PIN.
+- Ogni persona alla porta apre **zonacaldaclubuse.it/porta/** sul telefono e inserisce il PIN.
 - Telefono carico + powerbank, luminosità al massimo, connessione dati attiva.
 - Prova una scansione con un invito di prova.
 - Menu → **Azzera contatore staff**.
@@ -65,7 +65,7 @@ Dividetevi le righe in 2-3 persone. Il menu **Riepilogo** dice quante email rest
 **Se salta internet:** usate un secondo telefono con un altro operatore, oppure segnate a mano nome e ora
 e aggiornate il foglio dopo.
 
-## 4. Collegare il dominio www.zonacaldaclubuse.it
+## 4. Collegare il dominio zonacaldaclubuse.it (registrato su Aruba)
 
 **Dal pannello del registrar (dove hai comprato il dominio), nella gestione DNS:**
 
@@ -79,5 +79,5 @@ e aggiornate il foglio dopo.
 
 Cancella eventuali altri record A/CNAME per `@` e `www` creati in automatico dal registrar (pagine di parcheggio).
 
-**Su GitHub:** repository → **Settings → Pages → Custom domain** → scrivi `www.zonacaldaclubuse.it` → **Save**.
+**Su GitHub:** repository → **Settings → Pages → Custom domain** → scrivi `zonacaldaclubuse.it` → **Save** (anche `www.` funzionerà e porterà allo stesso sito).
 Quando il controllo DNS diventa verde (da pochi minuti a qualche ora), spunta **Enforce HTTPS**.
