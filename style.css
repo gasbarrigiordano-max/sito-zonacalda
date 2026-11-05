@@ -45,7 +45,7 @@ main {
 .core.ly .k-v { stroke-width: 7.39; }
 .core.ly .k-u { stroke-width: 4.87; }
 
-.accendi .logo .g { opacity: 0; }
+.accendi .logo .g, .accendi .codice .g { opacity: 0; }
 .accendi .logo .g-o { stroke-dasharray: 1; stroke-dashoffset: 1; }
 
 /* ---------- testi ---------- */
@@ -92,12 +92,8 @@ footer {
   align-items: center;
   min-height: 4.5rem;
   margin: 0;
-  color: var(--tenue);
-  font-size: .85rem;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: .3em;
-  padding-left: .3em;   /* compensa la spaziatura dell'ultima cifra */
 }
+.codice { display: block; width: clamp(120px, 16vw, 170px); height: auto; overflow: visible; }
 .sr-only {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;

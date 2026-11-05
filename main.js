@@ -46,10 +46,18 @@
         ));
       }
     });
+    // 0053: cifra per cifra, dopo l'insegna
+    ['k1', 'k2', 'k3', 'k4'].forEach((id, i) => {
+      const { kf, tot } = lampi();
+      const delay = 1900 + i * rnd(140, 260);
+      ultimo = Math.max(ultimo, delay + tot);
+      document.querySelectorAll('.codice .g-' + id)
+        .forEach((el) => el.animate(kf, { duration: tot, delay, fill: 'forwards', easing: 'linear' }));
+    });
     // a fine animazione lascia l'insegna accesa senza animazioni appese
     setTimeout(() => {
       root.classList.remove('accendi');
-      document.querySelectorAll('.logo .g').forEach((el) => el.getAnimations().forEach((a) => a.cancel()));
+      document.querySelectorAll('.logo .g, .codice .g').forEach((el) => el.getAnimations().forEach((a) => a.cancel()));
     }, Math.max(ultimo, 350 + 1500) + 100);
   }
 })();
