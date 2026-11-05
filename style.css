@@ -1,0 +1,92 @@
+:root {
+  --nero: #050505;
+  --testo: #f0eded;
+  --tenue: #9b9696;   /* contrasto 6.9:1 su --nero */
+  --rosso: #ff2634;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { background: var(--nero); color: var(--testo); }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  text-transform: lowercase;
+  -webkit-font-smoothing: antialiased;
+}
+
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .9rem;
+  padding: 2rem 16px 1rem;
+  text-align: center;
+}
+
+/* ---------- logo neon ---------- */
+.insegna { margin: 0 0 1rem; width: 100%; display: flex; justify-content: center; }
+.logo {
+  display: block;
+  width: min(118vw, 980px);   /* il viewBox include l'alone: si può sbordare */
+  height: auto;
+  margin-inline: calc((min(118vw, 980px) - 100%) / -2);
+  overflow: visible;
+}
+.tube.ly .k-s { stroke-width: 8.85; }   /* 7.7 × 1.15 */
+.tube.ly .k-v { stroke-width: 20.24; }  /* 4.4 × 1.15, in scala .25 */
+.tube.ly .k-u { stroke-width: 13.23; }  /* 2.9 × 1.15, in scala .25 */
+.core.ly .k-s { stroke-width: 3.23; }   /* 7.7 × .42 */
+.core.ly .k-v { stroke-width: 7.39; }
+.core.ly .k-u { stroke-width: 4.87; }
+
+.accendi .logo .g { opacity: 0; }
+.accendi .logo .g-o { stroke-dasharray: 1; stroke-dashoffset: 1; }
+
+/* ---------- testi ---------- */
+.frase {
+  margin: 0;
+  font-size: clamp(1.75rem, 7vw, 2.75rem);
+  font-weight: 600;
+  letter-spacing: -.01em;
+}
+.quando {
+  margin: 0;
+  color: var(--tenue);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+}
+.conto:empty { display: none; }
+.conto { color: var(--testo); }
+
+.sala { margin: 1.5rem 0 0; width: min(100%, 720px); }
+.sala img { display: block; width: 100%; height: auto; filter: grayscale(1) contrast(1.05) brightness(.8); }
+
+.ig {
+  margin-top: 1.25rem;
+  color: var(--testo);
+  font-size: 1.05rem;
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+  padding: .5rem 0 .15rem;   /* area di tocco più alta */
+}
+.ig:hover, .ig:focus-visible { color: var(--rosso); }
+.ig[aria-disabled="true"] { color: var(--tenue); cursor: default; }
+:focus-visible { outline: 2px solid var(--rosso); outline-offset: 4px; }
+
+footer {
+  padding: 1rem 16px calc(1rem + env(safe-area-inset-bottom));
+  text-align: center;
+  color: var(--tenue);
+  font-size: .85rem;
+}
