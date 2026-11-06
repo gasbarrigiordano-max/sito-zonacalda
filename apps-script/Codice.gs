@@ -14,13 +14,14 @@ const SERATA = {
   capienza: 300,                     // totale, staff compreso
   staffPrevisto: 20,
   confermeMax: 315,                  // oltre questo numero: "posti finiti."
-  oreConferma: 12,                   // tempo per confermare un invito
+  scadenzaInviti: '2026-11-11T19:00:00+01:00',   // tutti gli inviti si accettano entro mercoledì 11.11 alle 19:00
+  oreConferma: 12,                   // solo se si invita dopo quella scadenza: tempo per confermare
   garantitoFino: '2026-11-15T00:30:00+01:00',
   sito: 'https://zonacaldaclubuse.it/',
 };
 
 // ---------------------------------------------------------------- testi delle mail
-// Potete cambiarli qui. {nome} = nome della persona, {ora} = ora di scadenza dell'invito.
+// Potete cambiarli qui. {nome} = nome della persona, {scadenza} = giorno e ora entro cui accettare (es. "mercoledì 11 novembre alle 19:00").
 const MAIL = {
   mittente: 'Zonacalda',
   rispondiA: 'info@zonacaldaclubuse.it',
@@ -28,7 +29,7 @@ const MAIL = {
   invito: {
     oggetto: 'sei dentro. 😈',
     titolo: '{nome}, sei dentro.',
-    righe: ['sabato 14 novembre · 23:00', 'conferma entro le {ora}. dopo, il posto passa a qualcun altro.'],
+    righe: ['sabato 14 novembre · 23:00', 'accetta entro {scadenza}. dopo, il posto passa a qualcun altro.'],
     tasto: 'ci sono.',
     sotto: 'invito personale: vale solo per te. porta un documento. 23+.',
   },
@@ -213,7 +214,7 @@ function porta_(r) {
     return { ok: true, persone, conteggi: conteggi_(righe, staff) };
   }
   if (r.op === 'qr') {
-    const x = righe.find((y) => y[C.token] && y[C.token] === String(r.token || ''));
+    const x = righe.find((y) => y[C.token] && String(y[C.token]) === String(r.token || ''));
     return { ok: true, persona: x ? scheda_(x) : null, conteggi: conteggi_(righe, staff) };
   }
   if (r.op === 'entra') {
@@ -255,7 +256,7 @@ function onOpen() {
     .addItem('Apri la lista', 'apriLista')
     .addItem('Chiudi la lista', 'chiudiLista')
     .addSeparator()
-    .addItem('Invia inviti a chi è "da invitare" (12 ore)', 'inviaInviti')
+    .addItem('Invia inviti a chi è "da invitare"', 'inviaInviti')
     .addItem('Invia inviti di riserva (30 minuti)', 'inviaRiserva')
     .addItem('Fai scadere gli inviti non confermati', 'scadiInviti')
     .addItem('Avvisa chi non è stato invitato', 'avvisaNonInvitati')
@@ -275,6 +276,7 @@ function prepara() {
   sh.setFrozenRows(1);
   sh.getRange(2, C.nascita + 1, sh.getMaxRows() - 1, 1).setNumberFormat('@');
   sh.getRange(2, C.telefono + 1, sh.getMaxRows() - 1, 1).setNumberFormat('@');
+  sh.getRange(2, C.token + 1, sh.getMaxRows() - 1, 1).setNumberFormat('@');
   const regola = SpreadsheetApp.newDataValidation().requireValueInList(STATI, true).build();
   sh.getRange(2, C.stato + 1, sh.getMaxRows() - 1, 1).setDataValidation(regola);
   sh.hideColumns(C.token + 1);
@@ -305,10 +307,14 @@ function impostaLuogo() {
   ui.alert('Luogo salvato.');
 }
 
-function inviaInviti() { invia_(SERATA.oreConferma * 60); }
-function inviaRiserva() { invia_(30); }
+function inviaInviti() {
+  // scadenza fissa uguale per tutti; se è già passata (o manca meno di un'ora), 12 ore da adesso
+  const fissa = new Date(SERATA.scadenzaInviti);
+  invia_(fissa.getTime() - Date.now() > 3600000 ? fissa : new Date(Date.now() + SERATA.oreConferma * 3600000), false);
+}
+function inviaRiserva() { invia_(new Date(Date.now() + 30 * 60000), true); }
 
-function invia_(minuti) {
+function invia_(scade, riserva) {
   const sh = foglio_();
   const righe = dati_(sh);
   let email = 0, solo_whatsapp = 0;
@@ -317,10 +323,9 @@ function invia_(minuti) {
     if (x[C.stato] !== 'da invitare') return;
     const t = { sh, n: i + 2, riga: x };
     const token = x[C.token] || nuovoToken_();
-    const scade = new Date(Date.now() + minuti * 60000);
     const link = SERATA.sito + 'invito/?t=' + token;
-    const ora = Utilities.formatDate(scade, 'Europe/Rome', 'HH:mm');
-    const m = componiMail_(minuti <= 60 ? MAIL.riserva : MAIL.invito, { nome: x[C.nome], ora }, link);
+    const scadenza = quando_(scade);
+    const m = componiMail_(riserva ? MAIL.riserva : MAIL.invito, { nome: x[C.nome], scadenza }, link);
     const wa = 'https://wa.me/' + String(x[C.telefono]).replace(/\D/g, '') + '?text=' + encodeURIComponent(m.testo);
     let inviata = false;
     if (email < quota) {
@@ -396,6 +401,14 @@ function componiMail_(tpl, dati, link) {
   return { oggetto: riempi(tpl.oggetto), testo, html };
 }
 
+// "mercoledì 11 novembre alle 19:00" (ora italiana)
+function quando_(d) {
+  const giorni = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
+  const mesi = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
+  const f = (s) => Number(Utilities.formatDate(d, 'Europe/Rome', s));
+  return giorni[f('u') % 7] + ' ' + f('d') + ' ' + mesi[f('M') - 1] + ' alle ' + Utilities.formatDate(d, 'Europe/Rome', 'HH:mm');
+}
+
 function manda_(a, m) {
   MailApp.sendEmail({ to: a, subject: m.oggetto, body: m.testo, htmlBody: m.html, name: MAIL.mittente, replyTo: MAIL.rispondiA });
 }
@@ -416,7 +429,7 @@ function trova_(token) {
   if (!token || !/^[A-Za-z0-9]{20,40}$/.test(String(token))) return null;
   const sh = foglio_();
   const righe = dati_(sh);
-  const i = righe.findIndex((x) => x[C.token] === token);
+  const i = righe.findIndex((x) => String(x[C.token]) === String(token));
   return i < 0 ? null : { sh, n: i + 2, riga: righe[i] };
 }
 
@@ -428,7 +441,8 @@ function scrivi_(t, campi) {
 }
 
 function nuovoToken_() {
-  return (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 32);
+  // inizia sempre con una lettera: il foglio non lo può scambiare per un numero
+  return 'z' + (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 31);
 }
 
 function pulisci_(v, max) {

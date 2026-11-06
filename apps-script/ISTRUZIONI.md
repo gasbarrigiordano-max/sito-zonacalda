@@ -22,11 +22,9 @@
 
 | Quando | Cosa fare nel foglio |
 |---|---|
-| martedì, apertura | menu → **Apri la lista** |
-| giovedì sera | menu → **Chiudi la lista** |
-| giovedì sera, scelta | nella colonna `stato` scegli **da invitare** per chi volete invitare (circa 270) |
-| subito dopo | menu → **Invia inviti a chi è "da invitare"**: hanno 12 ore per confermare |
-| venerdì | menu → **Fai scadere gli inviti non confermati** (succede anche da solo ogni 15 minuti), poi scegli altri "da invitare" e invia di nuovo |
+| martedì 19:00 | scegli **da invitare** per chi volete invitare → menu → **Invia inviti a chi è "da invitare"** |
+| fino a mercoledì 11.11 alle 19:00 | gli invitati accettano (scadenza uguale per tutti, scritta nella mail e nella pagina) |
+| mercoledì dopo le 19:00 | chi non ha accettato passa da solo a **scaduto** (controllo ogni 15 minuti). Per altri inviti: segna nuovi **da invitare** e invia di nuovo (avranno 12 ore) |
 | venerdì | menu → **Imposta il luogo**: lo vede solo chi ha confermato |
 | sabato 00:30 | se ci sono posti: segna qualcuno **da invitare** → menu → **Invia inviti di riserva (30 minuti)** |
 | dopo la serata | menu → **Avvisa chi non è stato invitato** |

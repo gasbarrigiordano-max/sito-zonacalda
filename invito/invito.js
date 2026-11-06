@@ -20,7 +20,9 @@
     if (r.stato === 'invitato') {
       $('ciao').textContent = minuscolo(r.nome) + ', sei dentro.';
       const d = new Date(r.scade);
-      $('scade').textContent = d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Rome' });
+      const giorno = d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Rome' });
+      const ora = d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Rome' });
+      $('scade').textContent = giorno + ' alle ' + ora;   // es. "mercoledì 11 novembre alle 19:00"
       return mostra('s-invitato');
     }
     if (r.stato === 'confermato') {
