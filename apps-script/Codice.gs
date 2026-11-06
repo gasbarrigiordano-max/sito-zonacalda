@@ -19,6 +19,39 @@ const SERATA = {
   sito: 'https://zonacaldaclubuse.it/',
 };
 
+// ---------------------------------------------------------------- testi delle mail
+// Potete cambiarli qui. {nome} = nome della persona, {ora} = ora di scadenza dell'invito.
+const MAIL = {
+  mittente: 'Zonacalda',
+  rispondiA: 'info@zonacaldaclubuse.it',
+  logo: 'https://zonacaldaclubuse.it/assets/zonacalda-logo-mail.png',
+  invito: {
+    oggetto: 'sei dentro. 😈',
+    titolo: '{nome}, sei dentro.',
+    righe: ['sabato · 23:00', 'conferma entro le {ora}. dopo, il posto passa a qualcun altro.'],
+    tasto: 'ci sono.',
+    sotto: 'invito personale: vale solo per te. porta un documento. 23+.',
+  },
+  riserva: {
+    oggetto: 'si è liberato un posto. 😈',
+    titolo: '{nome}, si è liberato un posto.',
+    righe: ['stasera.', 'hai 30 minuti per confermare.'],
+    tasto: 'ci sono.',
+    sotto: 'invito personale: vale solo per te. porta un documento. 23+.',
+  },
+  nonInvitatiProssime: {
+    oggetto: 'zonacalda.',
+    titolo: 'questa volta no.',
+    righe: ['sei in lista per la prossima. 😈'],
+  },
+  nonInvitati: {
+    oggetto: 'zonacalda.',
+    titolo: 'questa volta no.',
+    righe: ['grazie per esserti messo in lista. 😈'],
+  },
+  piede: 'ricevi questa mail perché ti sei messo in lista su zonacaldaclubuse.it.',
+};
+
 const FOGLIO = 'iscritti';
 const COL = [
   'creato', 'id', 'nome', 'cognome', 'nascita', 'email', 'telefono', 'instagram',
@@ -287,14 +320,12 @@ function invia_(minuti) {
     const scade = new Date(Date.now() + minuti * 60000);
     const link = SERATA.sito + 'invito/?t=' + token;
     const ora = Utilities.formatDate(scade, 'Europe/Rome', 'HH:mm');
-    const testo = minuti <= 60
-      ? x[C.nome].toLowerCase() + ', si è liberato un posto. 😈\nhai 30 minuti per confermare: ' + link
-      : x[C.nome].toLowerCase() + ', sei dentro. 😈\nconferma entro le ' + ora + ': ' + link;
-    const wa = 'https://wa.me/' + String(x[C.telefono]).replace(/\D/g, '') + '?text=' + encodeURIComponent(testo);
+    const m = componiMail_(minuti <= 60 ? MAIL.riserva : MAIL.invito, { nome: x[C.nome], ora }, link);
+    const wa = 'https://wa.me/' + String(x[C.telefono]).replace(/\D/g, '') + '?text=' + encodeURIComponent(m.testo);
     let inviata = false;
     if (email < quota) {
       try {
-        MailApp.sendEmail({ to: x[C.email], subject: 'zonacalda.', body: testo + '\n\n23+. invito personale: vale solo per te.', name: 'Zonacalda' });
+        manda_(x[C.email], m);
         inviata = true; email++;
       } catch (err) { console.error(err); }
     }
@@ -318,10 +349,7 @@ function avvisaNonInvitati() {
   const quota = MailApp.getRemainingDailyQuota();
   dati_(sh).forEach((x) => {
     if (x[C.stato] !== 'in lista' || n >= quota) return;
-    const testo = x[C.prossime_serate] === 'sì'
-      ? 'questa volta no. sei in lista per la prossima. 😈'
-      : 'questa volta no. grazie per esserti messo in lista. 😈';
-    MailApp.sendEmail({ to: x[C.email], subject: 'zonacalda.', body: testo, name: 'Zonacalda' });
+    manda_(x[C.email], componiMail_(x[C.prossime_serate] === 'sì' ? MAIL.nonInvitatiProssime : MAIL.nonInvitati, { nome: x[C.nome] }));
     n++;
   });
   ui.alert('Messaggi inviati: ' + n + (n >= quota ? '\nQuota email giornaliera finita: riprova domani per gli altri.' : ''));
@@ -333,6 +361,43 @@ function riepilogo() {
   const txt = STATI.map((s) => s + ': ' + righe.filter((x) => x[C.stato] === s).length).join('\n');
   SpreadsheetApp.getUi().alert('Totale iscritti: ' + righe.length + '\n\n' + txt + '\n\nstaff dentro: ' + staff +
     '\nlista: ' + (listaAperta_() ? 'aperta' : 'chiusa') + '\nemail ancora inviabili oggi: ' + MailApp.getRemainingDailyQuota());
+}
+
+// ---------------------------------------------------------------- mail
+function componiMail_(tpl, dati, link) {
+  const riempi = (s) => String(s).replace(/\{(\w+)\}/g, (_, k) => (k === 'nome' ? String(dati.nome || '').toLowerCase() : dati[k] || ''));
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const titolo = riempi(tpl.titolo);
+  const righe = (tpl.righe || []).map(riempi);
+  const sotto = tpl.sotto ? riempi(tpl.sotto) : '';
+
+  // versione testo (anche per WhatsApp)
+  const testo = [titolo, ''].concat(righe).concat(link ? ['', link] : []).concat(sotto ? ['', sotto] : []).join('\n');
+
+  // versione grafica: tabelle e stili in linea, come vogliono i programmi di posta
+  const html =
+    '<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark"></head>' +
+    '<body style="margin:0;padding:0;background:#050505;">' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#050505;"><tr><td align="center" style="padding:24px 12px;">' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Helvetica,Arial,sans-serif;">' +
+    '<tr><td align="center" style="padding:0 0 8px;"><img src="' + MAIL.logo + '" width="420" alt="ZONACALDA" style="display:block;width:100%;max-width:440px;height:auto;border:0;"></td></tr>' +
+    '<tr><td align="center" style="padding:8px 8px 4px;color:#f0eded;font-size:28px;line-height:1.25;font-weight:700;">' + esc(titolo) + '</td></tr>' +
+    righe.map((r, i) => '<tr><td align="center" style="padding:6px 8px 0;color:' + (i === 0 ? '#9b9696' : '#f0eded') + ';font-size:' + (i === 0 ? '16' : '17') + 'px;line-height:1.5;">' + esc(r) + '</td></tr>').join('') +
+    (link ? '<tr><td align="center" style="padding:28px 8px 8px;">' +
+      '<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" bgcolor="#ff2634" style="border-radius:12px;">' +
+      '<a href="' + link + '" style="display:inline-block;padding:16px 44px;color:#ffffff;font-size:18px;font-weight:700;text-decoration:none;border-radius:12px;">' + esc(tpl.tasto || 'apri.') + '</a>' +
+      '</td></tr></table></td></tr>' : '') +
+    (sotto ? '<tr><td align="center" style="padding:20px 8px 0;color:#9b9696;font-size:14px;line-height:1.5;">' + esc(sotto) + '</td></tr>' : '') +
+    '<tr><td align="center" style="padding:36px 8px 0;color:#6f6a6a;font-size:12px;line-height:1.5;">' + esc(MAIL.piede) +
+    '<br><a href="mailto:' + MAIL.rispondiA + '" style="color:#6f6a6a;">' + MAIL.rispondiA + '</a></td></tr>' +
+    '</table></td></tr></table></body></html>';
+
+  return { oggetto: riempi(tpl.oggetto), testo, html };
+}
+
+function manda_(a, m) {
+  MailApp.sendEmail({ to: a, subject: m.oggetto, body: m.testo, htmlBody: m.html, name: MAIL.mittente, replyTo: MAIL.rispondiA });
 }
 
 // ---------------------------------------------------------------- utilità
