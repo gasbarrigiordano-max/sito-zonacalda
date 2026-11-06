@@ -45,6 +45,13 @@ const MAIL = {
     titolo: 'questa volta no.',
     righe: ['sei in lista per la prossima. 😈'],
   },
+  conferma: {
+    oggetto: 'ci vediamo. 😈',
+    titolo: '{nome}, ci vediamo.',
+    righe: ['sabato 14 novembre · 23:30', 'ingresso garantito fino alle 00:30.'],
+    tasto: 'il tuo invito',
+    sotto: 'mostra questo QR all\'ingresso con un documento. vale solo per te. 23+.',
+  },
   nonInvitati: {
     oggetto: 'zonacalda.',
     titolo: 'questa volta no.',
@@ -173,6 +180,7 @@ function rispondi_(token, si) {
     if (confermati >= SERATA.confermeMax) return { ok: false, errore: 'pieno' };
   }
   scrivi_(t, { stato: si ? 'confermato' : 'rifiutato', risposto_il: new Date() });
+  if (si) mandaConferma_(t);
   return leggiInvito_(token);
 }
 
@@ -259,6 +267,7 @@ function onOpen() {
     .addItem('Invia inviti a chi è "da invitare"', 'inviaInviti')
     .addItem('Invia inviti di riserva (30 minuti)', 'inviaRiserva')
     .addItem('Fai scadere gli inviti non confermati', 'scadiInviti')
+    .addItem('Manda le mail di conferma non partite', 'rimandaConferme')
     .addItem('Avvisa chi non è stato invitato', 'avvisaNonInvitati')
     .addSeparator()
     .addItem('Imposta PIN della porta', 'impostaPin')
@@ -369,11 +378,12 @@ function riepilogo() {
 }
 
 // ---------------------------------------------------------------- mail
-function componiMail_(tpl, dati, link) {
+function componiMail_(tpl, dati, link, extra) {
+  extra = extra || {};
   const riempi = (s) => String(s).replace(/\{(\w+)\}/g, (_, k) => (k === 'nome' ? String(dati.nome || '').toLowerCase() : dati[k] || ''));
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const titolo = riempi(tpl.titolo);
-  const righe = (tpl.righe || []).map(riempi);
+  const righe = (tpl.righe || []).map(riempi).concat(extra.luogo ? [extra.luogo] : []);
   const sotto = tpl.sotto ? riempi(tpl.sotto) : '';
 
   // versione testo (anche per WhatsApp)
@@ -393,6 +403,8 @@ function componiMail_(tpl, dati, link) {
       '<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" bgcolor="#ff2634" style="border-radius:12px;">' +
       '<a href="' + link + '" style="display:inline-block;padding:16px 44px;color:#ffffff;font-size:18px;font-weight:700;text-decoration:none;border-radius:12px;">' + esc(tpl.tasto || 'apri.') + '</a>' +
       '</td></tr></table></td></tr>' : '') +
+    (extra.qr ? '<tr><td align="center" style="padding:24px 8px 0;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#ffffff" style="padding:14px;border-radius:14px;">' +
+      '<img src="cid:qr" width="240" height="240" alt="QR per l\'ingresso" style="display:block;width:240px;height:240px;border:0;"></td></tr></table></td></tr>' : '') +
     (sotto ? '<tr><td align="center" style="padding:20px 8px 0;color:#9b9696;font-size:14px;line-height:1.5;">' + esc(sotto) + '</td></tr>' : '') +
     '<tr><td align="center" style="padding:36px 8px 0;color:#6f6a6a;font-size:12px;line-height:1.5;">' + esc(MAIL.piede) +
     '<br><a href="mailto:' + MAIL.rispondiA + '" style="color:#6f6a6a;">' + MAIL.rispondiA + '</a></td></tr>' +
@@ -407,6 +419,53 @@ function quando_(d) {
   const mesi = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
   const f = (s) => Number(Utilities.formatDate(d, 'Europe/Rome', s));
   return giorni[f('u') % 7] + ' ' + f('d') + ' ' + mesi[f('M') - 1] + ' alle ' + Utilities.formatDate(d, 'Europe/Rome', 'HH:mm');
+}
+
+// mail di conferma con il QR (immagine nel testo + allegato da salvare)
+function mandaConferma_(t) {
+  const x = t.riga;
+  try {
+    const luogo = PropertiesService.getScriptProperties().getProperty('LUOGO') || '';
+    const link = SERATA.sito + 'invito/?t=' + x[C.token];
+    const conQr = typeof qrcode === 'function';            // se manca il file "qrcode", parte senza immagine ma con il link
+    const m = componiMail_(MAIL.conferma, { nome: x[C.nome] }, link, { luogo, qr: conQr });
+    const opz = { to: x[C.email], subject: m.oggetto, body: m.testo, htmlBody: m.html, name: MAIL.mittente, replyTo: MAIL.rispondiA };
+    if (conQr) {
+      const qr = qrBlob_(String(x[C.token]));
+      opz.inlineImages = { qr: qr };
+      opz.attachments = [qr.copyBlob().setName('zonacalda-ingresso.gif')];
+    }
+    MailApp.sendEmail(opz);
+    scrivi_(t, { note: togliNota_(x[C.note], 'conferma da inviare') });
+  } catch (err) {
+    console.error(err);                                     // quota finita o altro: si rimanda dal menu
+    scrivi_(t, { note: aggiungiNota_(togliNota_(x[C.note], 'conferma da inviare'), 'conferma da inviare') });
+  }
+}
+
+function rimandaConferme() {
+  const sh = foglio_();
+  let n = 0;
+  dati_(sh).forEach((x, i) => {
+    if (x[C.stato] !== 'confermato' || !String(x[C.note]).includes('conferma da inviare')) return;
+    const t = { sh, n: i + 2, riga: x };
+    mandaConferma_(t);
+    if (!String(t.riga[C.note]).includes('conferma da inviare')) n++;
+  });
+  SpreadsheetApp.getUi().alert('Mail di conferma inviate: ' + n + '\nEmail ancora inviabili oggi: ' + MailApp.getRemainingDailyQuota());
+}
+
+// QR come immagine GIF, generato qui (serve il file "qrcode" nel progetto: vedi ISTRUZIONI.md)
+function qrBlob_(testo) {
+  const q = qrcode(0, 'M');
+  q.addData(testo);
+  q.make();
+  const b64 = q.createDataURL(8, 4).split(',')[1];
+  return Utilities.newBlob(Utilities.base64Decode(b64), 'image/gif', 'qr.gif');
+}
+
+function togliNota_(nota, testo) {
+  return String(nota || '').split(' · ').filter((s) => s && s !== testo).join(' · ');
 }
 
 function manda_(a, m) {

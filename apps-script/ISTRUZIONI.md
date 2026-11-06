@@ -6,11 +6,13 @@
    Usa l'account Google del titolare dei dati.
 2. Nel foglio: **Estensioni → Apps Script**.
 3. Cancella tutto quello che c'è nel file `Codice.gs` e incolla il contenuto di `apps-script/Codice.gs`. Salva.
-4. Torna al foglio e ricaricalo: compare il menu **😈 Zonacalda**.
-5. **😈 Zonacalda → 1. Prepara il foglio**. Google chiede le autorizzazioni: accetta.
+4. Sempre in Apps Script, accanto a **File** premi **+ → Script**, chiamalo `qrcode` e incolla dentro tutto il contenuto di `vendor/qrcode.js`. Salva.
+   Serve a mettere il QR nella mail di conferma. Senza questo file la mail parte lo stesso, ma senza QR.
+5. Torna al foglio e ricaricalo: compare il menu **😈 Zonacalda**.
+6. **😈 Zonacalda → 1. Prepara il foglio**. Google chiede le autorizzazioni: accetta.
    (Se compare "App non verificata": *Avanzate → Vai a … (non sicura)*. È il tuo script.)
-6. **😈 Zonacalda → Imposta PIN della porta** (almeno 6 cifre).
-7. In Apps Script: **Esegui il deployment → Nuovo deployment → tipo "App web"**
+7. **😈 Zonacalda → Imposta PIN della porta** (almeno 6 cifre).
+8. In Apps Script: **Esegui il deployment → Nuovo deployment → tipo "App web"**
    - Esegui come: **Me**
    - Chi ha accesso: **Chiunque**
    - Copia l'**URL dell'app web** (finisce con `/exec`) e mandalo a Claude: va messo in `js/api.js`.
@@ -29,6 +31,8 @@
 | sabato 00:30 | se ci sono posti: segna qualcuno **da invitare** → menu → **Invia inviti di riserva (30 minuti)** |
 | dopo la serata | menu → **Avvisa chi non è stato invitato** |
 | entro 30 giorni | cancella le righe di chi **non** ha scelto "prossime serate" (lo dice l'informativa) |
+
+**Mail di conferma:** quando qualcuno preme "ci sono." riceve subito una mail con il QR. Se la quota email è finita, nella colonna `note` compare "conferma da inviare": il giorno dopo usa il menu **Manda le mail di conferma non partite**.
 
 **Limite email:** un account Gmail normale può mandare circa **100 email al giorno** dallo script.
 Per gli altri, nella colonna `whatsapp` di ogni riga c'è il link già pronto: aprilo dal telefono e premi invio.
