@@ -82,7 +82,7 @@
     g.fillText(minuscolo(dati.nome) + ', sei dentro.', W / 2, 860);
     g.fillStyle = '#9b9696';
     g.font = font(400, 40);
-    g.fillText('sabato ##.## · 23:00', W / 2, 930);
+    g.fillText('sabato 14 novembre · 23:00', W / 2, 930);
 
     // QR
     const q = qrSvg(token);

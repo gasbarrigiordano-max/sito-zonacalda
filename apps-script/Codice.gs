@@ -28,7 +28,7 @@ const MAIL = {
   invito: {
     oggetto: 'sei dentro. 😈',
     titolo: '{nome}, sei dentro.',
-    righe: ['sabato · 23:00', 'conferma entro le {ora}. dopo, il posto passa a qualcun altro.'],
+    righe: ['sabato 14 novembre · 23:00', 'conferma entro le {ora}. dopo, il posto passa a qualcun altro.'],
     tasto: 'ci sono.',
     sotto: 'invito personale: vale solo per te. porta un documento. 23+.',
   },
