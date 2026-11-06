@@ -28,7 +28,8 @@
     if (r.stato === 'confermato') {
       $('ciao2').textContent = minuscolo(r.nome) + ', ci vediamo.';
       $('qr').innerHTML = qrSvg(token).createSvgTag({ cellSize: 6, margin: 0, scalable: true });
-      $('luogo').textContent = r.luogo ? r.luogo : 'il posto te lo diciamo sabato.';
+      $('luogo').textContent = r.luogo || '';
+      $('luogo').hidden = !r.luogo;
       return mostra('s-confermato');
     }
     if (r.stato === 'entrato') return altro('sei già dentro. 😈');
@@ -84,7 +85,7 @@
     g.fillText(minuscolo(dati.nome) + ', sei dentro.', W / 2, 860);
     g.fillStyle = '#9b9696';
     g.font = font(400, 40);
-    g.fillText('sabato 14 novembre · 23:00', W / 2, 930);
+    g.fillText('sabato 14 novembre · 23:30', W / 2, 930);
 
     // QR
     const q = qrSvg(token);
