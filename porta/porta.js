@@ -48,21 +48,46 @@
     if (document.visibilityState === 'visible' && wake) { try { wake = await navigator.wakeLock.request('screen'); } catch (e) { /* niente */ } }
   });
 
+  // ------------------------------------------------ date ed età
+  const SERATA = new Date(2026, 10, 14);
+  const leggiData = (v) => {
+    const s = String(v || '');
+    const m = s.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+    // "Fri Feb 02 2001 00:00:00 GMT+0100 (…)": come la manda il foglio quando trasforma il testo in data
+    const mesi = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+    const e = s.match(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2})\s+(\d{4})/i);
+    if (e) return new Date(+e[3], mesi.indexOf(e[1].toLowerCase()), +e[2]);
+    const d = new Date(s);
+    return isNaN(d) ? null : d;
+  };
+  const etaAl = (d) => SERATA.getFullYear() - d.getFullYear() - ((SERATA.getMonth() < d.getMonth() || (SERATA.getMonth() === d.getMonth() && SERATA.getDate() < d.getDate())) ? 1 : 0);
+  const maiuscole = (s) => String(s || '').toLocaleLowerCase('it').replace(/(^|[\s'-])\p{L}/gu, (c) => c.toLocaleUpperCase('it'));
+
   // ------------------------------------------------ scheda persona
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
 
   const scheda = (p, nota) => {
     const box = $('scheda');
     box.hidden = false;
+    box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     if (!p) {
       box.className = 'scheda no';
       box.innerHTML = '<p class="grosso">QR NON VALIDO</p><p>non è un invito zonacalda.</p>';
       vibra([80, 60, 80]);
       return;
     }
-    const nomeHtml = `<h2>${esc(p.nome)} ${esc(p.cognome)}</h2><p>${p.eta} anni · nato/a il ${esc(p.nascita.split('-').reverse().join('/'))}</p>`;
+    const nascita = leggiData(p.nascita);
+    const eta = nascita ? etaAl(nascita) : null;
+    const quando = nascita ? nascita.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'data non leggibile';
+    const nomeHtml = `<h2>${esc(maiuscole(p.nome))} ${esc(maiuscole(p.cognome))}</h2><p>${eta === null ? '' : eta + ' anni · '}nato/a il ${esc(quando)}</p>`;
     const ctrl = '<p style="color:var(--tenue);font-size:.85rem">controlla il documento: nome e data di nascita.</p>';
-    if (p.eta < ETA_MINIMA) {
+    if (eta === null && p.stato === 'confermato') {
+      box.className = 'scheda forse';
+      box.innerHTML = `<p class="grosso">CONTROLLA L'ETÀ SUL DOCUMENTO</p>${nomeHtml}${ctrl}<button class="bottone" data-entra="${esc(p.id)}">ha più di ${ETA_MINIMA} anni: fai entrare</button>`;
+      vibra([80, 60, 80]); return;
+    }
+    if (eta !== null && eta < ETA_MINIMA) {
       box.className = 'scheda no';
       box.innerHTML = `<p class="grosso">NO · MENO DI ${ETA_MINIMA} ANNI</p>${nomeHtml}`;
       vibra([80, 60, 80]); return;
@@ -156,7 +181,12 @@
             const r = await api({ op: 'qr', token: tok });
             $('scan-msg').textContent = 'inquadra il QR dell\'invito';
             conteggi(r.conteggi);
-            if (r.ok) scheda(r.persona); else scheda(null);
+            if (r.ok) scheda(r.persona);
+            else {                                             // errore di rete o del foglio: non è un QR falso
+              const box = $('scheda'); box.hidden = false; box.className = 'scheda forse';
+              box.innerHTML = '<p class="grosso">ERRORE DI CONNESSIONE</p><p>riprova tra un attimo, oppure usa "cerca nome".</p>';
+              ultimo = '';                                     // permette di riprovare subito con lo stesso QR
+            }
           }
         }
       }
@@ -188,7 +218,8 @@
       r.persone.forEach((p) => {
         const li = document.createElement('li');
         const b = document.createElement('button');
-        b.innerHTML = `${esc(p.nome)} ${esc(p.cognome)} <small>· ${p.eta} anni · ${esc(p.stato)}</small>`;
+        const dn = leggiData(p.nascita);
+        b.innerHTML = `${esc(maiuscole(p.nome))} ${esc(maiuscole(p.cognome))} <small>· ${dn ? etaAl(dn) + ' anni · ' : ''}${esc(p.stato)}</small>`;
         b.addEventListener('click', () => { scheda(p); $('scheda').scrollIntoView({ behavior: 'smooth' }); });
         li.appendChild(b); ul.appendChild(li);
       });

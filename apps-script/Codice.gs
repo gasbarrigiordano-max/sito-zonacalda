@@ -125,7 +125,8 @@ function iscrivi_(r) {
 
   const sh = foglio_();
   const righe = dati_(sh);
-  if (righe.some((x) => String(x[C.email]).toLowerCase() === email || normalizzaTelefono_(x[C.telefono]) === telefono)) {
+  const cifre = (v) => String(v || '').replace(/\D/g, '').replace(/^39(?=3\d{8,9}$)/, '');
+  if (righe.some((x) => String(x[C.email]).toLowerCase() === email || cifre(x[C.telefono]) === cifre(telefono))) {
     return { ok: true, gia: true };
   }
 
@@ -134,9 +135,9 @@ function iscrivi_(r) {
   riga[C.id] = Utilities.getUuid().slice(0, 8);
   riga[C.nome] = nome;
   riga[C.cognome] = cognome;
-  riga[C.nascita] = nascita;
+  riga[C.nascita] = "'" + nascita;          // l'apostrofo tiene la data come testo (il foglio la trasformerebbe)
   riga[C.email] = email;
-  riga[C.telefono] = telefono;
+  riga[C.telefono] = "'" + telefono;        // e tiene il + del prefisso
   riga[C.instagram] = instagram ? '@' + instagram : '';
   riga[C.fonte] = fonte;
   riga[C.prossime_serate] = r.prossime === true ? 'sì' : 'no';
@@ -243,8 +244,8 @@ function porta_(r) {
 function scheda_(x) {
   return {
     id: x[C.id], nome: x[C.nome], cognome: x[C.cognome],
-    eta: eta_(String(x[C.nascita]), SERATA.dataISO),
-    nascita: String(x[C.nascita]),
+    eta: eta_(dataISO_(x[C.nascita]), SERATA.dataISO),
+    nascita: dataISO_(x[C.nascita]),
     stato: x[C.stato],
     entrato: x[C.entrato_il] ? Utilities.formatDate(new Date(x[C.entrato_il]), 'Europe/Rome', 'HH:mm') : '',
   };
@@ -513,6 +514,16 @@ function normalizzaTelefono_(v) {
   if (s.startsWith('00')) s = '+' + s.slice(2);
   if (!s.startsWith('+') && s.length >= 9 && s.length <= 10 && s[0] === '3') s = '+39' + s;   // cellulare italiano
   return s.slice(0, 16);
+}
+
+// la data di nascita può essere testo "2001-02-02" o una data del foglio: torna sempre "aaaa-mm-gg"
+function dataISO_(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, 'Europe/Rome', 'yyyy-MM-dd');
+  const s = String(v || '').replace(/^'/, '').trim();
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return m[0];
+  const d = new Date(s);
+  return isNaN(d) ? s : Utilities.formatDate(d, 'Europe/Rome', 'yyyy-MM-dd');
 }
 
 function eta_(nascitaISO, alISO) {
