@@ -222,6 +222,11 @@ function porta_(r) {
       .map(({ x }) => scheda_(x));
     return { ok: true, persone, conteggi: conteggi_(righe, staff) };
   }
+  if (r.op === 'elenco') {
+    // tutti gli invitati, per cercarli sul telefono della porta senza aspettare il foglio
+    const persone = righe.filter((x) => x[C.token]).map((x) => Object.assign(scheda_(x), { token: String(x[C.token]) }));
+    return { ok: true, persone, conteggi: conteggi_(righe, staff) };
+  }
   if (r.op === 'qr') {
     const x = righe.find((y) => y[C.token] && String(y[C.token]) === String(r.token || ''));
     return { ok: true, persona: x ? scheda_(x) : null, conteggi: conteggi_(righe, staff) };

@@ -1,27 +1,108 @@
+// Zonacalda — porta.
+// Veloce: l'elenco degli invitati sta sul telefono (si aggiorna ogni 20 s), la scansione cerca lì;
+// "fai entrare" è immediato e il salvataggio sul foglio parte in sottofondo, con nuovi tentativi se manca la rete.
 (() => {
   const ETA_MINIMA = 23;
   const $ = (id) => document.getElementById(id);
   let pin = '';
   try { pin = sessionStorage.getItem('zc-pin') || ''; } catch (e) { /* niente */ }
-  let stream = null, scansione = false, ultimo = '', blocco = 0, wake = null;
+  let stream = null, scansione = false, ultimo = '', vistoQr = 0, wake = null;
 
   const api = (dati) => zcApi({ azione: 'porta', pin, ...dati });
   const vibra = (p) => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) { /* niente */ } };
+  const attendi = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  // ------------------------------------------------ conteggi
-  const conteggi = (c) => {
-    if (!c) return;
-    $('dentro').textContent = c.dentro;
-    $('capienza').textContent = c.capienza;
-    $('dettaglio').textContent = `ospiti ${c.ospiti} · staff ${c.staff} · attesi ${c.attesi}`;
-    $('avviso-0030').hidden = !(c.garantitoFino && new Date() >= new Date(c.garantitoFino));
-    $('dentro').style.color = c.dentro >= c.capienza ? 'var(--rosso)' : '';
+  // ------------------------------------------------ stato locale
+  const perToken = new Map();      // token → persona
+  const perId = new Map();         // id → persona
+  const entratiQui = new Map();    // id → ora (entrati da questo telefono, anche se non ancora salvati)
+  let elencoPronto = false;
+  let server = null;               // ultimi conteggi del foglio
+  let staffQui = 0;                // staff +/- non ancora salvato
+  const coda = [];                 // ingressi da salvare: { id, forza }
+  let avvisoCoda = '';
+
+  const ora = () => new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+
+  const caricaElenco = (persone) => {
+    perToken.clear(); perId.clear();
+    for (const p of persone) {
+      if (entratiQui.has(p.id) && p.stato !== 'entrato') { p.stato = 'entrato'; p.entrato = entratiQui.get(p.id); }
+      perToken.set(p.token, p); perId.set(p.id, p);
+    }
+    elencoPronto = true;
   };
+
+  // ------------------------------------------------ conteggi (foglio + quello che non è ancora salvato)
+  const mostraConteggi = () => {
+    if (!server) return;
+    const inAttesa = coda.length;
+    const ospiti = server.ospiti + inAttesa;
+    const staff = Math.max(0, server.staff + staffQui);
+    const dentro = ospiti + staff;
+    $('dentro').textContent = dentro;
+    $('capienza').textContent = server.capienza;
+    $('dettaglio').textContent = `ospiti ${ospiti} · staff ${staff} · attesi ${Math.max(0, server.attesi - inAttesa)}`;
+    $('avviso-0030').hidden = !(server.garantitoFino && new Date() >= new Date(server.garantitoFino));
+    $('dentro').style.color = dentro >= server.capienza ? 'var(--rosso)' : '';
+    $('sync').textContent = inAttesa || staffQui ? `⏳ da salvare: ${inAttesa + Math.abs(staffQui)}` : (avvisoCoda || '');
+    $('sync').style.color = inAttesa || staffQui ? '#ffcf7a' : '';
+  };
+  const conteggi = (c) => { if (c) { server = c; mostraConteggi(); } };
   const dopo0030 = () => !$('avviso-0030').hidden;
+
+  // ------------------------------------------------ salvataggi in sottofondo
+  let salvando = false;
+  const salva = async () => {
+    if (salvando) return;
+    salvando = true;
+    try { await ciclo(); } catch (e) { console.error('salvataggio', e); }
+    salvando = false;
+    mostraConteggi();
+    if ((coda.length || staffQui) && !pinBloccato) setTimeout(salva, 3000);   // qualcosa è rimasto: si riprova
+  };
+  const ciclo = async () => {
+    let attesaRete = 1000;
+    while (coda.length || staffQui) {
+      if (staffQui) {
+        const delta = staffQui > 0 ? 1 : -1;
+        const r = await api({ op: 'staff', delta });
+        if (r.ok) { staffQui -= delta; conteggi(r.conteggi); attesaRete = 1000; continue; }
+      } else {
+        const { id, forza } = coda[0];
+        const r = await api({ op: 'entra', id, forza });
+        if (r.errore === 'pin' || r.errore === 'bloccato') { pinBloccato = true; avvisoCoda = '⚠︎ PIN cambiato: esci e rientra'; }
+        if (r.ok || r.errore === 'gia_entrato' || r.errore === 'pieno' || r.errore === 'persona' || r.errore === 'non_confermato') {
+          coda.shift();
+          if (r.errore === 'gia_entrato') avvisoCoda = `⚠︎ ${r.persona ? r.persona.nome : ''} risultava già entrato`;
+          else if (r.errore === 'pieno') avvisoCoda = '⚠︎ il foglio dice sala piena';
+          else avvisoCoda = '';
+          if (r.conteggi) conteggi(r.conteggi); else mostraConteggi();
+          attesaRete = 1000;
+          continue;
+        }
+      }
+      if (r_bloccato()) break;
+      await attendi(attesaRete);                     // niente rete: riprova tra poco, sempre più piano
+      attesaRete = Math.min(attesaRete * 2, 15000);
+    }
+  };
+  let pinBloccato = false;
+  const r_bloccato = () => pinBloccato;
+
+  // ------------------------------------------------ aggiornamento periodico
+  const aggiorna = async () => {
+    const r = await api({ op: 'elenco' });
+    if (!r.ok) { if ((r.errore === 'pin' || r.errore === 'bloccato') && !$('lavoro').hidden) pinBloccato = true; return r; }
+    pinBloccato = false;                             // PIN accettato: si riprende a salvare
+    if (Array.isArray(r.persone)) caricaElenco(r.persone);   // script vecchio: niente elenco, si cerca online
+    conteggi(r.conteggi);
+    return r;
+  };
 
   // ------------------------------------------------ accesso
   const entra = async () => {
-    const r = await api({ op: 'stato' });
+    const r = await aggiorna();
     if (!r.ok) {
       $('err-pin').textContent = r.errore === 'bloccato' ? 'troppi tentativi. riprova tra 10 minuti.'
         : r.errore === 'pin' ? 'PIN sbagliato.' : r.errore === 'non_attivo' ? 'sistema non ancora collegato.' : 'nessuna connessione. riprova.';
@@ -29,9 +110,8 @@
     }
     try { sessionStorage.setItem('zc-pin', pin); } catch (e) { /* niente */ }
     $('accesso').hidden = true; $('lavoro').hidden = false;
-    conteggi(r.conteggi);
     try { wake = await navigator.wakeLock.request('screen'); } catch (e) { /* non supportato */ }
-    setInterval(async () => { const s = await api({ op: 'stato' }); if (s.ok) conteggi(s.conteggi); }, 20000);
+    setInterval(() => { if (!salvando) aggiorna(); }, 20000);
     return true;
   };
   $('f-pin').addEventListener('submit', async (e) => {
@@ -41,9 +121,11 @@
   });
   if (pin) entra();
   $('esci').addEventListener('click', () => {
+    if (coda.length && !confirm(`ci sono ${coda.length} ingressi non ancora salvati. uscire lo stesso?`)) return;
     try { sessionStorage.removeItem('zc-pin'); } catch (e) { /* niente */ }
     location.reload();
   });
+  addEventListener('beforeunload', (e) => { if (coda.length) { e.preventDefault(); e.returnValue = ''; } });
   document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState === 'visible' && wake) { try { wake = await navigator.wakeLock.request('screen'); } catch (e) { /* niente */ } }
   });
@@ -66,11 +148,13 @@
 
   // ------------------------------------------------ scheda persona
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+  let chiudi = 0;
 
-  const scheda = (p, nota) => {
+  const scheda = (p) => {
     const box = $('scheda');
+    clearTimeout(chiudi);
     box.hidden = false;
-    box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    box.scrollIntoView({ block: 'nearest' });
     if (!p) {
       box.className = 'scheda no';
       box.innerHTML = '<p class="grosso">QR NON VALIDO</p><p>non è un invito zonacalda.</p>';
@@ -94,12 +178,12 @@
     }
     if (p.stato === 'entrato') {
       box.className = 'scheda no';
-      box.innerHTML = `<p class="grosso">GIÀ ENTRATO ALLE ${esc(p.entrato)}</p>${nomeHtml}<p>lo stesso invito non vale due volte.</p>`;
+      box.innerHTML = `<p class="grosso">GIÀ ENTRATO${p.entrato ? ' ALLE ' + esc(p.entrato) : ''}</p>${nomeHtml}<p>lo stesso invito non vale due volte.</p>`;
       vibra([80, 60, 80]); return;
     }
     if (p.stato === 'confermato') {
       box.className = 'scheda ok';
-      box.innerHTML = `<p class="grosso">OK · INVITO CONFERMATO</p>${nomeHtml}${ctrl}${nota ? `<p>${esc(nota)}</p>` : ''}<button class="bottone" data-entra="${esc(p.id)}">fai entrare ✓</button>`;
+      box.innerHTML = `<p class="grosso">OK · INVITO CONFERMATO</p>${nomeHtml}${ctrl}<button class="bottone" data-entra="${esc(p.id)}">fai entrare ✓</button>`;
       vibra(60); return;
     }
     box.className = 'scheda forse';
@@ -110,34 +194,59 @@
     vibra([80, 60, 80]);
   };
 
-  $('scheda').addEventListener('click', async (e) => {
+  // "fai entrare": subito, senza aspettare il foglio
+  $('scheda').addEventListener('click', (e) => {
     const b = e.target.closest('[data-entra]');
     if (!b) return;
-    b.disabled = true; b.textContent = 'un attimo…';
-    const r = await api({ op: 'entra', id: b.dataset.entra, forza: !!b.dataset.forza });
-    conteggi(r.conteggi);
-    const box = $('scheda');
-    if (r.ok) {
-      box.className = 'scheda ok';
-      box.innerHTML = `<p class="grosso">DENTRO ✓</p><h2>${esc(r.persona.nome)} ${esc(r.persona.cognome)}</h2>`;
-      vibra(120);
-      setTimeout(() => { if (box.innerHTML.includes('DENTRO')) box.hidden = true; ultimo = ''; }, 2500);
-    } else if (r.errore === 'pieno') {
-      box.className = 'scheda no';
+    const id = b.dataset.entra;
+    if (server && server.ospiti + coda.length + Math.max(0, server.staff + staffQui) >= server.capienza) {
+      const box = $('scheda'); box.className = 'scheda no';
       box.innerHTML = '<p class="grosso">SALA PIENA</p><p>aspetta che esca qualcuno.</p>';
-    } else if (r.persona) {
-      scheda(r.persona);
-    } else {
-      box.className = 'scheda no';
-      box.innerHTML = '<p class="grosso">ERRORE</p><p>nessuna connessione. riprova.</p>';
+      return;
     }
+    const p = perId.get(id) || { id, nome: '', cognome: '' };
+    const quando = ora();
+    entratiQui.set(id, quando);
+    p.stato = 'entrato'; p.entrato = quando;
+    coda.push({ id, forza: !!b.dataset.forza });
+    mostraConteggi();
+    salva();
+    const box = $('scheda');
+    box.className = 'scheda ok';
+    box.innerHTML = `<p class="grosso">DENTRO ✓</p><h2>${esc(maiuscole(p.nome))} ${esc(maiuscole(p.cognome))}</h2>`;
+    vibra(120);
+    clearTimeout(chiudi);
+    chiudi = setTimeout(() => { box.hidden = true; }, 900);
+    if (!$('cerca').hidden) { $('q').value = ''; $('risultati').innerHTML = ''; $('q').focus(); }
   });
 
-  // ------------------------------------------------ fotocamera
+  // ------------------------------------------------ fotocamera (resta sempre accesa)
   const tokenDa = (testo) => {
     const m = String(testo).match(/[?&]t=([A-Za-z0-9]{20,40})/);
     if (m) return m[1];
     return /^[A-Za-z0-9]{20,40}$/.test(testo) ? testo : '';
+  };
+
+  const mostraToken = async (tok) => {
+    const locale = perToken.get(tok);
+    if (locale) return scheda(locale);
+    // non è nell'elenco del telefono (script vecchio, o invito confermato negli ultimi secondi): chiedo al foglio
+    $('scan-msg').textContent = 'controllo…';
+    const r = await api({ op: 'qr', token: tok });
+    $('scan-msg').textContent = 'inquadra il QR dell\'invito';
+    conteggi(r.conteggi);
+    if (r.ok) {
+      if (r.persona) {
+        r.persona.token = tok;
+        if (entratiQui.has(r.persona.id)) { r.persona.stato = 'entrato'; r.persona.entrato = entratiQui.get(r.persona.id); }
+        perToken.set(tok, r.persona); perId.set(r.persona.id, r.persona);
+      }
+      scheda(r.persona);
+    } else {                                             // errore di rete o del foglio: non è un QR falso
+      const box = $('scheda'); box.hidden = false; box.className = 'scheda forse';
+      box.innerHTML = '<p class="grosso">ERRORE DI CONNESSIONE</p><p>riprova tra un attimo, oppure usa "cerca nome".</p>';
+      ultimo = '';
+    }
   };
 
   const ferma = () => {
@@ -162,42 +271,33 @@
     scansione = true;
     const c = document.createElement('canvas');
     const g = c.getContext('2d', { willReadFrequently: true });
-    const giro = async () => {
+    const giro = () => {
       if (!scansione) return;
-      if (v.readyState >= 2 && Date.now() > blocco) {
+      if (v.readyState >= 2) {
         const lato = Math.min(v.videoWidth, v.videoHeight);
         const S = 480;
         c.width = S; c.height = S;
         g.drawImage(v, (v.videoWidth - lato) / 2, (v.videoHeight - lato) / 2, lato, lato, 0, 0, S, S);
-        const img = g.getImageData(0, 0, S, S);
-        const qr = jsQR(img.data, S, S, { inversionAttempts: 'dontInvert' });
-        if (qr && qr.data && qr.data !== ultimo) {
-          ultimo = qr.data;
-          blocco = Date.now() + 1500;
-          const tok = tokenDa(qr.data);
-          if (!tok) scheda(null);
-          else {
-            $('scan-msg').textContent = 'controllo…';
-            const r = await api({ op: 'qr', token: tok });
-            $('scan-msg').textContent = 'inquadra il QR dell\'invito';
-            conteggi(r.conteggi);
-            if (r.ok) scheda(r.persona);
-            else {                                             // errore di rete o del foglio: non è un QR falso
-              const box = $('scheda'); box.hidden = false; box.className = 'scheda forse';
-              box.innerHTML = '<p class="grosso">ERRORE DI CONNESSIONE</p><p>riprova tra un attimo, oppure usa "cerca nome".</p>';
-              ultimo = '';                                     // permette di riprovare subito con lo stesso QR
-            }
+        const qr = jsQR(g.getImageData(0, 0, S, S).data, S, S, { inversionAttempts: 'dontInvert' });
+        if (qr && qr.data) {
+          vistoQr = Date.now();
+          if (qr.data !== ultimo) {                       // un QR nuovo sostituisce subito la scheda
+            ultimo = qr.data;
+            const tok = tokenDa(qr.data);
+            if (!tok) scheda(null); else mostraToken(tok);
           }
+        } else if (ultimo && Date.now() - vistoQr > 1200) {
+          ultimo = '';                                    // il QR è uscito dall'inquadratura: lo stesso si può rileggere
         }
       }
-      setTimeout(() => requestAnimationFrame(giro), 120);
+      setTimeout(() => requestAnimationFrame(giro), 90);
     };
     giro();
   };
 
   $('b-scan').addEventListener('click', () => (scansione ? ferma() : avvia()));
 
-  // ------------------------------------------------ ricerca per nome
+  // ------------------------------------------------ ricerca per nome (sul telefono)
   let attesa = 0;
   $('b-cerca').addEventListener('click', () => {
     ferma();
@@ -205,29 +305,36 @@
     $('cerca').hidden = !$('cerca').hidden;
     if (!$('cerca').hidden) $('q').focus();
   });
+  const elencaRisultati = (persone) => {
+    const ul = $('risultati');
+    ul.innerHTML = persone.length ? '' : '<li><small>nessuno con questo nome.</small></li>';
+    persone.forEach((p) => {
+      const li = document.createElement('li');
+      const b = document.createElement('button');
+      const dn = leggiData(p.nascita);
+      b.innerHTML = `${esc(maiuscole(p.nome))} ${esc(maiuscole(p.cognome))} <small>· ${dn ? etaAl(dn) + ' anni · ' : ''}${esc(p.stato)}</small>`;
+      b.addEventListener('click', () => scheda(perId.get(p.id) || p));
+      li.appendChild(b); ul.appendChild(li);
+    });
+  };
   $('q').addEventListener('input', () => {
     clearTimeout(attesa);
-    attesa = setTimeout(async () => {
-      const q = $('q').value.trim();
-      const ul = $('risultati');
-      if (q.length < 2) { ul.innerHTML = ''; return; }
+    const q = $('q').value.trim().toLowerCase();
+    if (q.length < 2) { $('risultati').innerHTML = ''; return; }
+    if (elencoPronto) {
+      const trovati = [...perId.values()].filter((p) => (p.nome + ' ' + p.cognome).toLowerCase().includes(q) || (p.cognome + ' ' + p.nome).toLowerCase().includes(q)).slice(0, 12);
+      return elencaRisultati(trovati);
+    }
+    attesa = setTimeout(async () => {                    // script vecchio: cerco sul foglio
       const r = await api({ op: 'cerca', q });
       conteggi(r.conteggi);
-      if (!r.ok) { ul.innerHTML = '<li><small>nessuna connessione.</small></li>'; return; }
-      ul.innerHTML = r.persone.length ? '' : '<li><small>nessuno con questo nome.</small></li>';
-      r.persone.forEach((p) => {
-        const li = document.createElement('li');
-        const b = document.createElement('button');
-        const dn = leggiData(p.nascita);
-        b.innerHTML = `${esc(maiuscole(p.nome))} ${esc(maiuscole(p.cognome))} <small>· ${dn ? etaAl(dn) + ' anni · ' : ''}${esc(p.stato)}</small>`;
-        b.addEventListener('click', () => { scheda(p); $('scheda').scrollIntoView({ behavior: 'smooth' }); });
-        li.appendChild(b); ul.appendChild(li);
-      });
+      if (!r.ok) { $('risultati').innerHTML = '<li><small>nessuna connessione.</small></li>'; return; }
+      elencaRisultati(r.persone);
     }, 300);
   });
 
-  // ------------------------------------------------ staff
-  const staff = (delta) => async () => { const r = await api({ op: 'staff', delta }); if (r.ok) conteggi(r.conteggi); };
+  // ------------------------------------------------ staff (subito, salvato in sottofondo)
+  const staff = (delta) => () => { staffQui += delta; mostraConteggi(); salva(); };
   $('staff-piu').addEventListener('click', staff(1));
   $('staff-meno').addEventListener('click', staff(-1));
 })();
