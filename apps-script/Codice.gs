@@ -165,7 +165,7 @@ function leggiInvito_(token) {
   };
   if (x[C.stato] === 'confermato') {
     ris.cognome = x[C.cognome];
-    ris.luogo = PropertiesService.getScriptProperties().getProperty('LUOGO') || '';
+    ris.luogo = PropertiesService.getScriptProperties().getProperty('LUOGO') || 'via dei prati 4, civitavecchia';
   }
   return ris;
 }
@@ -431,7 +431,7 @@ function quando_(d) {
 function mandaConferma_(t) {
   const x = t.riga;
   try {
-    const luogo = PropertiesService.getScriptProperties().getProperty('LUOGO') || '';
+    const luogo = PropertiesService.getScriptProperties().getProperty('LUOGO') || 'via dei prati 4, civitavecchia';
     const link = SERATA.sito + 'invito/?t=' + x[C.token];
     const conQr = typeof qrcode === 'function';            // se manca il file "qrcode", parte senza immagine ma con il link
     const m = componiMail_(MAIL.conferma, { nome: x[C.nome] }, link, { luogo, qr: conQr });

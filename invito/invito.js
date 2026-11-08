@@ -28,8 +28,9 @@
     if (r.stato === 'confermato') {
       $('ciao2').textContent = minuscolo(r.nome) + ', ci vediamo.';
       $('qr').innerHTML = qrSvg(token).createSvgTag({ cellSize: 6, margin: 0, scalable: true });
-      $('luogo').textContent = r.luogo || '';
-      $('luogo').hidden = !r.luogo;
+      const extra = r.luogo && !/via dei prati/i.test(r.luogo) ? r.luogo : '';   // indicazioni in più dal foglio
+      $('luogo').textContent = extra;
+      $('luogo').hidden = !extra;
       return mostra('s-confermato');
     }
     if (r.stato === 'entrato') return altro('sei già dentro. 😈');
@@ -86,11 +87,12 @@
     g.fillStyle = '#9b9696';
     g.font = font(400, 40);
     g.fillText('sabato 14 novembre · 23:30', W / 2, 930);
+    g.fillText('via dei prati 4, civitavecchia', W / 2, 985);
 
     // QR
     const q = qrSvg(token);
     const n = q.getModuleCount();
-    const lato = 520, x0 = (W - lato) / 2, y0 = 1010, cella = lato / n;
+    const lato = 520, x0 = (W - lato) / 2, y0 = 1060, cella = lato / n;
     g.shadowColor = 'rgba(255,20,36,.7)'; g.shadowBlur = 40;
     g.fillStyle = '#fff'; g.fillRect(x0 - 30, y0 - 30, lato + 60, lato + 60);
     g.shadowBlur = 0;
@@ -99,8 +101,8 @@
 
     g.fillStyle = '#9b9696';
     g.font = font(400, 34);
-    g.fillText('ingresso garantito fino alle 00:30.', W / 2, 1660);
-    g.fillText('porta un documento. 23+.', W / 2, 1710);
+    g.fillText('ingresso garantito fino alle 00:30.', W / 2, 1700);
+    g.fillText('porta un documento. 23+.', W / 2, 1750);
 
     const nome = 'zonacalda-invito.png';
     c.toBlob(async (blob) => {

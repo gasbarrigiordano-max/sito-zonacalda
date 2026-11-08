@@ -89,6 +89,8 @@ main {
   padding: 0 .5rem .15rem;
 }
 .ig:hover, .ig:focus-visible { color: var(--rosso); }
+.luogo { color: var(--testo); text-decoration: none; border-bottom: 1px solid #4a4545; padding: .35rem 0 .1rem; }
+.luogo:hover, .luogo:focus-visible { color: var(--rosso); border-color: currentColor; }
 :focus-visible { outline: 2px solid var(--rosso); outline-offset: 4px; }
 
 footer {
