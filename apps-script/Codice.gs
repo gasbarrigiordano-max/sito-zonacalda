@@ -29,7 +29,7 @@ const MAIL = {
   invito: {
     oggetto: 'sei dentro. 😈',
     titolo: '{nome}, sei dentro.',
-    righe: ['sabato 14 novembre · 23:30', 'accetta entro {scadenza}. dopo, il posto passa a qualcun altro.'],
+    righe: ['sat 14.11 · 23:30', 'accetta entro {scadenza}. dopo, il posto passa a qualcun altro.'],
     tasto: 'ci sono.',
     sotto: 'invito personale: vale solo per te. porta un documento. 23+.',
   },
@@ -48,7 +48,7 @@ const MAIL = {
   conferma: {
     oggetto: 'ci vediamo. 😈',
     titolo: '{nome}, ci vediamo.',
-    righe: ['sabato 14 novembre · 23:30', 'ingresso garantito fino alle 00:30.'],
+    righe: ['sat 14.11 · 23:30', 'ingresso garantito fino alle 00:30.'],
     tasto: 'il tuo invito',
     sotto: 'mostra questo QR all\'ingresso con un documento. vale solo per te. 23+.',
   },

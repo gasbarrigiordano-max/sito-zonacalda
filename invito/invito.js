@@ -86,7 +86,7 @@
     g.fillText(minuscolo(dati.nome) + ', sei dentro.', W / 2, 860);
     g.fillStyle = '#9b9696';
     g.font = font(400, 40);
-    g.fillText('sabato 14 novembre · 23:30', W / 2, 930);
+    g.fillText('sat 14.11 · 23:30', W / 2, 930);
     g.fillText('via dei prati 4, civitavecchia', W / 2, 985);
 
     // QR
