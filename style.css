@@ -128,3 +128,24 @@ footer {
   .codice { --w: min(36vw, 220px); }
   .firma { min-height: 7rem; }
 }
+
+/* ---------- home: logo nuovo, invito, luogo ---------- */
+.insegna2 { margin: 0 0 .25rem; width: 100%; display: flex; justify-content: center; }
+.insegna2 img { display: block; width: min(92vw, 520px); height: auto; margin: calc(min(92vw, 520px) * -.06) 0 calc(min(92vw, 520px) * -.1); }
+@media (prefers-reduced-motion: no-preference) {
+  .insegna2 img { animation: sfarfalla 1.6s steps(1, end) .2s both; }
+}
+@keyframes sfarfalla {
+  0% { opacity: 0; } 8% { opacity: .7; } 12% { opacity: .1; } 20% { opacity: .9; } 26% { opacity: .2; }
+  34% { opacity: 1; } 40% { opacity: .4; } 48%, 100% { opacity: 1; }
+}
+.frase { font-size: clamp(1.35rem, 5.6vw, 2.1rem); }
+.invito {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 54px; padding: .8rem 1.8rem; margin-top: .6rem;
+  font-weight: 700; font-size: 1.1rem; color: #fff; background: var(--rosso); border-radius: 12px; text-decoration: none;
+  box-shadow: 0 0 22px rgba(255, 20, 36, .5);
+}
+.invito:hover, .invito:focus-visible { background: #ff4651; }
+.dove { display: block; color: var(--testo); text-decoration: none; font-size: .95rem; line-height: 1.5; margin-bottom: .6rem; }
+.dove:hover, .dove:focus-visible { color: var(--rosso); }
+footer p { margin: 0; }
