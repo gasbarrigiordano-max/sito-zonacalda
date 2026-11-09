@@ -80,6 +80,17 @@
         $('copia').onclick = async () => { $('copia').textContent = (await zcCopiaPass(foto)) ? 'copiata. incollala nella chat.' : 'non riesco: usa "salva il pass."'; };
       }
     } catch (e) { console.error(e); }                    // se non riesce resta il QR semplice
+    if (!dati.passWhatsApp) mandaSuWhatsApp();
+  };
+
+  // chi ha appena confermato riceve il pass anche su WhatsApp (lo spedisce il foglio, una volta sola)
+  const mandaSuWhatsApp = async () => {
+    try {
+      const jpg = await zcPass({ token, nome: dati.nome + ' ' + (dati.cognome || ''), staff: false, formato: 'image/jpeg' });
+      const b64 = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.readAsDataURL(jpg); });
+      const r = await zcApi({ azione: 'foto', token, foto: b64 });
+      if (r.ok) { dati.passWhatsApp = true; $('wa').hidden = false; }
+    } catch (e) { console.error(e); }
   };
   $('scarica').addEventListener('click', async () => {
     if (!foto) await preparaFoto();

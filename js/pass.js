@@ -139,14 +139,14 @@
     paragrafo(g, TESTO_STAFF, W / 2, 1103, 23, 33.35, '#d9d3d3');
   };
 
-  window.zcPass = async ({ token, nome, staff: eStaff, base = '../' }) => {
+  window.zcPass = async ({ token, nome, staff: eStaff, base = '../', formato = 'image/png' }) => {
     const risorse = await carica(base);
     const c = document.createElement('canvas');
     c.width = 1080; c.height = eStaff ? 1350 : 1920;
     const g = c.getContext('2d');
     const chi = String(nome || '').toLocaleLowerCase('it').trim();
     (eStaff ? staff : ospite)(g, risorse, token, chi);
-    return new Promise((ok, no) => c.toBlob((b) => (b ? ok(b) : no(new Error('pass'))), 'image/png'));
+    return new Promise((ok, no) => c.toBlob((b) => (b ? ok(b) : no(new Error('pass'))), formato, 0.9));
   };
 
   // salva in galleria (telefono) o scarica (computer)

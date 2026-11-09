@@ -65,7 +65,7 @@ const FOGLIO = 'iscritti';
 const COL = [
   'creato', 'id', 'nome', 'cognome', 'nascita', 'email', 'telefono', 'instagram',
   'fonte', 'prossime_serate', 'stato', 'token', 'invitato_il', 'scade_il',
-  'risposto_il', 'entrato_il', 'whatsapp', 'note', 'wa_inviato',
+  'risposto_il', 'entrato_il', 'whatsapp', 'note', 'wa_inviato', 'wa_pass',
 ];
 const STATI = ['in lista', 'da invitare', 'invitato', 'confermato', 'rifiutato', 'scaduto', 'entrato', 'escluso'];
 const C = Object.fromEntries(COL.map((n, i) => [n, i]));   // indice di colonna (da 0)
@@ -92,6 +92,7 @@ function doPost(e) {
       case 'lista':    return out_({ ok: true, aperta: listaAperta_() });
       case 'staff':    return out_(registraStaff_(req));
       case 'pass':     return out_(leggiPass_(req.token));
+      case 'foto':     return out_(mandaFotoPass_(req));
       default:         return out_({ ok: false, errore: 'azione' });
     }
   } catch (err) {
@@ -102,7 +103,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'staff-5';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'wa-1';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -178,6 +179,7 @@ function leggiInvito_(token) {
   };
   if (x[C.stato] === 'confermato') {
     ris.cognome = x[C.cognome];
+    ris.passWhatsApp = !!x[C.wa_pass] || !waAttivo_();      // la pagina manda la foto solo se serve
     ris.luogo = PropertiesService.getScriptProperties().getProperty('LUOGO') || 'via dei prati 4, civitavecchia';
   }
   return ris;
@@ -319,6 +321,7 @@ function onOpen() {
     .addItem('Pannello pass staff WhatsApp', 'pannelloStaff')
     .addSeparator()
     .addItem('Pannello invii WhatsApp', 'pannelloWhatsApp')
+    .addItem('Imposta WhatsApp API (pass agli ospiti)', 'impostaWhatsApp')
     .addSeparator()
     .addItem('Riepilogo', 'riepilogo')
     .addToUi();
@@ -717,6 +720,83 @@ function scriviStaff_(sh, i, campi, riga) {
     sh.getRange(i + 2, CS[k] + 1).setValue(campi[k]);
     if (riga) riga[CS[k]] = typeof campi[k] === 'string' ? campi[k].replace(/^'/, '') : campi[k];
   });
+}
+
+// ---------------------------------------------------------------- WhatsApp API ufficiale (Meta): pass come foto a chi conferma
+// La foto la disegna la pagina dell'invito quando l'ospite preme "ci sono." e la manda qui; lo script la spedisce
+// su WhatsApp con un modello approvato da Meta. Token e numero stanno nelle proprietà dello script, mai nel sito.
+const WA = { versione: 'v21.0', modello: 'pass_ospiti', lingua: 'it' };
+
+function waAttivo_() {
+  const p = PropertiesService.getScriptProperties();
+  return !!(p.getProperty('WA_TOKEN') && p.getProperty('WA_NUMERO_ID'));
+}
+
+function impostaWhatsApp() {
+  const ui = SpreadsheetApp.getUi();
+  const p = PropertiesService.getScriptProperties();
+  const id = ui.prompt('WhatsApp API · 1 di 3', 'Identificativo del numero di telefono (Phone number ID, solo cifre). Lascia vuoto per non cambiarlo.', ui.ButtonSet.OK_CANCEL);
+  if (id.getSelectedButton() !== ui.Button.OK) return;
+  const tok = ui.prompt('WhatsApp API · 2 di 3', 'Token di accesso permanente (utente di sistema). Lascia vuoto per non cambiarlo.', ui.ButtonSet.OK_CANCEL);
+  if (tok.getSelectedButton() !== ui.Button.OK) return;
+  const mod = ui.prompt('WhatsApp API · 3 di 3', 'Nome del modello approvato (vuoto = ' + (p.getProperty('WA_MODELLO') || WA.modello) + ').', ui.ButtonSet.OK_CANCEL);
+  if (mod.getSelectedButton() !== ui.Button.OK) return;
+  const v = (r) => r.getResponseText().trim();
+  if (v(id)) { if (!/^\d{6,}$/.test(v(id))) return ui.alert('Il Phone number ID è fatto solo di cifre.'); p.setProperty('WA_NUMERO_ID', v(id)); }
+  if (v(tok)) p.setProperty('WA_TOKEN', v(tok));
+  if (v(mod)) p.setProperty('WA_MODELLO', v(mod));
+  ui.alert(waAttivo_() ? 'WhatsApp API pronta. Prova: confermati un invito con il tuo numero.' : 'Mancano ancora dei dati.');
+}
+
+function mandaFotoPass_(r) {
+  if (!waAttivo_()) return { ok: false, errore: 'wa_spento' };
+  const t = trova_(r.token);
+  if (!t) return { ok: false, errore: 'invito' };
+  const x = t.riga;
+  if (x[C.stato] !== 'confermato') return { ok: false, errore: 'stato' };
+  if (x[C.wa_pass]) return { ok: true, gia: true };                    // una volta sola per persona
+  const b64 = String(r.foto || '');
+  if (b64.length < 1000 || b64.length > 6000000) return { ok: false, errore: 'foto' };
+  const byte = Utilities.base64Decode(b64);
+  if (!(byte[0] === -1 && byte[1] === -40)) return { ok: false, errore: 'foto' };   // deve essere un JPEG
+  if (t.sh.getRange(1, C.wa_pass + 1).getValue() !== 'wa_pass') t.sh.getRange(1, C.wa_pass + 1).setValue('wa_pass').setFontWeight('bold');
+  const esito = inviaWhatsApp_(normalizzaTelefono_(x[C.telefono]), String(x[C.nome]).toLowerCase(),
+    Utilities.newBlob(byte, 'image/jpeg', 'zonacalda-pass.jpg'));
+  if (!esito.ok) {
+    scrivi_(t, { note: aggiungiNota_(togliNota_(x[C.note], 'pass whatsapp non partito'), 'pass whatsapp non partito') });
+    return { ok: false, errore: 'wa', dettaglio: esito.errore };
+  }
+  scrivi_(t, { wa_pass: new Date(), note: togliNota_(x[C.note], 'pass whatsapp non partito') });
+  return { ok: true };
+}
+
+// carica la foto su WhatsApp e manda il modello (intestazione = foto, {{1}} = nome)
+function inviaWhatsApp_(telefono, nome, foto) {
+  const p = PropertiesService.getScriptProperties();
+  const base = 'https://graph.facebook.com/' + WA.versione + '/' + p.getProperty('WA_NUMERO_ID');
+  const auth = { Authorization: 'Bearer ' + p.getProperty('WA_TOKEN') };
+  const leggi = (res) => { try { return JSON.parse(res.getContentText()); } catch (e) { return {}; } };
+  const errore = (j, res) => (j.error && (j.error.error_user_msg || j.error.message)) || ('HTTP ' + res.getResponseCode());
+  try {
+    let res = UrlFetchApp.fetch(base + '/media', { method: 'post', headers: auth, muteHttpExceptions: true,
+      payload: { messaging_product: 'whatsapp', type: 'image/jpeg', file: foto } });
+    let j = leggi(res);
+    if (!j.id) { console.error('media', res.getContentText()); return { ok: false, errore: errore(j, res) }; }
+    res = UrlFetchApp.fetch(base + '/messages', { method: 'post', headers: auth, contentType: 'application/json', muteHttpExceptions: true,
+      payload: JSON.stringify({
+        messaging_product: 'whatsapp', to: telefono.replace(/\D/g, ''), type: 'template',
+        template: { name: p.getProperty('WA_MODELLO') || WA.modello, language: { code: WA.lingua }, components: [
+          { type: 'header', parameters: [{ type: 'image', image: { id: j.id } }] },
+          { type: 'body', parameters: [{ type: 'text', text: nome || 'ciao' }] },
+        ] },
+      }) });
+    j = leggi(res);
+    if (!(j.messages && j.messages[0])) { console.error('messaggio', res.getContentText()); return { ok: false, errore: errore(j, res) }; }
+    return { ok: true };
+  } catch (err) {
+    console.error(err);
+    return { ok: false, errore: String(err) };
+  }
 }
 
 // ---------------------------------------------------------------- utilità
