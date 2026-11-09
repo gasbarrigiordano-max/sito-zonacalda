@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Zonacalda — guest list</title>
-<meta name="description" content="zonacalda. guest list. richiedi il tuo accesso ed attendi il tuo invito personale.">
+<meta name="description" content="zonacalda. guest list. richiedi il tuo accesso ed attendi il tuo invito personale al nostro party.">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#050505">
 <meta name="color-scheme" content="dark">
@@ -16,9 +16,9 @@
 <link rel="stylesheet" href="../style.css">
 <link rel="stylesheet" href="../pagine.css">
 <style>
-  /* logo a due righe: l'alone occupa spazio, quindi l'immagine sborda e si sovrappone un po' */
-  .testa-2righe { overflow: hidden; }
-  .testa-2righe a { width: min(100vw, 520px); margin-inline: calc((min(100vw, 520px) - 100%) / -2); margin-bottom: -12%; margin-top: -5%; }
+  /* logo a due righe: intero e proporzionato, su telefono e computer */
+  .testa-2righe { padding-top: calc(.75rem + env(safe-area-inset-top)); }
+  .testa-2righe a { width: min(78vw, 360px); margin: 0 auto -2.2rem; }
 </style>
 <script src="../js/api.js" defer></script>
 <script src="lista.js" defer></script>
@@ -28,7 +28,7 @@
 
 <main class="pagina">
   <h1>guest list</h1>
-  <p class="sotto">richiedi il tuo accesso ed attendi il tuo invito personale.</p>
+  <p class="sotto">richiedi il tuo accesso ed attendi il tuo invito personale al nostro party.</p>
 
   <form id="modulo" novalidate>
     <label>nome
