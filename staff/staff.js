@@ -19,6 +19,11 @@
     const q = qrcode(0, 'M'); q.addData(token); q.make();
     $('qr').innerHTML = q.createSvgTag({ cellSize: 6, margin: 0, scalable: true });
     $('s-pass').hidden = false;
+    zcPass({ token, nome: nome + ' ' + (cognome || ''), staff: true }).then((foto) => {
+      $('foto').src = URL.createObjectURL(foto);
+      $('foto').hidden = false; $('tieni').hidden = false; $('salva').hidden = false; $('semplice').hidden = true;
+      $('salva').onclick = () => zcSalvaPass(foto, 'zonacalda-pass-staff.png');
+    }).catch((e) => console.error(e));                  // se non riesce resta il QR semplice
     try { history.replaceState(null, '', '?t=' + token); } catch (e) { /* niente */ }   // così la pagina si può salvare
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };

@@ -26,9 +26,13 @@
         box-shadow: 0 0 0 2px var(--rosso), 0 0 28px rgba(255, 20, 36, .55); }
   .qr svg { display: block; width: 100%; height: auto; }
   .regole { color: var(--tenue); font-size: .9rem; line-height: 1.5; margin: 1rem 0 0; }
+  .foto-pass { display: block; width: min(88vw, 380px); height: auto; margin: 1.25rem auto .5rem; border-radius: 14px;
+               box-shadow: 0 0 0 1px #2a2626, 0 10px 40px rgba(0, 0, 0, .6); -webkit-touch-callout: default; }
+  .tieni { color: var(--tenue); font-size: .85rem; text-align: center; margin: 0 0 1rem; }
 </style>
 <script src="../js/api.js" defer></script>
 <script src="../vendor/qrcode.js" defer></script>
+<script src="../js/pass.js" defer></script>
 <script src="staff.js" defer></script>
 </head>
 <body>
@@ -61,10 +65,15 @@
   </section>
 
   <section class="pass" id="s-pass" hidden aria-live="polite">
-    <span class="etichetta">STAFF</span>
-    <h2 id="chi"></h2>
-    <div class="qr" id="qr" role="img" aria-label="codice QR del pass staff"></div>
-    <p class="regole">mostralo all'ingresso. vale solo per te.<br>fai uno screenshot e tienilo pronto.</p>
+    <img class="foto-pass" id="foto" alt="il tuo pass staff con il QR" hidden>
+    <div id="semplice">
+      <span class="etichetta">STAFF</span>
+      <h2 id="chi"></h2>
+      <div class="qr" id="qr" role="img" aria-label="codice QR del pass staff"></div>
+    </div>
+    <p class="tieni" id="tieni" hidden>tieni premuto sulla foto per salvarla.</p>
+    <button class="bottone" id="salva" hidden>salva il pass.</button>
+    <p class="regole">mostralo all'ingresso. vale solo per te.</p>
   </section>
 
   <div class="esito" id="esito" hidden aria-live="polite">

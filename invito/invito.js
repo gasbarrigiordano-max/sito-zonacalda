@@ -31,7 +31,8 @@
       const extra = r.luogo && !/via dei prati/i.test(r.luogo) ? r.luogo : '';   // indicazioni in più dal foglio
       $('luogo').textContent = extra;
       $('luogo').hidden = !extra;
-      return mostra('s-confermato');
+      mostra('s-confermato');
+      return preparaFoto();
     }
     if (r.stato === 'entrato') return altro('sei già dentro. 😈');
     if (r.stato === 'rifiutato') return altro('peccato.', 'alla prossima. 😈');
@@ -67,54 +68,17 @@
     if (confirm('sicuro? il posto passa a qualcun altro.')) scegli('rifiuta', $('no'))();
   });
 
-  // invito da scaricare, formato storia 1080×1920
+  // pass come foto (formato storia), da tenere premuto o salvare
+  let foto = null;
+  const preparaFoto = async () => {
+    try {
+      foto = await zcPass({ token, nome: dati.nome + ' ' + (dati.cognome || ''), staff: false });
+      $('foto').src = URL.createObjectURL(foto);
+      $('foto').hidden = false; $('tieni').hidden = false; $('qr').hidden = true;
+    } catch (e) { console.error(e); }                    // se non riesce resta il QR semplice
+  };
   $('scarica').addEventListener('click', async () => {
-    const W = 1080, H = 1920;
-    const c = document.createElement('canvas');
-    c.width = W; c.height = H;
-    const g = c.getContext('2d');
-    g.fillStyle = '#050505'; g.fillRect(0, 0, W, H);
-
-    const logo = new Image();
-    logo.src = '../assets/zonacalda-logo-sito.svg';
-    try { await logo.decode(); g.drawImage(logo, 0, 260, W, W * 544 / 1244); } catch (e) { /* senza logo */ }
-
-    const font = (peso, px) => peso + ' ' + px + 'px ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif';
-    g.textAlign = 'center';
-    g.fillStyle = '#f0eded';
-    g.font = font(600, 64);
-    g.fillText(minuscolo(dati.nome) + ', sei dentro.', W / 2, 860);
-    g.fillStyle = '#9b9696';
-    g.font = font(400, 40);
-    g.fillText('sat 14.11 · 23:30', W / 2, 930);
-    g.fillText('via dei prati 4, civitavecchia', W / 2, 985);
-
-    // QR
-    const q = qrSvg(token);
-    const n = q.getModuleCount();
-    const lato = 520, x0 = (W - lato) / 2, y0 = 1060, cella = lato / n;
-    g.shadowColor = 'rgba(255,20,36,.7)'; g.shadowBlur = 40;
-    g.fillStyle = '#fff'; g.fillRect(x0 - 30, y0 - 30, lato + 60, lato + 60);
-    g.shadowBlur = 0;
-    g.fillStyle = '#000';
-    for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) g.fillRect(x0 + k * cella, y0 + r * cella, Math.ceil(cella), Math.ceil(cella));
-
-    g.fillStyle = '#9b9696';
-    g.font = font(400, 34);
-    g.fillText('ingresso garantito fino alle 00:30.', W / 2, 1700);
-    g.fillText('porta un documento. 23+.', W / 2, 1750);
-
-    const nome = 'zonacalda-invito.png';
-    c.toBlob(async (blob) => {
-      const file = new File([blob], nome, { type: 'image/png' });
-      // su telefono: condividi/salva in galleria; altrimenti scarica
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        try { await navigator.share({ files: [file] }); return; } catch (e) { if (e.name === 'AbortError') return; }
-      }
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob); a.download = nome;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    }, 'image/png');
+    if (!foto) await preparaFoto();
+    if (foto) zcSalvaPass(foto, 'zonacalda-invito.png');
   });
 })();
