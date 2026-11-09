@@ -1,6 +1,5 @@
 (() => {
   const SERATA = '2026-11-14';
-  const ETA_MINIMA = 23;
   const f = document.getElementById('modulo');
   const err = document.getElementById('errore');
   const btn = document.getElementById('invia');
@@ -13,12 +12,6 @@
     document.getElementById('esito-testo').textContent = testo || '';
     document.getElementById('esito').hidden = false;
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const eta = (iso) => {
-    const [a, m, g] = iso.split('-').map(Number);
-    const [A, M, G] = SERATA.split('-').map(Number);
-    return A - a - ((M < m || (M === m && G < g)) ? 1 : 0);
   };
 
   const sbagliato = (campo, msg) => {
@@ -66,11 +59,6 @@
       fonte,
     };
     if (!valida(d)) return;
-    if (eta(d.nascita) < ETA_MINIMA) {
-      // non mandiamo i dati di chi non ha l'età
-      esito('non ancora.', 'serve avere almeno ' + ETA_MINIMA + ' anni. ci vediamo più avanti.');
-      return;
-    }
     btn.disabled = true; btn.textContent = 'un attimo…';
     const r = await zcApi(d);
     btn.disabled = false; btn.textContent = 'richiedi accesso.';
@@ -78,7 +66,6 @@
     if (r.ok) return esito('sei in lista.', 'se tocca a te, ti scriviamo. 😈');
     const msg = {
       chiusa: () => chiusa(),
-      eta: () => esito('non ancora.', 'serve avere almeno ' + ETA_MINIMA + ' anni. ci vediamo più avanti.'),
       email: () => sbagliato('email', 'controlla l\'email.'),
       telefono: () => sbagliato('telefono', 'controlla il numero.'),
       nascita: () => sbagliato('nascita', 'controlla la data di nascita.'),

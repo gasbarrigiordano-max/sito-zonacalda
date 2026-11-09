@@ -172,8 +172,14 @@
       vibra([80, 60, 80]); return;
     }
     if (eta !== null && eta < ETA_MINIMA) {
-      box.className = 'scheda no';
-      box.innerHTML = `<p class="grosso">NO · MENO DI ${ETA_MINIMA} ANNI</p>${nomeHtml}`;
+      // l'invito lo decide l'organizzatore: alla porta è un avviso, non un blocco
+      if (p.stato !== 'confermato') {
+        box.className = 'scheda no';
+        box.innerHTML = `<p class="grosso">NO · MENO DI ${ETA_MINIMA} ANNI · NON CONFERMATO</p>${nomeHtml}`;
+        vibra([80, 60, 80]); return;
+      }
+      box.className = 'scheda forse';
+      box.innerHTML = `<p class="grosso">ATTENZIONE · MENO DI ${ETA_MINIMA} ANNI</p>${nomeHtml}<p>ha un invito confermato.</p>${ctrl}<button class="bottone" data-entra="${esc(p.id)}">fai entrare comunque</button>`;
       vibra([80, 60, 80]); return;
     }
     if (p.stato === 'entrato') {

@@ -119,9 +119,9 @@ function iscrivi_(r) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(nascita)) return { ok: false, errore: 'nascita' };
   if (r.informativa !== true) return { ok: false, errore: 'informativa' };
 
-  // chi non ha l'età non viene salvato
+  // tutti possono chiedere: chi ha meno di 23 anni viene segnato nelle note, poi decide l'organizzatore
   const eta = eta_(nascita, SERATA.dataISO);
-  if (!(eta >= SERATA.etaMinima) || eta > 99) return { ok: false, errore: 'eta' };
+  if (!(eta >= 0) || eta > 99) return { ok: false, errore: 'nascita' };
 
   const sh = foglio_();
   const righe = dati_(sh);
@@ -142,6 +142,7 @@ function iscrivi_(r) {
   riga[C.fonte] = fonte;
   riga[C.prossime_serate] = r.prossime === true ? 'sì' : 'no';
   riga[C.stato] = 'in lista';
+  if (eta < SERATA.etaMinima) riga[C.note] = 'meno di ' + SERATA.etaMinima + ' anni (' + eta + ')';
   sh.appendRow(riga);
   return { ok: true };
 }
