@@ -47,14 +47,12 @@
       azione: 'staff',
       nome: f.nome.value.trim(),
       cognome: f.cognome.value.trim(),
-      email: f.email.value.trim(),
       telefono: f.telefono.value.trim(),
       sito: f.sito.value,
       informativa: f.informativa.checked,
     };
     if (!d.nome) return sbagliato('nome', 'scrivi il nome.');
     if (!d.cognome) return sbagliato('cognome', 'scrivi il cognome.');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email)) return sbagliato('email', 'controlla l\'email.');
     if (d.telefono.replace(/\D/g, '').length < 8) return sbagliato('telefono', 'controlla il numero.');
     if (!d.informativa) return sbagliato('informativa', 'devi accettare l\'informativa.');
     sbagliato(null, '');
@@ -62,11 +60,10 @@
     const r = await zcApi(d);
     btn.disabled = false; btn.textContent = 'registrami.';
     if (r.ok && r.token) return mostraPass(r.token, r.nome || d.nome, r.cognome || d.cognome);
-    if (r.ok && r.gia) return esito('sei già registrato.', 'ti abbiamo rimandato il pass alla mail che avevi dato.');
     const msg = {
       non_abilitato: () => sbagliato('cognome', 'non sei nella lista staff. controlla nome e cognome, o scrivi a chi ti ha chiamato.'),
       bloccato: () => sbagliato(null, 'troppi tentativi. riprova tra 10 minuti.'),
-      email: () => sbagliato('email', 'controlla l\'email.'),
+      altro_numero: () => sbagliato('telefono', 'sei già registrato con un altro numero. scrivi il numero che avevi dato, o scrivi a chi ti ha chiamato.'),
       telefono: () => sbagliato('telefono', 'controlla il numero.'),
       informativa: () => sbagliato('informativa', 'devi accettare l\'informativa.'),
       non_attivo: () => esito('presto.', 'la pagina apre a breve.'),

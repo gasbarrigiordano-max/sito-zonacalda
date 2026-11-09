@@ -58,14 +58,6 @@ const MAIL = {
     titolo: 'questa volta no.',
     righe: ['grazie per esserti messo in lista. 😈'],
   },
-  staff: {
-    oggetto: 'sei dello staff. 😈',
-    titolo: '{nome}, sei dello staff.',
-    righe: ['sat 14.11 · palazzo podestà', 'questo è il tuo pass: mostralo all\'ingresso.'],
-    tasto: 'il tuo pass',
-    sotto: 'pass personale: vale solo per te.',
-    piede: 'ricevi questa mail perché ti sei registrato come staff su zonacaldaclubuse.it.',
-  },
   piede: 'ricevi questa mail perché ti sei messo in lista su zonacaldaclubuse.it.',
 };
 
@@ -80,7 +72,7 @@ const C = Object.fromEntries(COL.map((n, i) => [n, i]));   // indice di colonna 
 
 // staff: l'organizzatore scrive nome e cognome di chi è abilitato; il resto lo compila la pagina /staff
 const FOGLIO_STAFF = 'staff';
-const COL_STAFF = ['nome', 'cognome', 'stato', 'telefono', 'email', 'registrato_il', 'entrato_il', 'note', 'id', 'token'];
+const COL_STAFF = ['nome', 'cognome', 'stato', 'telefono', 'registrato_il', 'entrato_il', 'note', 'id', 'token'];
 const STATI_STAFF = ['abilitato', 'registrato', 'entrato', 'escluso'];
 const CS = Object.fromEntries(COL_STAFF.map((n, i) => [n, i]));
 
@@ -522,7 +514,7 @@ function componiMail_(tpl, dati, link, extra) {
     (extra.qr ? '<tr><td align="center" style="padding:24px 8px 0;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#ffffff" style="padding:14px;border-radius:14px;">' +
       '<img src="cid:qr" width="240" height="240" alt="QR per l\'ingresso" style="display:block;width:240px;height:240px;border:0;"></td></tr></table></td></tr>' : '') +
     (sotto ? '<tr><td align="center" style="padding:20px 8px 0;color:#9b9696;font-size:14px;line-height:1.5;">' + esc(sotto) + '</td></tr>' : '') +
-    '<tr><td align="center" style="padding:36px 8px 0;color:#6f6a6a;font-size:12px;line-height:1.5;">' + esc(tpl.piede || MAIL.piede) +
+    '<tr><td align="center" style="padding:36px 8px 0;color:#6f6a6a;font-size:12px;line-height:1.5;">' + esc(MAIL.piede) +
     '<br><a href="mailto:' + MAIL.rispondiA + '" style="color:#6f6a6a;">' + MAIL.rispondiA + '</a></td></tr>' +
     '</table></td></tr></table></body></html>';
 
@@ -593,10 +585,8 @@ function manda_(a, m) {
 function registraStaff_(r) {
   if (r.sito) return { ok: true, gia: true };                 // campo trappola per i bot
   const nome = pulisci_(r.nome, 60), cognome = pulisci_(r.cognome, 60);
-  const email = pulisci_(r.email, 120).toLowerCase();
   const telefono = normalizzaTelefono_(r.telefono);
   if (!nome || !cognome) return { ok: false, errore: 'campi' };
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, errore: 'email' };
   if (telefono.replace(/\D/g, '').length < 8) return { ok: false, errore: 'telefono' };
   if (r.informativa !== true) return { ok: false, errore: 'informativa' };
 
@@ -615,14 +605,15 @@ function registraStaff_(r) {
 
   const x = righe[i];
   if (x[CS.token]) {
-    // già registrato: il pass torna solo all'email già salvata, così nessuno lo prende al posto suo
-    mandaPass_(x);
-    return { ok: true, gia: true };
+    // già registrato: il pass si rivede solo con lo stesso numero di telefono, così nessuno lo prende al posto suo
+    const cifre = (v) => String(v || '').replace(/\D/g, '').slice(-9);
+    if (cifre(x[CS.telefono]) === cifre(telefono)) return { ok: true, token: String(x[CS.token]), nome: x[CS.nome], cognome: x[CS.cognome] };
+    cache.put('staff_errori', String(tentativi + 1), 600);
+    return { ok: false, errore: 'altro_numero' };
   }
   const token = 's' + (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 31);
   const id = 's' + Utilities.getUuid().replace(/-/g, '').slice(0, 7);
-  scriviStaff_(sh, i, { telefono: "'" + telefono, email, token, id, registrato_il: new Date(), stato: 'registrato' }, x);
-  mandaPass_(x);
+  scriviStaff_(sh, i, { telefono: "'" + telefono, token, id, registrato_il: new Date(), stato: 'registrato' }, x);
   return { ok: true, token, nome: x[CS.nome], cognome: x[CS.cognome] };
 }
 
@@ -631,23 +622,6 @@ function leggiPass_(token) {
   const x = datiStaff_().find((y) => String(y[CS.token]) === String(token));
   if (!x || x[CS.stato] === 'escluso') return { ok: false, errore: 'pass' };
   return { ok: true, nome: x[CS.nome], cognome: x[CS.cognome], stato: x[CS.stato] };
-}
-
-function mandaPass_(x) {
-  try {
-    const link = SERATA.sito + 'staff/?t=' + x[CS.token];
-    const conQr = typeof qrcode === 'function';
-    const m = componiMail_(MAIL.staff, { nome: x[CS.nome] }, link, { qr: conQr });
-    const opz = { to: x[CS.email], subject: m.oggetto, body: m.testo, htmlBody: m.html, name: MAIL.mittente, replyTo: MAIL.rispondiA };
-    if (conQr) {
-      const qr = qrBlob_(String(x[CS.token]));
-      opz.inlineImages = { qr: qr };
-      opz.attachments = [qr.copyBlob().setName('zonacalda-pass-staff.gif')];
-    }
-    MailApp.sendEmail(opz);
-  } catch (err) {
-    console.error(err);                                     // la pagina mostra comunque il pass
-  }
 }
 
 function preparaStaff() {
