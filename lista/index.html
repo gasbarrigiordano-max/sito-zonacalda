@@ -15,11 +15,16 @@
 <meta property="og:image" content="https://zonacaldaclubuse.it/assets/og-zonacalda.png">
 <link rel="stylesheet" href="../style.css">
 <link rel="stylesheet" href="../pagine.css">
+<style>
+  /* logo a due righe: l'alone occupa spazio, quindi l'immagine sborda e si sovrappone un po' */
+  .testa-2righe { overflow: hidden; }
+  .testa-2righe a { width: min(100vw, 520px); margin-inline: calc((min(100vw, 520px) - 100%) / -2); margin-bottom: -12%; margin-top: -5%; }
+</style>
 <script src="../js/api.js" defer></script>
 <script src="lista.js" defer></script>
 </head>
 <body>
-<header class="testa"><a href="../"><img src="../assets/zonacalda-logo-sito.svg" width="1244" height="544" alt="ZONACALDA, club use"></a></header>
+<header class="testa testa-2righe"><a href="../"><img src="../assets/zonacalda-logo-2righe-sito.svg" width="1090" height="770" alt="ZONA CALDA, club use: insegna neon rossa"></a></header>
 
 <main class="pagina">
   <h1>guest list</h1>
