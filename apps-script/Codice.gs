@@ -10,7 +10,8 @@
 // ---------------------------------------------------------------- impostazioni
 const SERATA = {
   dataISO: '2026-11-14',             // giorno della serata (per calcolare l'età)
-  etaMinima: 23,
+  etaMinima: 23,                     // per entrare alla serata
+  etaIscrizione: 21,                 // per iscriversi alla lista
   capienza: 300,                     // totale, staff compreso
   staffPrevisto: 20,
   confermeMax: 315,                  // oltre questo numero: "posti finiti."
@@ -119,9 +120,10 @@ function iscrivi_(r) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(nascita)) return { ok: false, errore: 'nascita' };
   if (r.informativa !== true) return { ok: false, errore: 'informativa' };
 
-  // tutti possono chiedere: chi ha meno di 23 anni viene segnato nelle note, poi decide l'organizzatore
+  // dai 21 anni si può chiedere: chi ha meno di 23 viene segnato nelle note, poi decide l'organizzatore
   const eta = eta_(nascita, SERATA.dataISO);
   if (!(eta >= 0) || eta > 99) return { ok: false, errore: 'nascita' };
+  if (eta < SERATA.etaIscrizione) return { ok: false, errore: 'eta' };      // chi è più giovane non viene salvato
 
   const sh = foglio_();
   const righe = dati_(sh);
