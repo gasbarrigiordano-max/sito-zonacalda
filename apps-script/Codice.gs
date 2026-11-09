@@ -64,7 +64,7 @@ const FOGLIO = 'iscritti';
 const COL = [
   'creato', 'id', 'nome', 'cognome', 'nascita', 'email', 'telefono', 'instagram',
   'fonte', 'prossime_serate', 'stato', 'token', 'invitato_il', 'scade_il',
-  'risposto_il', 'entrato_il', 'whatsapp', 'note',
+  'risposto_il', 'entrato_il', 'whatsapp', 'note', 'wa_inviato',
 ];
 const STATI = ['in lista', 'da invitare', 'invitato', 'confermato', 'rifiutato', 'scaduto', 'entrato', 'escluso'];
 const C = Object.fromEntries(COL.map((n, i) => [n, i]));   // indice di colonna (da 0)
@@ -280,6 +280,8 @@ function onOpen() {
     .addItem('Imposta il luogo (lo vede solo chi conferma)', 'impostaLuogo')
     .addItem('Azzera contatore staff', 'azzeraStaff')
     .addSeparator()
+    .addItem('Pannello invii WhatsApp', 'pannelloWhatsApp')
+    .addSeparator()
     .addItem('Riepilogo', 'riepilogo')
     .addToUi();
 }
@@ -341,7 +343,7 @@ function invia_(scade, riserva) {
     const link = SERATA.sito + 'invito/?t=' + token;
     const scadenza = quando_(scade);
     const m = componiMail_(riserva ? MAIL.riserva : MAIL.invito, { nome: x[C.nome], scadenza }, link);
-    const wa = 'https://wa.me/' + String(x[C.telefono]).replace(/\D/g, '') + '?text=' + encodeURIComponent(m.testo);
+    const wa = 'https://wa.me/' + normalizzaTelefono_(x[C.telefono]).replace(/\D/g, '') + '?text=' + encodeURIComponent(m.testo);
     let inviata = false;
     if (email < quota) {
       try {
@@ -355,6 +357,69 @@ function invia_(scade, riserva) {
   SpreadsheetApp.getUi().alert('Inviti preparati.\nEmail inviate: ' + email + '\nDa mandare solo su WhatsApp (quota email finita): ' + solo_whatsapp +
     '\n\nIn ogni riga trovi il link WhatsApp già pronto (colonna "whatsapp"): aprilo e premi invio.');
 }
+
+// ---------------------------------------------------------------- pannello invii WhatsApp
+// Riquadro a lato: per ogni invitato un tasto che apre WhatsApp con il messaggio già scritto.
+function pannelloWhatsApp() {
+  const sh = foglio_();
+  if (sh.getRange(1, C.wa_inviato + 1).getValue() !== 'wa_inviato') sh.getRange(1, C.wa_inviato + 1).setValue('wa_inviato').setFontWeight('bold');
+  const html = HtmlService.createHtmlOutput(PANNELLO_HTML).setTitle('😈 inviti WhatsApp');
+  SpreadsheetApp.getUi().showSidebar(html);
+}
+
+function elencoWhatsApp() {
+  return dati_(foglio_())
+    .filter((x) => x[C.stato] === 'invitato' && x[C.whatsapp])
+    .map((x) => ({ id: String(x[C.id]), nome: String(x[C.nome]) + ' ' + String(x[C.cognome]), tel: String(x[C.telefono]).replace(/^'/, ''),
+                   link: String(x[C.whatsapp]), inviato: !!x[C.wa_inviato] }));
+}
+
+function segnaWhatsApp(id, si) {
+  const sh = foglio_();
+  const righe = dati_(sh);
+  const i = righe.findIndex((x) => String(x[C.id]) === String(id));
+  if (i < 0) return false;
+  scrivi_({ sh, n: i + 2, riga: righe[i] }, { wa_inviato: si ? new Date() : '' });
+  return true;
+}
+
+const PANNELLO_HTML = `<!doctype html><html><head><base target="_blank"><style>
+  body{font:14px system-ui,-apple-system,sans-serif;margin:0;padding:12px;color:#222}
+  h3{margin:0 0 4px} .su{color:#666;margin:0 0 12px;font-size:12px}
+  .riga{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #eee}
+  .riga.fatto{opacity:.45} .nome{flex:1;min-width:0} .nome b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .nome small{color:#888} button{border:0;border-radius:8px;padding:8px 10px;font-weight:600;cursor:pointer}
+  .apri{background:#25d366;color:#fff} .no{background:#eee;color:#555;padding:8px}
+  .barra{position:sticky;top:0;background:#fff;padding-bottom:8px}
+  .prossimo{width:100%;background:#25d366;color:#fff;font-size:15px;padding:12px}
+</style></head><body>
+<div class="barra"><h3>inviti WhatsApp</h3><p class="su" id="conto">carico…</p>
+<button class="prossimo" id="prossimo">apri il prossimo ▸</button></div>
+<div id="lista"></div>
+<script>
+let elenco = [];
+const $ = (id) => document.getElementById(id);
+function disegna() {
+  const da = elenco.filter((p) => !p.inviato).length;
+  $('conto').textContent = da + ' da mandare · ' + (elenco.length - da) + ' mandati';
+  $('prossimo').disabled = !da;
+  $('lista').innerHTML = '';
+  elenco.forEach((p) => {
+    const r = document.createElement('div'); r.className = 'riga' + (p.inviato ? ' fatto' : '');
+    r.innerHTML = '<div class="nome"><b></b><small></small></div>';
+    r.querySelector('b').textContent = p.nome; r.querySelector('small').textContent = p.tel;
+    const a = document.createElement('button'); a.className = 'apri'; a.textContent = p.inviato ? 'di nuovo' : 'apri';
+    a.onclick = () => apri(p);
+    const n = document.createElement('button'); n.className = 'no'; n.title = 'segna come non mandato'; n.textContent = p.inviato ? '↺' : '✓';
+    n.onclick = () => segna(p, !p.inviato);
+    r.append(a, n); $('lista').appendChild(r);
+  });
+}
+function segna(p, si) { p.inviato = si; disegna(); google.script.run.segnaWhatsApp(p.id, si); }
+function apri(p) { window.open(p.link, '_blank'); segna(p, true); }
+$('prossimo').onclick = () => { const p = elenco.find((x) => !x.inviato); if (p) apri(p); };
+google.script.run.withSuccessHandler((e) => { elenco = e; disegna(); }).elencoWhatsApp();
+</script></body></html>`;
 
 function scadiInviti() {
   const sh = foglio_();
