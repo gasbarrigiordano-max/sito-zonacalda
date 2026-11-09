@@ -108,7 +108,7 @@ footer {
   margin: 0;
 }
 .codice {
-  --w: min(48vw, 270px);        /* su telefono: stessa scala delle lettere del logo */
+  --w: min(24vw, 135px);        /* su telefono: stessa scala delle lettere del logo */
   display: block;
   width: var(--w);
   height: auto;
@@ -131,7 +131,7 @@ footer {
 
 /* ---------- home: logo nuovo, invito, luogo ---------- */
 .insegna2 { margin: 0 0 .25rem; width: 100%; display: flex; justify-content: center; }
-.insegna2 img { display: block; width: min(92vw, 520px); height: auto; margin: calc(min(92vw, 520px) * -.06) 0 calc(min(92vw, 520px) * -.1); }
+.insegna2 img { display: block; width: min(64vw, 364px); height: auto; margin: calc(min(64vw, 364px) * -.06) 0 calc(min(64vw, 364px) * -.1); }
 @media (prefers-reduced-motion: no-preference) {
   .insegna2 img { animation: sfarfalla 1.6s steps(1, end) .2s both; }
 }
@@ -146,6 +146,6 @@ footer {
   box-shadow: 0 0 22px rgba(255, 20, 36, .5);
 }
 .invito:hover, .invito:focus-visible { background: #ff4651; }
-.dove { display: block; color: var(--testo); text-decoration: none; font-size: .95rem; line-height: 1.5; margin-bottom: .6rem; }
+.dove { display: block; color: var(--testo); text-decoration: none; font-size: .48rem; line-height: 1.5; margin-bottom: .6rem; }
 .dove:hover, .dove:focus-visible { color: var(--rosso); }
 footer p { margin: 0; }
