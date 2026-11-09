@@ -415,6 +415,8 @@ function pannelloStaff() {
   if (!sh) return SpreadsheetApp.getUi().alert('Manca la scheda "staff": usa prima "Prepara il foglio staff".');
   if (sh.getRange(1, CS.wa_inviato + 1).getValue() !== 'wa_inviato') sh.getRange(1, CS.wa_inviato + 1).setValue('wa_inviato').setFontWeight('bold');
   SpreadsheetApp.getUi().showSidebar(HtmlService.createHtmlOutput(pannello_('pass staff WhatsApp', 'elencoStaffWhatsApp', 'segnaStaffWhatsApp')).setTitle('😈 pass staff'));
+  const mancano = datiStaff_().filter((x) => x[CS.nome] && !x[CS.token] && x[CS.stato] !== 'escluso').map((x) => x[CS.nome] + ' ' + x[CS.cognome]);
+  if (mancano.length) SpreadsheetApp.getActive().toast(mancano.join(', '), 'non ancora registrati: ' + mancano.length, 20);
 }
 
 function elencoStaffWhatsApp() {
@@ -652,14 +654,44 @@ function leggiPass_(token) {
 function preparaStaff() {
   const ss = SpreadsheetApp.getActive();
   const sh = ss.getSheetByName(FOGLIO_STAFF) || ss.insertSheet(FOGLIO_STAFF);
-  sh.getRange(1, 1, 1, COL_STAFF.length).setValues([COL_STAFF]).setFontWeight('bold');
-  sh.setFrozenRows(1);
   sh.getRange(2, CS.telefono + 1, sh.getMaxRows() - 1, 1).setNumberFormat('@');
   sh.getRange(2, CS.token + 1, sh.getMaxRows() - 1, 1).setNumberFormat('@');
+  const sistemate = riordinaStaff_(sh);           // si può rifare quando si vuole: i dati restano
+  sh.setFrozenRows(1);
   sh.getRange(2, CS.stato + 1, sh.getMaxRows() - 1, 1)
     .setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(STATI_STAFF, true).build());
   sh.hideColumns(CS.id + 1, 2);
-  SpreadsheetApp.getUi().alert('Foglio "staff" pronto.\nScrivi nome e cognome di chi può registrarsi (colonne A e B), stato "abilitato".\nPagina da mandare allo staff: ' + SERATA.sito + 'staff/\nI pass si mandano dal menu: Pannello pass staff WhatsApp.');
+  SpreadsheetApp.getUi().alert('Foglio "staff" pronto.' + (sistemate ? '\nRighe sistemate (registrate con la versione vecchia): ' + sistemate + '.' : '') + '\nScrivi nome e cognome di chi può registrarsi (colonne A e B), stato "abilitato".\nPagina da mandare allo staff: ' + SERATA.sito + 'staff/\nI pass si mandano dal menu: Pannello pass staff WhatsApp.');
+}
+
+// rimette le colonne nell'ordine giusto, anche se le righe sono state scritte da una versione vecchia (con l'email)
+function riordinaStaff_(sh) {
+  const n = sh.getLastRow();
+  if (n < 1) { sh.getRange(1, 1, 1, COL_STAFF.length).setValues([COL_STAFF]).setFontWeight('bold'); return 0; }
+  const m = Math.max(sh.getLastColumn(), COL_STAFF.length);
+  const tutto = sh.getRange(1, 1, n, m).getValues();
+  const testa = tutto[0].map((h) => String(h).trim());
+  const conIntestazione = testa.includes('nome') && testa.includes('cognome');
+  const vuoto = (v) => v === '' || v == null;
+  let sistemate = 0;
+  const righe = (conIntestazione ? tutto.slice(1) : tutto).filter((r) => !r.every(vuoto)).map((r) => {
+    let o = {};
+    if (conIntestazione) testa.forEach((h, i) => { if (h) o[h] = r[i]; });
+    else o = { nome: r[0], cognome: r[1], stato: r[2] };
+    if (!testa.includes('email') && String(o.registrato_il || '').includes('@')) {
+      // scritte con l'email ma sotto le intestazioni nuove: tutto spostato di una colonna
+      o = { nome: r[0], cognome: r[1], stato: r[2], telefono: r[3], registrato_il: r[5], entrato_il: r[6], note: r[7], id: r[8], token: r[9] };
+      sistemate++;
+    } else if (o.email) sistemate++;
+    if (!o.stato) o.stato = 'abilitato';
+    if (o.telefono) o.telefono = "'" + String(o.telefono).replace(/^'/, '');
+    if (o.token) o.token = "'" + String(o.token).replace(/^'/, '');
+    return COL_STAFF.map((k) => (o[k] === undefined ? '' : o[k]));
+  });
+  sh.getRange(1, 1, n, m).clearContent();
+  sh.getRange(1, 1, 1, COL_STAFF.length).setValues([COL_STAFF]).setFontWeight('bold');
+  if (righe.length) sh.getRange(2, 1, righe.length, COL_STAFF.length).setValues(righe);
+  return sistemate;
 }
 
 function foglioStaff_() {
