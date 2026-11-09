@@ -354,8 +354,10 @@ function invia_(scade, riserva) {
     if (!inviata) solo_whatsapp++;
     scrivi_(t, { stato: 'invitato', token, invitato_il: new Date(), scade_il: scade, whatsapp: wa });
   });
-  SpreadsheetApp.getUi().alert('Inviti preparati.\nEmail inviate: ' + email + '\nDa mandare solo su WhatsApp (quota email finita): ' + solo_whatsapp +
-    '\n\nIn ogni riga trovi il link WhatsApp già pronto (colonna "whatsapp"): aprilo e premi invio.');
+  // avviso che non blocca lo script (una finestra "OK" lasciata aperta lo faceva andare in timeout)
+  SpreadsheetApp.getActive().toast('email inviate: ' + email + (solo_whatsapp ? ' · solo WhatsApp: ' + solo_whatsapp : '') +
+    '. ora apri il Pannello invii WhatsApp.', '😈 inviti pronti', 10);
+  pannelloWhatsApp();
 }
 
 // ---------------------------------------------------------------- pannello invii WhatsApp
