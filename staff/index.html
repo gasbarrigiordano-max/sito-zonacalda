@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zonacalda — staff</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#050505">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="../assets/zonacalda-diavolo-linee.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<meta property="og:title" content="Zonacalda — staff">
+<meta property="og:description" content="solo per lo staff. registrati e prendi il tuo pass. 😈">
+<meta property="og:image" content="https://zonacaldaclubuse.it/assets/og-zonacalda-2.png">
+<link rel="stylesheet" href="../style.css?v=20261109">
+<link rel="stylesheet" href="../pagine.css?v=20261109">
+<style>
+  .testa-2righe { padding-top: calc(.75rem + env(safe-area-inset-top)); }
+  .testa-2righe a { width: min(78vw, 360px); margin: 0 auto -2.2rem; }
+  .pass { text-align: center; }
+  .pass .etichetta { display: inline-block; color: #fff; background: var(--rosso); border-radius: 999px; padding: .2rem .9rem; font-weight: 700;
+                     letter-spacing: .12em; font-size: .85rem; box-shadow: 0 0 16px rgba(255, 20, 36, .55); }
+  .pass h2 { font-size: 1.6rem; margin: .75rem 0 0; text-transform: none; }
+  .qr { background: #fff; padding: 14px; border-radius: 14px; width: min(78vw, 280px); margin: 1.25rem auto .75rem;
+        box-shadow: 0 0 0 2px var(--rosso), 0 0 28px rgba(255, 20, 36, .55); }
+  .qr svg { display: block; width: 100%; height: auto; }
+  .regole { color: var(--tenue); font-size: .9rem; line-height: 1.5; margin: 1rem 0 0; }
+</style>
+<script src="../js/api.js" defer></script>
+<script src="../vendor/qrcode.js" defer></script>
+<script src="staff.js" defer></script>
+</head>
+<body>
+<header class="testa testa-2righe"><a href="../"><img src="../assets/zonacalda-logo-2righe-sito.svg" width="1090" height="770" alt="ZONA CALDA, club use: insegna neon rossa"></a></header>
+
+<main class="pagina">
+  <section id="s-modulo">
+    <h1>staff.</h1>
+    <p class="sotto">solo per chi lavora con noi. registrati e prendi il tuo pass.</p>
+
+    <form id="modulo" novalidate>
+      <label>nome
+        <input type="text" name="nome" autocomplete="given-name" autocapitalize="words" maxlength="60" required>
+      </label>
+      <label>cognome
+        <input type="text" name="cognome" autocomplete="family-name" autocapitalize="words" maxlength="60" required>
+      </label>
+      <label>email <span class="facoltativo">(ti mandiamo il pass)</span>
+        <input type="email" name="email" autocomplete="email" inputmode="email" autocapitalize="off" maxlength="120" required>
+      </label>
+      <label>telefono
+        <input type="tel" name="telefono" autocomplete="tel" inputmode="tel" placeholder="+39 …" maxlength="20" required>
+      </label>
+      <div class="trappola" aria-hidden="true">
+        <label>sito <input type="text" name="sito" tabindex="-1" autocomplete="off"></label>
+      </div>
+      <label class="spunta"><input type="checkbox" name="informativa" required>
+        <span>ho letto l'<a href="../privacy/" target="_blank" rel="noopener">informativa privacy</a>.</span>
+      </label>
+      <p class="errore" id="errore" role="alert"></p>
+      <button class="bottone" type="submit" id="invia">registrami.</button>
+    </form>
+  </section>
+
+  <section class="pass" id="s-pass" hidden aria-live="polite">
+    <span class="etichetta">STAFF</span>
+    <h2 id="chi"></h2>
+    <div class="qr" id="qr" role="img" aria-label="codice QR del pass staff"></div>
+    <p class="regole">mostralo all'ingresso. vale solo per te.<br>fai uno screenshot: te l'abbiamo mandato anche per mail.</p>
+  </section>
+
+  <div class="esito" id="esito" hidden aria-live="polite">
+    <p class="grande" id="esito-titolo"></p>
+    <p id="esito-testo"></p>
+  </div>
+
+  <p class="nota"><a href="../privacy/">privacy.</a></p>
+</main>
+</body>
+</html>

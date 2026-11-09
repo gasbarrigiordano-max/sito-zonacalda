@@ -83,3 +83,18 @@ Cancella eventuali altri record A/CNAME per `@` e `www` creati in automatico dal
 
 **Su GitHub:** repository → **Settings → Pages → Custom domain** → scrivi `zonacaldaclubuse.it` → **Save** (anche `www.` funzionerà e porterà allo stesso sito).
 Quando il controllo DNS diventa verde (da pochi minuti a qualche ora), spunta **Enforce HTTPS**.
+
+
+## Staff
+
+1. Menu 😈 Zonacalda → **Prepara il foglio staff**: crea la scheda "staff".
+2. Scrivi in colonna A il nome e in colonna B il cognome di ogni persona dello staff, con stato **abilitato**.
+   Servono nome e cognome: una riga senza cognome non si può registrare.
+3. Manda allo staff il link **zonacaldaclubuse.it/staff/**. Ognuno scrive nome, cognome, email e telefono:
+   se il nome è nella scheda riceve subito il pass (QR) sulla pagina e per mail. Nessun limite d'età.
+   Maiuscole, accenti e spazi non contano ("la rosa" = "La Rosa" = "Larosa").
+4. Alla porta il pass si scansiona come un invito: compare **OK · STAFF** e la persona viene contata nello staff.
+   I tasti staff +1 / −1 restano per chi entra senza pass.
+5. Per togliere qualcuno: stato **escluso**.
+
+I nomi dello staff stanno solo nel Foglio Google, non nel sito.

@@ -58,6 +58,14 @@ const MAIL = {
     titolo: 'questa volta no.',
     righe: ['grazie per esserti messo in lista. 😈'],
   },
+  staff: {
+    oggetto: 'sei dello staff. 😈',
+    titolo: '{nome}, sei dello staff.',
+    righe: ['sat 14.11 · palazzo podestà', 'questo è il tuo pass: mostralo all\'ingresso.'],
+    tasto: 'il tuo pass',
+    sotto: 'pass personale: vale solo per te.',
+    piede: 'ricevi questa mail perché ti sei registrato come staff su zonacaldaclubuse.it.',
+  },
   piede: 'ricevi questa mail perché ti sei messo in lista su zonacaldaclubuse.it.',
 };
 
@@ -69,6 +77,12 @@ const COL = [
 ];
 const STATI = ['in lista', 'da invitare', 'invitato', 'confermato', 'rifiutato', 'scaduto', 'entrato', 'escluso'];
 const C = Object.fromEntries(COL.map((n, i) => [n, i]));   // indice di colonna (da 0)
+
+// staff: l'organizzatore scrive nome e cognome di chi è abilitato; il resto lo compila la pagina /staff
+const FOGLIO_STAFF = 'staff';
+const COL_STAFF = ['nome', 'cognome', 'stato', 'telefono', 'email', 'registrato_il', 'entrato_il', 'note', 'id', 'token'];
+const STATI_STAFF = ['abilitato', 'registrato', 'entrato', 'escluso'];
+const CS = Object.fromEntries(COL_STAFF.map((n, i) => [n, i]));
 
 // ---------------------------------------------------------------- web app
 function doPost(e) {
@@ -84,6 +98,8 @@ function doPost(e) {
       case 'rifiuta':  return out_(rispondi_(req.token, false));
       case 'porta':    return out_(porta_(req));
       case 'lista':    return out_({ ok: true, aperta: listaAperta_() });
+      case 'staff':    return out_(registraStaff_(req));
+      case 'pass':     return out_(leggiPass_(req.token));
       default:         return out_({ ok: false, errore: 'azione' });
     }
   } catch (err) {
@@ -227,12 +243,27 @@ function porta_(r) {
   }
   if (r.op === 'elenco') {
     // tutti gli invitati, per cercarli sul telefono della porta senza aspettare il foglio
-    const persone = righe.filter((x) => x[C.token]).map((x) => Object.assign(scheda_(x), { token: String(x[C.token]) }));
+    const persone = righe.filter((x) => x[C.token]).map((x) => Object.assign(scheda_(x), { token: String(x[C.token]) }))
+      .concat(datiStaff_().filter((x) => x[CS.token]).map((x) => Object.assign(schedaStaff_(x), { token: String(x[CS.token]) })));
     return { ok: true, persone, conteggi: conteggi_(righe, staff) };
   }
   if (r.op === 'qr') {
     const x = righe.find((y) => y[C.token] && String(y[C.token]) === String(r.token || ''));
-    return { ok: true, persona: x ? scheda_(x) : null, conteggi: conteggi_(righe, staff) };
+    const s = x ? null : datiStaff_().find((y) => y[CS.token] && String(y[CS.token]) === String(r.token || ''));
+    return { ok: true, persona: x ? scheda_(x) : s ? schedaStaff_(s) : null, conteggi: conteggi_(righe, staff) };
+  }
+  if (r.op === 'entra' && /^s/.test(String(r.id))) {           // staff con il pass
+    const sh2 = foglioStaff_();
+    const ss = sh2 ? datiStaff_() : [];
+    const i = ss.findIndex((y) => String(y[CS.id]) === String(r.id));
+    if (i < 0) return { ok: false, errore: 'persona' };
+    const x = ss[i];
+    if (x[CS.stato] === 'entrato') return { ok: false, errore: 'gia_entrato', persona: schedaStaff_(x), conteggi: conteggi_(righe, staff) };
+    if (x[CS.stato] !== 'registrato') return { ok: false, errore: 'persona', conteggi: conteggi_(righe, staff) };
+    const c = conteggi_(righe, staff);
+    if (c.dentro >= SERATA.capienza) return { ok: false, errore: 'pieno', persona: schedaStaff_(x), conteggi: c };
+    scriviStaff_(sh2, i, { stato: 'entrato', entrato_il: new Date() }, x);
+    return { ok: true, persona: schedaStaff_(x), conteggi: conteggi_(righe, staff) };
   }
   if (r.op === 'entra') {
     const i = righe.findIndex((y) => y[C.id] === r.id);
@@ -259,9 +290,17 @@ function scheda_(x) {
   };
 }
 
-function conteggi_(righe, staff) {
+function schedaStaff_(x) {
+  return {
+    id: String(x[CS.id]), nome: x[CS.nome], cognome: x[CS.cognome], tipo: 'staff', stato: x[CS.stato],
+    entrato: x[CS.entrato_il] ? Utilities.formatDate(new Date(x[CS.entrato_il]), 'Europe/Rome', 'HH:mm') : '',
+  };
+}
+
+function conteggi_(righe, staffAMano) {
   const n = (s) => righe.filter((x) => x[C.stato] === s).length;
   const ospiti = n('entrato');
+  const staff = staffAMano + datiStaff_().filter((x) => x[CS.stato] === 'entrato').length;   // + chi è entrato col pass
   return { ospiti, staff, dentro: ospiti + staff, capienza: SERATA.capienza, attesi: n('confermato'), garantitoFino: SERATA.garantitoFino };
 }
 
@@ -282,6 +321,7 @@ function onOpen() {
     .addItem('Imposta PIN della porta', 'impostaPin')
     .addItem('Imposta il luogo (lo vede solo chi conferma)', 'impostaLuogo')
     .addItem('Azzera contatore staff', 'azzeraStaff')
+    .addItem('Prepara il foglio staff', 'preparaStaff')
     .addSeparator()
     .addItem('Pannello invii WhatsApp', 'pannelloWhatsApp')
     .addSeparator()
@@ -482,7 +522,7 @@ function componiMail_(tpl, dati, link, extra) {
     (extra.qr ? '<tr><td align="center" style="padding:24px 8px 0;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#ffffff" style="padding:14px;border-radius:14px;">' +
       '<img src="cid:qr" width="240" height="240" alt="QR per l\'ingresso" style="display:block;width:240px;height:240px;border:0;"></td></tr></table></td></tr>' : '') +
     (sotto ? '<tr><td align="center" style="padding:20px 8px 0;color:#9b9696;font-size:14px;line-height:1.5;">' + esc(sotto) + '</td></tr>' : '') +
-    '<tr><td align="center" style="padding:36px 8px 0;color:#6f6a6a;font-size:12px;line-height:1.5;">' + esc(MAIL.piede) +
+    '<tr><td align="center" style="padding:36px 8px 0;color:#6f6a6a;font-size:12px;line-height:1.5;">' + esc(tpl.piede || MAIL.piede) +
     '<br><a href="mailto:' + MAIL.rispondiA + '" style="color:#6f6a6a;">' + MAIL.rispondiA + '</a></td></tr>' +
     '</table></td></tr></table></body></html>';
 
@@ -546,6 +586,99 @@ function togliNota_(nota, testo) {
 
 function manda_(a, m) {
   MailApp.sendEmail({ to: a, subject: m.oggetto, body: m.testo, htmlBody: m.html, name: MAIL.mittente, replyTo: MAIL.rispondiA });
+}
+
+// ---------------------------------------------------------------- staff
+// Si registra solo chi è già scritto (nome e cognome) nel foglio "staff". Nessun limite d'età.
+function registraStaff_(r) {
+  if (r.sito) return { ok: true, gia: true };                 // campo trappola per i bot
+  const nome = pulisci_(r.nome, 60), cognome = pulisci_(r.cognome, 60);
+  const email = pulisci_(r.email, 120).toLowerCase();
+  const telefono = normalizzaTelefono_(r.telefono);
+  if (!nome || !cognome) return { ok: false, errore: 'campi' };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, errore: 'email' };
+  if (telefono.replace(/\D/g, '').length < 8) return { ok: false, errore: 'telefono' };
+  if (r.informativa !== true) return { ok: false, errore: 'informativa' };
+
+  // troppi tentativi con nomi sbagliati: stop per 10 minuti
+  const cache = CacheService.getScriptCache();
+  const tentativi = Number(cache.get('staff_errori') || 0);
+  if (tentativi >= 30) return { ok: false, errore: 'bloccato' };
+
+  const sh = foglioStaff_();
+  if (!sh) return { ok: false, errore: 'non_abilitato' };
+  const righe = datiStaff_();
+  const n = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '');
+  const i = righe.findIndex((x) => n(x[CS.cognome]) && x[CS.stato] !== 'escluso' &&
+    ((n(x[CS.nome]) === n(nome) && n(x[CS.cognome]) === n(cognome)) || (n(x[CS.nome]) === n(cognome) && n(x[CS.cognome]) === n(nome))));
+  if (i < 0) { cache.put('staff_errori', String(tentativi + 1), 600); return { ok: false, errore: 'non_abilitato' }; }
+
+  const x = righe[i];
+  if (x[CS.token]) {
+    // già registrato: il pass torna solo all'email già salvata, così nessuno lo prende al posto suo
+    mandaPass_(x);
+    return { ok: true, gia: true };
+  }
+  const token = 's' + (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 31);
+  const id = 's' + Utilities.getUuid().replace(/-/g, '').slice(0, 7);
+  scriviStaff_(sh, i, { telefono: "'" + telefono, email, token, id, registrato_il: new Date(), stato: 'registrato' }, x);
+  mandaPass_(x);
+  return { ok: true, token, nome: x[CS.nome], cognome: x[CS.cognome] };
+}
+
+function leggiPass_(token) {
+  if (!token || !/^s[a-f0-9]{20,40}$/.test(String(token))) return { ok: false, errore: 'pass' };
+  const x = datiStaff_().find((y) => String(y[CS.token]) === String(token));
+  if (!x || x[CS.stato] === 'escluso') return { ok: false, errore: 'pass' };
+  return { ok: true, nome: x[CS.nome], cognome: x[CS.cognome], stato: x[CS.stato] };
+}
+
+function mandaPass_(x) {
+  try {
+    const link = SERATA.sito + 'staff/?t=' + x[CS.token];
+    const conQr = typeof qrcode === 'function';
+    const m = componiMail_(MAIL.staff, { nome: x[CS.nome] }, link, { qr: conQr });
+    const opz = { to: x[CS.email], subject: m.oggetto, body: m.testo, htmlBody: m.html, name: MAIL.mittente, replyTo: MAIL.rispondiA };
+    if (conQr) {
+      const qr = qrBlob_(String(x[CS.token]));
+      opz.inlineImages = { qr: qr };
+      opz.attachments = [qr.copyBlob().setName('zonacalda-pass-staff.gif')];
+    }
+    MailApp.sendEmail(opz);
+  } catch (err) {
+    console.error(err);                                     // la pagina mostra comunque il pass
+  }
+}
+
+function preparaStaff() {
+  const ss = SpreadsheetApp.getActive();
+  const sh = ss.getSheetByName(FOGLIO_STAFF) || ss.insertSheet(FOGLIO_STAFF);
+  sh.getRange(1, 1, 1, COL_STAFF.length).setValues([COL_STAFF]).setFontWeight('bold');
+  sh.setFrozenRows(1);
+  sh.getRange(2, CS.telefono + 1, sh.getMaxRows() - 1, 1).setNumberFormat('@');
+  sh.getRange(2, CS.token + 1, sh.getMaxRows() - 1, 1).setNumberFormat('@');
+  sh.getRange(2, CS.stato + 1, sh.getMaxRows() - 1, 1)
+    .setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(STATI_STAFF, true).build());
+  sh.hideColumns(CS.id + 1, 2);
+  SpreadsheetApp.getUi().alert('Foglio "staff" pronto.\nScrivi nome e cognome di chi può registrarsi (colonne A e B), stato "abilitato".\nPagina da mandare allo staff: ' + SERATA.sito + 'staff/');
+}
+
+function foglioStaff_() {
+  return SpreadsheetApp.getActive().getSheetByName(FOGLIO_STAFF);
+}
+
+function datiStaff_() {
+  const sh = foglioStaff_();
+  if (!sh) return [];
+  const n = sh.getLastRow() - 1;
+  return n > 0 ? sh.getRange(2, 1, n, COL_STAFF.length).getValues() : [];
+}
+
+function scriviStaff_(sh, i, campi, riga) {
+  Object.keys(campi).forEach((k) => {
+    sh.getRange(i + 2, CS[k] + 1).setValue(campi[k]);
+    if (riga) riga[CS[k]] = typeof campi[k] === 'string' ? campi[k].replace(/^'/, '') : campi[k];
+  });
 }
 
 // ---------------------------------------------------------------- utilità

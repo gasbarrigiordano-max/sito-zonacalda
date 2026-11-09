@@ -19,7 +19,7 @@
   let elencoPronto = false;
   let server = null;               // ultimi conteggi del foglio
   let staffQui = 0;                // staff +/- non ancora salvato
-  const coda = [];                 // ingressi da salvare: { id, forza }
+  const coda = [];                 // ingressi da salvare: { id, forza, staff }
   let avvisoCoda = '';
 
   const ora = () => new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
@@ -37,12 +37,13 @@
   const mostraConteggi = () => {
     if (!server) return;
     const inAttesa = coda.length;
-    const ospiti = server.ospiti + inAttesa;
-    const staff = Math.max(0, server.staff + staffQui);
+    const staffInAttesa = coda.filter((x) => x.staff).length;
+    const ospiti = server.ospiti + inAttesa - staffInAttesa;
+    const staff = Math.max(0, server.staff + staffQui) + staffInAttesa;
     const dentro = ospiti + staff;
     $('dentro').textContent = dentro;
     $('capienza').textContent = server.capienza;
-    $('dettaglio').textContent = `ospiti ${ospiti} · staff ${staff} · attesi ${Math.max(0, server.attesi - inAttesa)}`;
+    $('dettaglio').textContent = `ospiti ${ospiti} · staff ${staff} · attesi ${Math.max(0, server.attesi - (inAttesa - staffInAttesa))}`;
     $('avviso-0030').hidden = !(server.garantitoFino && new Date() >= new Date(server.garantitoFino));
     $('dentro').style.color = dentro >= server.capienza ? 'var(--rosso)' : '';
     $('sync').textContent = inAttesa || staffQui ? `⏳ da salvare: ${inAttesa + Math.abs(staffQui)}` : (avvisoCoda || '');
@@ -161,6 +162,22 @@
       vibra([80, 60, 80]);
       return;
     }
+    if (p.tipo === 'staff') {                            // pass staff: niente età, niente orari
+      const chi = `<h2>${esc(maiuscole(p.nome))} ${esc(maiuscole(p.cognome))}</h2>`;
+      if (p.stato === 'entrato') {
+        box.className = 'scheda no';
+        box.innerHTML = `<p class="grosso">STAFF GIÀ ENTRATO${p.entrato ? ' ALLE ' + esc(p.entrato) : ''}</p>${chi}<p>lo stesso pass non vale due volte.</p>`;
+        vibra([80, 60, 80]); return;
+      }
+      if (p.stato !== 'registrato') {
+        box.className = 'scheda no';
+        box.innerHTML = `<p class="grosso">PASS STAFF NON VALIDO</p>${chi}`;
+        vibra([80, 60, 80]); return;
+      }
+      box.className = 'scheda ok';
+      box.innerHTML = `<p class="grosso">OK · STAFF</p>${chi}<p style="color:var(--tenue);font-size:.85rem">controlla il documento: nome e cognome.</p><button class="bottone" data-entra="${esc(p.id)}">fai entrare ✓</button>`;
+      vibra(60); return;
+    }
     const nascita = leggiData(p.nascita);
     const eta = nascita ? etaAl(nascita) : null;
     const quando = nascita ? nascita.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'data non leggibile';
@@ -214,7 +231,7 @@
     const quando = ora();
     entratiQui.set(id, quando);
     p.stato = 'entrato'; p.entrato = quando;
-    coda.push({ id, forza: !!b.dataset.forza });
+    coda.push({ id, forza: !!b.dataset.forza, staff: p.tipo === 'staff' });
     mostraConteggi();
     salva();
     const box = $('scheda');
@@ -318,7 +335,7 @@
       const li = document.createElement('li');
       const b = document.createElement('button');
       const dn = leggiData(p.nascita);
-      b.innerHTML = `${esc(maiuscole(p.nome))} ${esc(maiuscole(p.cognome))} <small>· ${dn ? etaAl(dn) + ' anni · ' : ''}${esc(p.stato)}</small>`;
+      b.innerHTML = `${esc(maiuscole(p.nome))} ${esc(maiuscole(p.cognome))} <small>· ${p.tipo === 'staff' ? 'staff · ' : ''}${dn ? etaAl(dn) + ' anni · ' : ''}${esc(p.stato)}</small>`;
       b.addEventListener('click', () => scheda(perId.get(p.id) || p));
       li.appendChild(b); ul.appendChild(li);
     });
