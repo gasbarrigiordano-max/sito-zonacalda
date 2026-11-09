@@ -90,9 +90,9 @@ Quando il controllo DNS diventa verde (da pochi minuti a qualche ora), spunta **
 1. Menu 😈 Zonacalda → **Prepara il foglio staff**: crea la scheda "staff".
 2. Scrivi in colonna A il nome e in colonna B il cognome di ogni persona dello staff, con stato **abilitato**.
    Servono nome e cognome: una riga senza cognome non si può registrare.
-3. Manda allo staff il link **zonacaldaclubuse.it/staff/**. Ognuno scrive nome, cognome e telefono:
-   se il nome è nella scheda vede subito il pass (QR) sulla pagina e ne fa uno screenshot.
-   Se lo perde, rifà la registrazione con lo stesso numero e il pass ricompare. Nessun limite d'età.
+3. Manda allo staff il link **zonacaldaclubuse.it/staff/**. Ognuno scrive nome, cognome e telefono (WhatsApp): se il nome è nella scheda diventa "registrato".
+   Il pass non compare sulla pagina: lo mandi tu dal menu **Pannello pass staff WhatsApp**
+   (un tasto per persona, apre WhatsApp con il messaggio e il link al pass già scritti). Controlla che il numero sia quello giusto. Nessun limite d'età.
    Maiuscole, accenti e spazi non contano ("la rosa" = "La Rosa" = "Larosa").
 4. Alla porta il pass si scansiona come un invito: compare **OK · STAFF** e la persona viene contata nello staff.
    I tasti staff +1 / −1 restano per chi entra senza pass.

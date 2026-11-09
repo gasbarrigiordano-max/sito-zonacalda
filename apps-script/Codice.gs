@@ -72,7 +72,7 @@ const C = Object.fromEntries(COL.map((n, i) => [n, i]));   // indice di colonna 
 
 // staff: l'organizzatore scrive nome e cognome di chi è abilitato; il resto lo compila la pagina /staff
 const FOGLIO_STAFF = 'staff';
-const COL_STAFF = ['nome', 'cognome', 'stato', 'telefono', 'registrato_il', 'entrato_il', 'note', 'id', 'token'];
+const COL_STAFF = ['nome', 'cognome', 'stato', 'telefono', 'registrato_il', 'entrato_il', 'note', 'id', 'token', 'wa_inviato'];
 const STATI_STAFF = ['abilitato', 'registrato', 'entrato', 'escluso'];
 const CS = Object.fromEntries(COL_STAFF.map((n, i) => [n, i]));
 
@@ -314,6 +314,7 @@ function onOpen() {
     .addItem('Imposta il luogo (lo vede solo chi conferma)', 'impostaLuogo')
     .addItem('Azzera contatore staff', 'azzeraStaff')
     .addItem('Prepara il foglio staff', 'preparaStaff')
+    .addItem('Pannello pass staff WhatsApp', 'pannelloStaff')
     .addSeparator()
     .addItem('Pannello invii WhatsApp', 'pannelloWhatsApp')
     .addSeparator()
@@ -400,8 +401,38 @@ function invia_(scade, riserva) {
 function pannelloWhatsApp() {
   const sh = foglio_();
   if (sh.getRange(1, C.wa_inviato + 1).getValue() !== 'wa_inviato') sh.getRange(1, C.wa_inviato + 1).setValue('wa_inviato').setFontWeight('bold');
-  const html = HtmlService.createHtmlOutput(PANNELLO_HTML).setTitle('😈 inviti WhatsApp');
+  const html = HtmlService.createHtmlOutput(pannello_('inviti WhatsApp', 'elencoWhatsApp', 'segnaWhatsApp')).setTitle('😈 inviti WhatsApp');
   SpreadsheetApp.getUi().showSidebar(html);
+}
+
+function pannello_(titolo, elenco, segna) {
+  return PANNELLO_HTML.replace('__TITOLO__', titolo).replace('__ELENCO__', elenco).replace('__SEGNA__', segna);
+}
+
+// pass staff: stesso pannello, un messaggio WhatsApp con il link al pass per ogni registrato
+function pannelloStaff() {
+  const sh = foglioStaff_();
+  if (!sh) return SpreadsheetApp.getUi().alert('Manca la scheda "staff": usa prima "Prepara il foglio staff".');
+  if (sh.getRange(1, CS.wa_inviato + 1).getValue() !== 'wa_inviato') sh.getRange(1, CS.wa_inviato + 1).setValue('wa_inviato').setFontWeight('bold');
+  SpreadsheetApp.getUi().showSidebar(HtmlService.createHtmlOutput(pannello_('pass staff WhatsApp', 'elencoStaffWhatsApp', 'segnaStaffWhatsApp')).setTitle('😈 pass staff'));
+}
+
+function elencoStaffWhatsApp() {
+  return datiStaff_().filter((x) => x[CS.token] && x[CS.stato] !== 'escluso').map((x) => {
+    const tel = normalizzaTelefono_(x[CS.telefono]);
+    const testo = String(x[CS.nome]).toLowerCase() + ', sei dello staff. 😈\nsat 14.11 · palazzo podestà\n\nil tuo pass:\n' +
+      SERATA.sito + 'staff/?t=' + x[CS.token] + '\n\nmostralo all\'ingresso. vale solo per te.';
+    return { id: String(x[CS.id]), nome: String(x[CS.nome]) + ' ' + String(x[CS.cognome]), tel,
+             link: 'https://wa.me/' + tel.replace(/\D/g, '') + '?text=' + encodeURIComponent(testo), inviato: !!x[CS.wa_inviato] };
+  });
+}
+
+function segnaStaffWhatsApp(id, si) {
+  const sh = foglioStaff_();
+  const i = datiStaff_().findIndex((x) => String(x[CS.id]) === String(id));
+  if (i < 0) return false;
+  scriviStaff_(sh, i, { wa_inviato: si ? new Date() : '' });
+  return true;
 }
 
 function elencoWhatsApp() {
@@ -430,7 +461,7 @@ const PANNELLO_HTML = `<!doctype html><html><head><base target="_blank"><style>
   .barra{position:sticky;top:0;background:#fff;padding-bottom:8px}
   .prossimo{width:100%;background:#25d366;color:#fff;font-size:15px;padding:12px}
 </style></head><body>
-<div class="barra"><h3>inviti WhatsApp</h3><p class="su" id="conto">carico…</p>
+<div class="barra"><h3>__TITOLO__</h3><p class="su" id="conto">carico…</p>
 <button class="prossimo" id="prossimo">apri il prossimo ▸</button></div>
 <div id="lista"></div>
 <script>
@@ -452,10 +483,10 @@ function disegna() {
     r.append(a, n); $('lista').appendChild(r);
   });
 }
-function segna(p, si) { p.inviato = si; disegna(); google.script.run.segnaWhatsApp(p.id, si); }
+function segna(p, si) { p.inviato = si; disegna(); google.script.run.__SEGNA__(p.id, si); }
 function apri(p) { window.open(p.link, '_blank'); segna(p, true); }
 $('prossimo').onclick = () => { const p = elenco.find((x) => !x.inviato); if (p) apri(p); };
-google.script.run.withSuccessHandler((e) => { elenco = e; disegna(); }).elencoWhatsApp();
+google.script.run.withSuccessHandler((e) => { elenco = e; disegna(); }).__ELENCO__();
 </script></body></html>`;
 
 function scadiInviti() {
@@ -604,17 +635,11 @@ function registraStaff_(r) {
   if (i < 0) { cache.put('staff_errori', String(tentativi + 1), 600); return { ok: false, errore: 'non_abilitato' }; }
 
   const x = righe[i];
-  if (x[CS.token]) {
-    // già registrato: il pass si rivede solo con lo stesso numero di telefono, così nessuno lo prende al posto suo
-    const cifre = (v) => String(v || '').replace(/\D/g, '').slice(-9);
-    if (cifre(x[CS.telefono]) === cifre(telefono)) return { ok: true, token: String(x[CS.token]), nome: x[CS.nome], cognome: x[CS.cognome] };
-    cache.put('staff_errori', String(tentativi + 1), 600);
-    return { ok: false, errore: 'altro_numero' };
-  }
+  if (x[CS.token]) return { ok: true, gia: true };            // già registrato: il pass lo manda l'organizzatore su WhatsApp
   const token = 's' + (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 31);
   const id = 's' + Utilities.getUuid().replace(/-/g, '').slice(0, 7);
   scriviStaff_(sh, i, { telefono: "'" + telefono, token, id, registrato_il: new Date(), stato: 'registrato' }, x);
-  return { ok: true, token, nome: x[CS.nome], cognome: x[CS.cognome] };
+  return { ok: true, nome: x[CS.nome] };
 }
 
 function leggiPass_(token) {
@@ -634,7 +659,7 @@ function preparaStaff() {
   sh.getRange(2, CS.stato + 1, sh.getMaxRows() - 1, 1)
     .setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(STATI_STAFF, true).build());
   sh.hideColumns(CS.id + 1, 2);
-  SpreadsheetApp.getUi().alert('Foglio "staff" pronto.\nScrivi nome e cognome di chi può registrarsi (colonne A e B), stato "abilitato".\nPagina da mandare allo staff: ' + SERATA.sito + 'staff/');
+  SpreadsheetApp.getUi().alert('Foglio "staff" pronto.\nScrivi nome e cognome di chi può registrarsi (colonne A e B), stato "abilitato".\nPagina da mandare allo staff: ' + SERATA.sito + 'staff/\nI pass si mandano dal menu: Pannello pass staff WhatsApp.');
 }
 
 function foglioStaff_() {

@@ -30,7 +30,7 @@
     zcApi({ azione: 'pass', token: t }).then((r) => {
       if (r.ok) mostraPass(t, r.nome, r.cognome);
       else if (r.errore === 'rete') esito('nessuna connessione.', 'riprova tra poco.');
-      else { $('s-modulo').hidden = false; sbagliato(null, 'pass non valido: registrati qui sotto.'); }
+      else esito('pass non valido.', 'chiedi a chi ti ha mandato il link.');
     });
   }
 
@@ -59,11 +59,11 @@
     btn.disabled = true; btn.textContent = 'un attimo…';
     const r = await zcApi(d);
     btn.disabled = false; btn.textContent = 'registrami.';
-    if (r.ok && r.token) return mostraPass(r.token, r.nome || d.nome, r.cognome || d.cognome);
+    if (r.ok && r.gia) return esito('sei già registrato.', 'il pass te lo mandiamo su whatsapp. 😈');
+    if (r.ok) return esito('sei registrato.', 'il pass te lo mandiamo su whatsapp. 😈');
     const msg = {
       non_abilitato: () => sbagliato('cognome', 'non sei nella lista staff. controlla nome e cognome, o scrivi a chi ti ha chiamato.'),
       bloccato: () => sbagliato(null, 'troppi tentativi. riprova tra 10 minuti.'),
-      altro_numero: () => sbagliato('telefono', 'sei già registrato con un altro numero. scrivi il numero che avevi dato, o scrivi a chi ti ha chiamato.'),
       telefono: () => sbagliato('telefono', 'controlla il numero.'),
       informativa: () => sbagliato('informativa', 'devi accettare l\'informativa.'),
       non_attivo: () => esito('presto.', 'la pagina apre a breve.'),
