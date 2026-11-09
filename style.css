@@ -131,7 +131,7 @@ footer {
 
 /* ---------- home: logo nuovo, invito, luogo ---------- */
 .insegna2 { margin: 0 0 .25rem; width: 100%; display: flex; justify-content: center; }
-.insegna2 img { display: block; width: min(64vw, 364px); height: auto; margin: calc(min(64vw, 364px) * -.06) 0 calc(min(64vw, 364px) * -.1); }
+.insegna2 img { display: block; width: min(77vw, 437px); height: auto; margin: calc(min(77vw, 437px) * -.06) 0 calc(min(77vw, 437px) * -.1); }
 @media (prefers-reduced-motion: no-preference) {
   .insegna2 img { animation: sfarfalla 1.6s steps(1, end) .2s both; }
 }
@@ -149,3 +149,6 @@ footer {
 .dove { display: block; color: var(--testo); text-decoration: none; font-size: .48rem; line-height: 1.5; margin-bottom: .6rem; }
 .dove:hover, .dove:focus-visible { color: var(--rosso); }
 footer p { margin: 0; }
+
+.ig-piede { display: inline-block; min-height: 0; margin: 0 0 .9rem; padding: .3rem 0 .1rem; font-size: .95rem; }
+.frase { line-height: 1.2; }
