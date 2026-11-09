@@ -102,8 +102,10 @@ function doPost(e) {
   }
 }
 
+const VERSIONE = 'staff-4';                 // si legge aprendo l'indirizzo /exec nel browser
+
 function doGet() {
-  return out_({ ok: true, servizio: 'zonacalda' });
+  return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
 }
 
 function out_(obj) {
