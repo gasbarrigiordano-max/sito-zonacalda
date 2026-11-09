@@ -73,7 +73,7 @@
     }
     btn.disabled = true; btn.textContent = 'un attimo…';
     const r = await zcApi(d);
-    btn.disabled = false; btn.textContent = 'mettimi in lista.';
+    btn.disabled = false; btn.textContent = 'richiedi accesso.';
     if (r.ok && r.gia) return esito('sei già in lista.', 'se tocca a te, ti scriviamo. 😈');
     if (r.ok) return esito('sei in lista.', 'se tocca a te, ti scriviamo. 😈');
     const msg = {
