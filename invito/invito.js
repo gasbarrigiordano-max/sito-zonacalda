@@ -75,6 +75,10 @@
       foto = await zcPass({ token, nome: dati.nome + ' ' + (dati.cognome || ''), staff: false });
       $('foto').src = URL.createObjectURL(foto);
       $('foto').hidden = false; $('tieni').hidden = false; $('qr').hidden = true;
+      if (navigator.clipboard && window.ClipboardItem && !/iPhone|iPad|Android/i.test(navigator.userAgent)) {
+        $('copia').hidden = false;
+        $('copia').onclick = async () => { $('copia').textContent = (await zcCopiaPass(foto)) ? 'copiata. incollala nella chat.' : 'non riesco: usa "salva il pass."'; };
+      }
     } catch (e) { console.error(e); }                    // se non riesce resta il QR semplice
   };
   $('scarica').addEventListener('click', async () => {

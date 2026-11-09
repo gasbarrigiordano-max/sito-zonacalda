@@ -102,7 +102,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'staff-4';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'staff-5';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -424,10 +424,12 @@ function pannelloStaff() {
 function elencoStaffWhatsApp() {
   return datiStaff_().filter((x) => x[CS.token] && x[CS.stato] !== 'escluso').map((x) => {
     const tel = normalizzaTelefono_(x[CS.telefono]);
-    const testo = String(x[CS.nome]).toLowerCase() + ', sei dello staff. 😈\nsat 14.11 · palazzo podestà\n\nil tuo pass:\n' +
-      SERATA.sito + 'staff/?t=' + x[CS.token] + '\n\nmostralo all\'ingresso. vale solo per te.';
+    // niente emoji: WhatsApp Web le rovina quando arrivano da un link
+    const pass = SERATA.sito + 'staff/?t=' + x[CS.token];
+    const testo = String(x[CS.nome]).toLowerCase() + ', sei dello staff.\nsat 14.11 · palazzo podestà\n\nil tuo pass:\n' +
+      pass + '\n\nmostralo all\'ingresso. vale solo per te.';
     return { id: String(x[CS.id]), nome: String(x[CS.nome]) + ' ' + String(x[CS.cognome]), tel,
-             link: 'https://wa.me/' + tel.replace(/\D/g, '') + '?text=' + encodeURIComponent(testo), inviato: !!x[CS.wa_inviato] };
+             link: 'https://wa.me/' + tel.replace(/\D/g, '') + '?text=' + encodeURIComponent(testo), foto: pass, inviato: !!x[CS.wa_inviato] };
   });
 }
 
@@ -461,7 +463,7 @@ const PANNELLO_HTML = `<!doctype html><html><head><base target="_blank"><style>
   .riga{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #eee}
   .riga.fatto{opacity:.45} .nome{flex:1;min-width:0} .nome b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .nome small{color:#888} button{border:0;border-radius:8px;padding:8px 10px;font-weight:600;cursor:pointer}
-  .apri{background:#25d366;color:#fff} .no{background:#eee;color:#555;padding:8px}
+  .apri{background:#25d366;color:#fff} .no{background:#eee;color:#555;padding:8px} .foto{background:#222;color:#fff}
   .barra{position:sticky;top:0;background:#fff;padding-bottom:8px}
   .prossimo{width:100%;background:#25d366;color:#fff;font-size:15px;padding:12px}
 </style></head><body>
@@ -484,7 +486,10 @@ function disegna() {
     a.onclick = () => apri(p);
     const n = document.createElement('button'); n.className = 'no'; n.title = 'segna come non mandato'; n.textContent = p.inviato ? '↺' : '✓';
     n.onclick = () => segna(p, !p.inviato);
-    r.append(a, n); $('lista').appendChild(r);
+    const fo = document.createElement('button'); fo.className = 'foto'; fo.title = 'apre il pass: premi "copia foto" e incollala nella chat'; fo.textContent = 'foto';
+    fo.onclick = () => window.open(p.foto, '_blank');
+    if (p.foto) r.append(a, fo, n); else r.append(a, n);
+    $('lista').appendChild(r);
   });
 }
 function segna(p, si) { p.inviato = si; disegna(); google.script.run.__SEGNA__(p.id, si); }

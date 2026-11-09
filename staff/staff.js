@@ -23,6 +23,10 @@
       $('foto').src = URL.createObjectURL(foto);
       $('foto').hidden = false; $('tieni').hidden = false; $('salva').hidden = false; $('semplice').hidden = true;
       $('salva').onclick = () => zcSalvaPass(foto, 'zonacalda-pass-staff.png');
+      if (navigator.clipboard && window.ClipboardItem && !/iPhone|iPad|Android/i.test(navigator.userAgent)) {
+        $('copia').hidden = false;
+        $('copia').onclick = async () => { $('copia').textContent = (await zcCopiaPass(foto)) ? 'copiata. incollala nella chat.' : 'non riesco: usa "salva il pass."'; };
+      }
     }).catch((e) => console.error(e));                  // se non riesce resta il QR semplice
     try { history.replaceState(null, '', '?t=' + token); } catch (e) { /* niente */ }   // così la pagina si può salvare
     window.scrollTo({ top: 0, behavior: 'smooth' });

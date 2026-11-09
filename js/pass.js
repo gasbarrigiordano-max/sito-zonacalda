@@ -160,4 +160,10 @@
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   };
+
+  // copia la foto negli appunti (computer: poi si incolla nella chat di WhatsApp Web)
+  window.zcCopiaPass = async (blob) => {
+    if (!navigator.clipboard || !window.ClipboardItem) return false;
+    try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); return true; } catch (e) { return false; }
+  };
 })();
