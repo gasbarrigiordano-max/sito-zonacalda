@@ -102,7 +102,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'staff-5';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'righe-rosse-1';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -337,6 +337,7 @@ function prepara() {
   sh.hideColumns(C.token + 1);
   ScriptApp.getProjectTriggers().forEach((t) => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('scadiInviti').timeBased().everyMinutes(15).create();
+  coloraInviati_(sh, C.wa_inviato, COL.length);
   SpreadsheetApp.getUi().alert('Foglio pronto. Ora imposta il PIN della porta dal menu 😈 Zonacalda.');
 }
 
@@ -403,8 +404,28 @@ function invia_(scade, riserva) {
 function pannelloWhatsApp() {
   const sh = foglio_();
   if (sh.getRange(1, C.wa_inviato + 1).getValue() !== 'wa_inviato') sh.getRange(1, C.wa_inviato + 1).setValue('wa_inviato').setFontWeight('bold');
+  coloraInviati_(sh, C.wa_inviato, COL.length);
   const html = HtmlService.createHtmlOutput(pannello_('inviti WhatsApp', 'elencoWhatsApp', 'segnaWhatsApp')).setTitle('😈 inviti WhatsApp');
   SpreadsheetApp.getUi().showSidebar(html);
+}
+
+// la riga diventa rossa quando l'invito (o il pass) è stato mandato su WhatsApp: colonna wa_inviato piena
+const ROSSO_INVIATO = '#f28b82';
+function coloraInviati_(sh, colonna, larghezza) {
+  try {
+    const lettera = String.fromCharCode(65 + colonna);                // colonne entro la Z
+    const formula = '=$' + lettera + '2<>""';
+    const area = sh.getRange(2, 1, sh.getMaxRows() - 1, larghezza);
+    const altre = sh.getConditionalFormatRules().filter((r) => {
+      const c = r.getBooleanCondition && r.getBooleanCondition();
+      return !(c && String(c.getCriteriaValues()[0]) === formula);   // tolgo la regola vecchia, se c'era
+    });
+    const regola = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied(formula)
+      .setBackground(ROSSO_INVIATO).setRanges([area]).build();
+    sh.setConditionalFormatRules(altre.concat(regola));
+  } catch (err) {
+    console.error('colore righe', err);                               // il colore non deve mai bloccare gli inviti
+  }
 }
 
 function pannello_(titolo, elenco, segna) {
@@ -416,6 +437,7 @@ function pannelloStaff() {
   const sh = foglioStaff_();
   if (!sh) return SpreadsheetApp.getUi().alert('Manca la scheda "staff": usa prima "Prepara il foglio staff".');
   if (sh.getRange(1, CS.wa_inviato + 1).getValue() !== 'wa_inviato') sh.getRange(1, CS.wa_inviato + 1).setValue('wa_inviato').setFontWeight('bold');
+  coloraInviati_(sh, CS.wa_inviato, COL_STAFF.length);
   SpreadsheetApp.getUi().showSidebar(HtmlService.createHtmlOutput(pannello_('pass staff WhatsApp', 'elencoStaffWhatsApp', 'segnaStaffWhatsApp')).setTitle('😈 pass staff'));
   const mancano = datiStaff_().filter((x) => x[CS.nome] && !x[CS.token] && x[CS.stato] !== 'escluso').map((x) => x[CS.nome] + ' ' + x[CS.cognome]);
   if (mancano.length) SpreadsheetApp.getActive().toast(mancano.join(', '), 'non ancora registrati: ' + mancano.length, 20);
@@ -668,6 +690,7 @@ function preparaStaff() {
   sh.getRange(2, CS.stato + 1, sh.getMaxRows() - 1, 1)
     .setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(STATI_STAFF, true).build());
   sh.hideColumns(CS.id + 1, 2);
+  coloraInviati_(sh, CS.wa_inviato, COL_STAFF.length);
   SpreadsheetApp.getUi().alert('Foglio "staff" pronto.' + (sistemate ? '\nRighe sistemate (registrate con la versione vecchia): ' + sistemate + '.' : '') + '\nScrivi nome e cognome di chi può registrarsi (colonne A e B), stato "abilitato".\nPagina da mandare allo staff: ' + SERATA.sito + 'staff/\nI pass si mandano dal menu: Pannello pass staff WhatsApp.');
 }
 
