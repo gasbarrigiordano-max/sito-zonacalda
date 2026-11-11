@@ -5,7 +5,7 @@
   const ETA_MINIMA = 23;
   const $ = (id) => document.getElementById(id);
   let pin = '';
-  try { pin = sessionStorage.getItem('zc-pin') || ''; } catch (e) { /* niente */ }
+  const ORE_ACCESSO = 5;                                      // dopo il PIN si resta dentro 5 ore, anche ricaricando
   let stream = null, scansione = false, ultimo = '', vistoQr = 0, wake = null;
 
   // memoria del telefono: resiste a ricarica, schermo bloccato, batteria che si spegne
@@ -159,24 +159,40 @@
         : r.errore === 'pin' ? 'PIN sbagliato.' : r.errore === 'non_attivo' ? 'sistema non ancora collegato.' : 'nessuna connessione. riprova.';
       return false;
     }
-    try { sessionStorage.setItem('zc-pin', pin); } catch (e) { /* niente */ }
+    mem.scrivi('zc-porta-accesso', { pin, scade: Date.now() + ORE_ACCESSO * 3600e3 });
+    await lavora();
+    return true;
+  };
+  let lavorando = false;
+  const lavora = async () => {
+    if (lavorando) return;
+    lavorando = true;
     $('accesso').hidden = true; $('lavoro').hidden = false;
+    document.documentElement.classList.remove('dentro');   // da qui in poi decide lo script
     try { wake = await navigator.wakeLock.request('screen'); } catch (e) { /* non supportato */ }
     setInterval(() => { if (!salvando) aggiorna(); }, 20000);
     novita();
     if (coda.length || staffQui) { mostraConteggi(); salva(); }   // ingressi rimasti da prima della ricarica
-    return true;
   };
   $('f-pin').addEventListener('submit', async (e) => {
     e.preventDefault();
     pin = e.target.pin.value.trim();
     await entra();
   });
-  if (pin) entra();
+  // accesso salvato: si entra subito con l'ultimo elenco del telefono, e intanto si aggiorna dal foglio
+  {
+    const a = mem.leggi('zc-porta-accesso');
+    if (a && a.pin && a.scade > Date.now()) {
+      pin = a.pin;
+      const m = mem.leggi('zc-porta-elenco');
+      if (m && Array.isArray(m.persone)) { caricaElenco(m.persone); conteggi(m.conteggi); }
+      lavora();
+      aggiorna();
+    } else mem.togli('zc-porta-accesso');
+  }
   $('esci').addEventListener('click', () => {
     if (coda.length && !confirm(`ci sono ${coda.length} ingressi non ancora salvati. uscire lo stesso?`)) return;
-    try { sessionStorage.removeItem('zc-pin'); } catch (e) { /* niente */ }
-    mem.togli('zc-porta-sessione'); mem.togli('zc-porta-elenco');
+    mem.togli('zc-porta-accesso'); mem.togli('zc-porta-sessione'); mem.togli('zc-porta-elenco');
     if (!coda.length && !staffQui) mem.togli('zc-porta-coda');
     location.reload();
   });

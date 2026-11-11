@@ -2,12 +2,19 @@
 (() => {
   const $ = (id) => document.getElementById(id);
   let pin = '';
-  try { pin = sessionStorage.getItem('zc-regia') || ''; } catch (e) { /* niente */ }
+  const mem = {
+    leggi: (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } },
+    scrivi: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* niente */ } },
+    togli: (k) => { try { localStorage.removeItem(k); } catch (e) { /* niente */ } },
+  };
+  const ORE_ACCESSO = 5;                                      // dopo il PIN si resta dentro 5 ore, anche ricaricando
   let giro = 0, falliti = 0, sessione = '';
-  try { sessione = sessionStorage.getItem('zc-regia-s') || ''; } catch (e) { /* niente */ }
   const api = async (dati) => {
     const r = await zcApi({ azione: 'regia', pin, sessione, ...dati });
-    if (r && r.sessione) { sessione = r.sessione; try { sessionStorage.setItem('zc-regia-s', sessione); } catch (e) { /* niente */ } }
+    if (r && r.sessione) {
+      sessione = r.sessione;
+      const a = mem.leggi('zc-regia-accesso'); if (a) { a.s = sessione; mem.scrivi('zc-regia-accesso', a); }
+    }
     return r;
   };
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -38,7 +45,7 @@
 
   const aggiorna = async () => {
     const r = await api({});
-    if (r.ok) { falliti = 0; mostra(r); $('stato').className = 'stato'; metti('stato', 'si aggiorna da sola ogni 15 secondi.'); }
+    if (r.ok) { falliti = 0; mostra(r); mem.scrivi('zc-regia-dati', r); $('stato').className = 'stato'; metti('stato', 'si aggiorna da sola ogni 15 secondi.'); }
     else if (r.errore === 'pin' || r.errore === 'bloccato') { esci(); }
     else { falliti++; $('stato').className = 'stato male'; metti('stato', 'nessuna connessione: i numeri sono quelli delle ' + $('agg').textContent + '. riprovo…'); }
     return r;
@@ -138,13 +145,18 @@
         : r.errore === 'pin' ? 'PIN sbagliato.' : r.errore === 'non_attivo' ? 'sistema non ancora collegato.' : 'nessuna connessione. riprova.');
       return;
     }
-    try { sessionStorage.setItem('zc-regia', pin); } catch (e) { /* niente */ }
+    mem.scrivi('zc-regia-accesso', { pin, s: sessione, scade: Date.now() + ORE_ACCESSO * 3600e3 });
+    apri();
+  };
+  const apri = () => {
     $('accesso').hidden = true; $('pannello').hidden = false;
+    document.documentElement.classList.remove('dentro');   // da qui in poi decide lo script
     clearInterval(giro); giro = setInterval(aggiorna, 15000);
   };
   const esci = () => {
     clearInterval(giro);
-    try { sessionStorage.removeItem('zc-regia'); sessionStorage.removeItem('zc-regia-s'); } catch (e) { /* niente */ }
+    mem.togli('zc-regia-accesso'); mem.togli('zc-regia-dati');
+    document.documentElement.classList.remove('dentro');
     sessione = '';
     pin = ''; $('pannello').hidden = true; $('vista-bk').hidden = true; $('vista-invii').hidden = true; $('accesso').hidden = false;
   };
@@ -157,5 +169,14 @@
     if (!$('vista-bk').hidden) caricaBk();
     if (!$('vista-invii').hidden) caricaInvii();
   });
-  if (pin) entra();
+  // accesso salvato: si entra subito con gli ultimi numeri, e intanto si aggiornano
+  {
+    const a = mem.leggi('zc-regia-accesso');
+    if (a && a.pin && a.scade > Date.now()) {
+      pin = a.pin; sessione = a.s || '';
+      const d = mem.leggi('zc-regia-dati');
+      if (d && d.lista) mostra(d);
+      apri(); aggiorna();
+    } else { mem.togli('zc-regia-accesso'); document.documentElement.classList.remove('dentro'); }
+  }
 })();
