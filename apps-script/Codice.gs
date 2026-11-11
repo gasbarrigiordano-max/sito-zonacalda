@@ -62,10 +62,11 @@ const MAIL = {
 };
 
 const FOGLIO = 'iscritti';
+// l'ordine si può cambiare: "Prepara / riordina il foglio" sposta i dati sotto le intestazioni giuste
 const COL = [
-  'creato', 'id', 'nome', 'cognome', 'nascita', 'email', 'telefono', 'instagram',
-  'fonte', 'prossime_serate', 'stato', 'token', 'invitato_il', 'scade_il',
-  'risposto_il', 'entrato_il', 'whatsapp', 'note', 'wa_inviato',
+  'nome', 'cognome', 'nascita', 'stato', 'telefono', 'email', 'instagram', 'note',
+  'prossime_serate', 'fonte', 'creato', 'invitato_il', 'scade_il', 'risposto_il',
+  'entrato_il', 'wa_inviato', 'whatsapp', 'id', 'token',
 ];
 const STATI = ['in lista', 'da invitare', 'invitato', 'confermato', 'rifiutato', 'scaduto', 'entrato', 'escluso'];
 const C = Object.fromEntries(COL.map((n, i) => [n, i]));   // indice di colonna (da 0)
@@ -102,7 +103,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'notifiche-1';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'colonne-1';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -305,7 +306,7 @@ function conteggi_(righe, staffAMano) {
 // ---------------------------------------------------------------- menu del foglio
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('😈 Zonacalda')
-    .addItem('1. Prepara il foglio (solo la prima volta)', 'prepara')
+    .addItem('1. Prepara / riordina il foglio', 'prepara')
     .addSeparator()
     .addItem('Apri la lista', 'apriLista')
     .addItem('Chiudi la lista', 'chiudiLista')
@@ -333,18 +334,53 @@ function onOpen() {
 function prepara() {
   const ss = SpreadsheetApp.getActive();
   const sh = ss.getSheetByName(FOGLIO) || ss.insertSheet(FOGLIO);
-  sh.getRange(1, 1, 1, COL.length).setValues([COL]).setFontWeight('bold');
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);                                  // niente iscrizioni dal sito mentre sposto le colonne
+  let spostate;
+  try { spostate = riordina_(ss, sh); } finally { lock.releaseLock(); }
   sh.setFrozenRows(1);
-  sh.getRange(2, C.nascita + 1, sh.getMaxRows() - 1, 1).setNumberFormat('@');
-  sh.getRange(2, C.telefono + 1, sh.getMaxRows() - 1, 1).setNumberFormat('@');
-  sh.getRange(2, C.token + 1, sh.getMaxRows() - 1, 1).setNumberFormat('@');
   const regola = SpreadsheetApp.newDataValidation().requireValueInList(STATI, true).build();
   sh.getRange(2, C.stato + 1, sh.getMaxRows() - 1, 1).setDataValidation(regola);
-  sh.hideColumns(C.token + 1);
+  sh.hideColumns(C.id + 1, 2);                           // id e token: servono allo script, non a te
   ScriptApp.getProjectTriggers().forEach((t) => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('scadiInviti').timeBased().everyMinutes(15).create();
   coloraInviati_(sh, C.wa_inviato, COL.length);
-  SpreadsheetApp.getUi().alert('Foglio pronto. Ora imposta il PIN della porta dal menu 😈 Zonacalda.');
+  SpreadsheetApp.getUi().alert(spostate
+    ? 'Colonne riordinate (' + spostate.n + ' iscritti). Una copia di prima è nel foglio "' + spostate.copia + '": quando hai controllato puoi cancellarla.'
+    : 'Foglio pronto. Ora imposta il PIN della porta dal menu 😈 Zonacalda.');
+}
+
+// Rimette ogni dato sotto la sua intestazione, nell'ordine di COL. Prima fa una copia del foglio.
+function riordina_(ss, sh) {
+  const n = sh.getLastRow(), m = Math.max(sh.getLastColumn(), COL.length);
+  const testa = n ? sh.getRange(1, 1, 1, m).getValues()[0].map((h) => String(h).trim()) : [];
+  const giaInOrdine = COL.every((k, i) => testa[i] === k);
+  if (n < 2 || giaInOrdine) {
+    sh.getRange(1, 1, 1, COL.length).setValues([COL]).setFontWeight('bold');
+    formatiColonne_(sh);
+    return null;
+  }
+  const mancano = COL.filter((k) => !testa.includes(k) && !['wa_inviato', 'whatsapp', 'note'].includes(k));
+  if (mancano.length) throw new Error('Intestazioni che non riconosco nel foglio (mancano: ' + mancano.join(', ') + '). Non ho toccato niente.');
+  const copia = sh.copyTo(ss).setName(FOGLIO + ' prima del riordino ' + Utilities.formatDate(new Date(), 'Europe/Rome', 'dd-MM HH.mm'));
+  const vecchie = sh.getRange(2, 1, n - 1, m).getValues();
+  const righe = vecchie.map((r) => COL.map((k) => {
+    const i = testa.indexOf(k);
+    let v = i < 0 ? '' : r[i];
+    if (k === 'nascita' && v instanceof Date) v = Utilities.formatDate(v, 'Europe/Rome', 'yyyy-MM-dd');
+    return ['nascita', 'telefono', 'id', 'token'].includes(k) && v !== '' ? "'" + String(v).replace(/^'/, '') : v;
+  }));
+  sh.showColumns(1, sh.getMaxColumns());
+  const tutto = sh.getRange(1, 1, sh.getMaxRows(), m);
+  tutto.clearContent(); tutto.clearDataValidations(); tutto.clearFormat();
+  sh.getRange(1, 1, 1, COL.length).setValues([COL]).setFontWeight('bold');
+  formatiColonne_(sh);
+  sh.getRange(2, 1, righe.length, COL.length).setValues(righe);
+  return { n: righe.length, copia: copia.getName() };
+}
+
+function formatiColonne_(sh) {
+  ['nascita', 'telefono', 'id', 'token'].forEach((k) => sh.getRange(2, C[k] + 1, sh.getMaxRows() - 1, 1).setNumberFormat('@'));
 }
 
 function apriLista()  { PropertiesService.getScriptProperties().setProperty('LISTA', 'aperta'); SpreadsheetApp.getActive().toast('lista aperta.'); }
@@ -424,7 +460,7 @@ function coloraInviati_(sh, colonna, larghezza) {
     const area = sh.getRange(2, 1, sh.getMaxRows() - 1, larghezza);
     const altre = sh.getConditionalFormatRules().filter((r) => {
       const c = r.getBooleanCondition && r.getBooleanCondition();
-      return !(c && String(c.getCriteriaValues()[0]) === formula);   // tolgo la regola vecchia, se c'era
+      return !(c && /^=\$[A-Z]+2<>""$/.test(String(c.getCriteriaValues()[0])));   // tolgo la regola vecchia, anche se era su un'altra colonna
     });
     const regola = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied(formula)
       .setBackground(ROSSO_INVIATO).setRanges([area]).build();
