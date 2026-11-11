@@ -116,7 +116,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'sms-2';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'colori-1';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -384,6 +384,7 @@ function conteggi_(righe, staffAMano) {
 
 // ---------------------------------------------------------------- menu del foglio
 function onOpen() {
+  try { const sh = SpreadsheetApp.getActive().getSheetByName(FOGLIO); if (sh) coloraIscritti_(sh); } catch (err) { console.error('colori', err); }
   SpreadsheetApp.getUi().createMenu('😈 Zonacalda')
     .addItem('1. Prepara / riordina il foglio', 'prepara')
     .addSeparator()
@@ -428,7 +429,7 @@ function prepara() {
   sh.hideColumns(C.id + 1, 2);                           // id e token: servono allo script, non a te
   ScriptApp.getProjectTriggers().forEach((t) => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('scadiInviti').timeBased().everyMinutes(15).create();
-  coloraInviati_(sh, C.wa_inviato, COL.length);
+  coloraIscritti_(sh);
   SpreadsheetApp.getUi().alert(spostate
     ? 'Colonne riordinate (' + spostate.n + ' iscritti). Una copia di prima è nel foglio "' + spostate.copia + '": quando hai controllato puoi cancellarla.'
     : 'Foglio pronto. Ora imposta il PIN della porta dal menu 😈 Zonacalda.');
@@ -558,9 +559,30 @@ function invia_(scade, riserva) {
 function pannelloWhatsApp() {
   const sh = foglio_();
   if (sh.getRange(1, C.wa_inviato + 1).getValue() !== 'wa_inviato') sh.getRange(1, C.wa_inviato + 1).setValue('wa_inviato').setFontWeight('bold');
-  coloraInviati_(sh, C.wa_inviato, COL.length);
+  coloraIscritti_(sh);
   const html = HtmlService.createHtmlOutput(pannello_('inviti WhatsApp', 'elencoWhatsApp', 'segnaWhatsApp')).setTitle('😈 inviti WhatsApp');
   SpreadsheetApp.getUi().showSidebar(html);
+}
+
+// iscritti: verde = confermato (o entrato), blu = rifiutato, rossa = invito mandato ma senza risposta.
+// La prima regola che vale vince: chi ha risposto non resta rosso.
+const VERDE_CONFERMATO = '#b7e1cd', BLU_RIFIUTATO = '#a4c2f4';
+function coloraIscritti_(sh) {
+  try {
+    const st = String.fromCharCode(65 + C.stato), wa = String.fromCharCode(65 + C.wa_inviato);
+    const area = sh.getRange(2, 1, sh.getMaxRows() - 1, COL.length);
+    const nostra = /^=(\$[A-Z]+2<>""|\$[A-Z]+2="(confermato|entrato|rifiutato)")$/;
+    const altre = sh.getConditionalFormatRules().filter((r) => {
+      const c = r.getBooleanCondition && r.getBooleanCondition();
+      return !(c && nostra.test(String(c.getCriteriaValues()[0])));
+    });
+    const regola = (f, colore) => SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied(f).setBackground(colore).setRanges([area]).build();
+    sh.setConditionalFormatRules(altre.concat(
+      regola('=$' + st + '2="confermato"', VERDE_CONFERMATO),      // niente OR(): con il foglio in italiano vorrebbe ';'
+      regola('=$' + st + '2="entrato"', VERDE_CONFERMATO),
+      regola('=$' + st + '2="rifiutato"', BLU_RIFIUTATO),
+      regola('=$' + wa + '2<>""', ROSSO_INVIATO)));
+  } catch (err) { console.error('colore righe', err); }
 }
 
 // la riga diventa rossa quando l'invito (o il pass) è stato mandato su WhatsApp: colonna wa_inviato piena
