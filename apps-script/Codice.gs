@@ -102,7 +102,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'righe-rosse-1';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'notifiche-1';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -156,6 +156,10 @@ function iscrivi_(r) {
   riga[C.stato] = 'in lista';
   if (eta < SERATA.etaMinima) riga[C.note] = 'meno di ' + SERATA.etaMinima + ' anni (' + eta + ')';
   sh.appendRow(riga);
+  notifica_('nuova iscrizione · ' + (nome + ' ' + cognome).toLowerCase() + ', ' + eta,
+    nome + ' ' + cognome + ', ' + eta + ' anni' + (eta < SERATA.etaMinima ? ' (meno di ' + SERATA.etaMinima + ')' : '') +
+    '\ntelefono: ' + telefono + (instagram ? '\ninstagram: @' + instagram : '') +
+    '\n\nin lista: ' + (righe.length + 1));
   return { ok: true };
 }
 
@@ -321,6 +325,8 @@ function onOpen() {
     .addItem('Pannello invii WhatsApp', 'pannelloWhatsApp')
     .addSeparator()
     .addItem('Riepilogo', 'riepilogo')
+    .addItem('Notifiche iscrizioni: accendi', 'notificheAccese')
+    .addItem('Notifiche iscrizioni: spegni', 'notificheSpente')
     .addToUi();
 }
 
@@ -638,6 +644,28 @@ function togliNota_(nota, testo) {
   return String(nota || '').split(' · ').filter((s) => s && s !== testo).join(' · ');
 }
 
+// ---------------------------------------------------------------- notifiche
+// A ogni iscrizione (ospiti e staff) arriva una mail all'account che possiede lo script.
+// Si spengono e riaccendono dal menu. Usano la stessa quota giornaliera delle mail degli inviti.
+function notifica_(oggetto, testo) {
+  try {
+    if (PropertiesService.getScriptProperties().getProperty('NOTIFICHE') === 'no') return;
+    if (MailApp.getRemainingDailyQuota() < 20) return;           // lascia le ultime mail agli inviti
+    const a = Session.getEffectiveUser().getEmail();
+    if (a) MailApp.sendEmail({ to: a, subject: 'zonacalda · ' + oggetto, body: testo, name: 'zonacalda' });
+  } catch (err) { console.error('notifica', err); }
+}
+
+function notificheAccese() {
+  PropertiesService.getScriptProperties().setProperty('NOTIFICHE', 'sì');
+  SpreadsheetApp.getUi().alert('Notifiche accese: ti arriva una mail a ogni iscrizione (ospiti e staff).');
+}
+
+function notificheSpente() {
+  PropertiesService.getScriptProperties().setProperty('NOTIFICHE', 'no');
+  SpreadsheetApp.getUi().alert('Notifiche spente.');
+}
+
 function manda_(a, m) {
   MailApp.sendEmail({ to: a, subject: m.oggetto, body: m.testo, htmlBody: m.html, name: MAIL.mittente, replyTo: MAIL.rispondiA });
 }
@@ -670,6 +698,10 @@ function registraStaff_(r) {
   const token = 's' + (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 31);
   const id = 's' + Utilities.getUuid().replace(/-/g, '').slice(0, 7);
   scriviStaff_(sh, i, { telefono: "'" + telefono, token, id, registrato_il: new Date(), stato: 'registrato' }, x);
+  notifica_('staff registrato · ' + (x[CS.nome] + ' ' + x[CS.cognome]).toLowerCase(),
+    x[CS.nome] + ' ' + x[CS.cognome] + '\ntelefono: ' + telefono +
+    '\n\nstaff registrati: ' + righe.filter((y) => y[CS.token]).length + ' su ' + righe.filter((y) => y[CS.cognome]).length +
+    '\nil pass lo mandi dal pannello pass staff whatsapp.');
   return { ok: true, nome: x[CS.nome] };
 }
 
