@@ -162,7 +162,7 @@
       vibra([80, 60, 80]);
       return;
     }
-    if (p.tipo === 'backstage') {                        // pass d'oro: entra a qualunque ora, dopo il pagamento
+    if (p.tipo === 'backstage') {                        // pass d'oro: entra a qualunque ora, dopo la conferma
       const nb = leggiData(p.nascita), eb = nb ? etaAl(nb) : null;
       const chi = `<h2>${esc(maiuscole(p.nome))} ${esc(maiuscole(p.cognome))}</h2><p>${eb === null ? '' : eb + ' anni · '}backstage</p>`;
       if (p.stato === 'entrato') {
@@ -170,7 +170,7 @@
         box.innerHTML = `<p class="grosso">BACKSTAGE GIÀ ENTRATO${p.entrato ? ' ALLE ' + esc(p.entrato) : ''}</p>${chi}<p>lo stesso pass non vale due volte.</p>`;
         vibra([80, 60, 80]); return;
       }
-      if (p.stato !== 'pagato') {
+      if (p.stato !== 'confermato') {
         box.className = 'scheda no';
         box.innerHTML = `<p class="grosso">PASS BACKSTAGE NON VALIDO · ${esc(String(p.stato || '').toUpperCase())}</p>${chi}`;
         vibra([80, 60, 80]); return;

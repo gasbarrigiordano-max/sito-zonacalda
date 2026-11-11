@@ -43,7 +43,7 @@
     zcApi({ azione: 'pass', token: t }).then((r) => {
       if (r.ok) mostraPass(t, r.nome, r.cognome);
       else if (r.errore === 'rete') esito('nessuna connessione.', 'riprova tra poco.');
-      else if (r.errore === 'non_pagato') esito('pass non ancora attivo.', 'arriva appena confermiamo la prenotazione. 😈');
+      else if (r.errore === 'non_confermato') esito('pass non ancora attivo.', 'arriva appena confermiamo la prenotazione. 😈');
       else esito('pass non valido.', 'chiedi a chi ti ha mandato il link.');
     });
   }
