@@ -3,7 +3,13 @@
   const $ = (id) => document.getElementById(id);
   let pin = '';
   try { pin = sessionStorage.getItem('zc-regia') || ''; } catch (e) { /* niente */ }
-  let giro = 0, falliti = 0;
+  let giro = 0, falliti = 0, sessione = '';
+  try { sessione = sessionStorage.getItem('zc-regia-s') || ''; } catch (e) { /* niente */ }
+  const api = async (dati) => {
+    const r = await zcApi({ azione: 'regia', pin, sessione, ...dati });
+    if (r && r.sessione) { sessione = r.sessione; try { sessionStorage.setItem('zc-regia-s', sessione); } catch (e) { /* niente */ } }
+    return r;
+  };
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const maiuscole = (s) => String(s || '').toLocaleLowerCase('it').replace(/(^|[\s'-])\p{L}/gu, (c) => c.toLocaleUpperCase('it'));
   const metti = (id, v) => { $(id).textContent = v; };
@@ -31,7 +37,7 @@
   };
 
   const aggiorna = async () => {
-    const r = await zcApi({ azione: 'regia', pin });
+    const r = await api({});
     if (r.ok) { falliti = 0; mostra(r); $('stato').className = 'stato'; metti('stato', 'si aggiorna da sola ogni 15 secondi.'); }
     else if (r.errore === 'pin' || r.errore === 'bloccato') { esci(); }
     else { falliti++; $('stato').className = 'stato male'; metti('stato', 'nessuna connessione: i numeri sono quelli delle ' + $('agg').textContent + '. riprovo…'); }
@@ -53,7 +59,7 @@
     }).join('') : '<li>nessuno.</li>';
   };
   const caricaBk = async () => {
-    const r = await zcApi({ azione: 'regia', pin, op: 'backstage' });
+    const r = await api({ op: 'backstage' });
     if (r.ok) { bk = r.persone; disegnaBk(); } else if (!bk.length) $('lista-bk').innerHTML = '<li>nessuna connessione. riprova.</li>';
   };
   let timerChiedi = 0;
@@ -68,7 +74,7 @@
     }
     clearTimeout(timerChiedi); chiedi = '';
     b.disabled = true; b.textContent = 'salvo…';
-    const r = await zcApi({ azione: 'regia', pin, op: 'pagato', id, si: !p.pagato });
+    const r = await api({ op: 'pagato', id, si: !p.pagato });
     if (r.ok) { bk = r.persone; disegnaBk(); aggiorna(); }
     else { disegnaBk(); alert('non salvato: nessuna connessione. riprova.'); }
   });
@@ -91,7 +97,8 @@
   };
   const esci = () => {
     clearInterval(giro);
-    try { sessionStorage.removeItem('zc-regia'); } catch (e) { /* niente */ }
+    try { sessionStorage.removeItem('zc-regia'); sessionStorage.removeItem('zc-regia-s'); } catch (e) { /* niente */ }
+    sessione = '';
     pin = ''; $('pannello').hidden = true; $('vista-bk').hidden = true; $('accesso').hidden = false;
   };
 

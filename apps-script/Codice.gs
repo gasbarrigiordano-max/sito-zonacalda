@@ -88,6 +88,10 @@ const CB = Object.fromEntries(COL_BK.map((n, i) => [n, i]));
 function doPost(e) {
   let req;
   try { req = JSON.parse(e.postData.contents); } catch (err) { return out_({ ok: false, errore: 'richiesta' }); }
+  // le novità della porta (chi è entrato dagli altri telefoni) si leggono dalla cache: niente lucchetto, niente foglio
+  if (req.azione === 'porta' && req.op === 'novita') {
+    try { return out_(novitaPorta_(req)); } catch (err) { console.error(err); return out_({ ok: false, errore: 'interno' }); }
+  }
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
@@ -112,7 +116,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'regia-2';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'porta-2';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -220,16 +224,56 @@ function scadiSeServe_(t) {
 }
 
 // ---------------------------------------------------------------- porta
-function porta_(r) {
-  const props = PropertiesService.getScriptProperties();
+// Accesso con PIN e poi con una chiave di sessione: chi è già dentro non viene bloccato
+// se qualcun altro sbaglia il PIN. Il blocco (10 errori → 10 minuti) vale solo per chi prova a entrare.
+function accesso_(r, chiave, pinGiusto) {
   const cache = CacheService.getScriptCache();
-  const errori = Number(cache.get('pin_errori') || 0);
-  if (errori >= 10) return { ok: false, errore: 'bloccato' };          // 10 PIN sbagliati: stop per 10 minuti
-  if (!props.getProperty('PIN') || String(r.pin) !== props.getProperty('PIN')) {
-    cache.put('pin_errori', String(errori + 1), 600);
+  const sess = String(r.sessione || '');
+  if (pinGiusto && /^[a-f0-9]{32}$/.test(sess) && cache.get(chiave + '_s_' + sess) === pinGiusto) {
+    cache.put(chiave + '_s_' + sess, pinGiusto, 21600);              // si rinnova a ogni uso (massimo 6 ore)
+    return { ok: true };
+  }
+  const errori = Number(cache.get(chiave + '_errori') || 0);
+  if (errori >= 10) return { ok: false, errore: 'bloccato' };
+  if (!pinGiusto || String(r.pin) !== pinGiusto) {
+    cache.put(chiave + '_errori', String(errori + 1), 600);
     return { ok: false, errore: 'pin' };
   }
+  const nuova = Utilities.getUuid().replace(/-/g, '');
+  cache.put(chiave + '_s_' + nuova, pinGiusto, 21600);
+  return { ok: true, sessione: nuova };
+}
 
+function porta_(r) {
+  const a = accesso_(r, 'porta', PropertiesService.getScriptProperties().getProperty('PIN'));
+  if (!a.ok) return a;
+  const out = portaLavoro_(r);
+  if (a.sessione) out.sessione = a.sessione;
+  return out;
+}
+
+// ultimi ingressi (al massimo 600) in cache, per tenere allineati i telefoni della porta
+function segnaNovita_(id) {
+  try {
+    const cache = CacheService.getScriptCache();
+    const v = JSON.parse(cache.get('porta_novita') || '[]');
+    v.push([String(id), Utilities.formatDate(new Date(), 'Europe/Rome', 'HH:mm'), Date.now()]);
+    cache.put('porta_novita', JSON.stringify(v.slice(-600)), 21600);
+  } catch (err) { console.error('novita', err); }
+}
+
+function novitaPorta_(r) {
+  const a = accesso_(r, 'porta', PropertiesService.getScriptProperties().getProperty('PIN'));
+  if (!a.ok) return a;
+  const da = Number(r.da) || 0;
+  const v = JSON.parse(CacheService.getScriptCache().get('porta_novita') || '[]');
+  const out = { ok: true, adesso: Date.now(), entrati: v.filter((x) => x[2] > da) };
+  if (a.sessione) out.sessione = a.sessione;
+  return out;
+}
+
+function portaLavoro_(r) {
+  const props = PropertiesService.getScriptProperties();
   const sh = foglio_();
   const righe = dati_(sh);
   const staff = Number(props.getProperty('STAFF_DENTRO') || 0);
@@ -273,6 +317,7 @@ function porta_(r) {
     const c = conteggi_(righe, staff);
     if (c.dentro >= SERATA.capienza) return { ok: false, errore: 'pieno', persona: schedaBk_(x), conteggi: c };
     scriviBk_(sh3, i, { stato: 'entrato', entrato_il: new Date() }, x);
+    segnaNovita_(x[CB.id]);
     return { ok: true, persona: schedaBk_(x), conteggi: conteggi_(righe, staff) };
   }
   if (r.op === 'entra' && /^s/.test(String(r.id))) {           // staff con il pass
@@ -286,6 +331,7 @@ function porta_(r) {
     const c = conteggi_(righe, staff);
     if (c.dentro >= SERATA.capienza) return { ok: false, errore: 'pieno', persona: schedaStaff_(x), conteggi: c };
     scriviStaff_(sh2, i, { stato: 'entrato', entrato_il: new Date() }, x);
+    segnaNovita_(x[CS.id]);
     return { ok: true, persona: schedaStaff_(x), conteggi: conteggi_(righe, staff) };
   }
   if (r.op === 'entra') {
@@ -298,6 +344,7 @@ function porta_(r) {
     if (x[C.stato] !== 'confermato' && !r.forza) return { ok: false, errore: 'non_confermato', persona: scheda_(x), conteggi: c };
     const t = { sh, n: i + 2, riga: x };
     scrivi_(t, { stato: 'entrato', entrato_il: new Date(), note: r.forza ? aggiungiNota_(x[C.note], 'fatto entrare senza conferma') : x[C.note] });
+    segnaNovita_(x[C.id]);
     return { ok: true, persona: scheda_(x), conteggi: conteggi_(righe, staff) };
   }
   return { ok: true, conteggi: conteggi_(righe, staff) };
@@ -1061,13 +1108,14 @@ function onEdit(e) { confermaBk_(e); }
 // Pagina /regia: solo l'organizzatore, con un PIN suo. Solo lettura: numeri della serata e ultimi ingressi.
 function regia_(r) {
   const props = PropertiesService.getScriptProperties();
-  const cache = CacheService.getScriptCache();
-  const errori = Number(cache.get('regia_errori') || 0);
-  if (errori >= 10) return { ok: false, errore: 'bloccato' };
-  if (!props.getProperty('PIN_REGIA') || String(r.pin) !== props.getProperty('PIN_REGIA')) {
-    cache.put('regia_errori', String(errori + 1), 600);
-    return { ok: false, errore: 'pin' };
-  }
+  const a = accesso_(r, 'regia', props.getProperty('PIN_REGIA'));
+  if (!a.ok) return a;
+  const out = regiaLavoro_(r, props);
+  if (a.sessione) out.sessione = a.sessione;
+  return out;
+}
+
+function regiaLavoro_(r, props) {
   if (r.op === 'backstage') return { ok: true, persone: elencoBkRegia_() };
   if (r.op === 'pagato') {
     const sh = foglioBk_();

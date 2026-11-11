@@ -8,7 +8,18 @@
   try { pin = sessionStorage.getItem('zc-pin') || ''; } catch (e) { /* niente */ }
   let stream = null, scansione = false, ultimo = '', vistoQr = 0, wake = null;
 
-  const api = (dati) => zcApi({ azione: 'porta', pin, ...dati });
+  // memoria del telefono: resiste a ricarica, schermo bloccato, batteria che si spegne
+  const mem = {
+    leggi: (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } },
+    scrivi: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* memoria piena o negata */ } },
+    togli: (k) => { try { localStorage.removeItem(k); } catch (e) { /* niente */ } },
+  };
+  let sessione = (mem.leggi('zc-porta-sessione') || {}).s || '';
+  const api = async (dati) => {
+    const r = await zcApi({ azione: 'porta', pin, sessione, ...dati });
+    if (r && r.sessione) { sessione = r.sessione; mem.scrivi('zc-porta-sessione', { s: sessione }); }
+    return r;
+  };
   const vibra = (p) => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) { /* niente */ } };
   const attendi = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -21,9 +32,22 @@
   let staffQui = 0;                // staff +/- non ancora salvato
   const coda = [];                 // ingressi da salvare: { id, forza, staff }
   let avvisoCoda = '';
+  // quello che non è ancora sul foglio resta nella memoria del telefono finché non è salvato
+  const ricorda = () => mem.scrivi('zc-porta-coda', { coda, staffQui, entrati: [...entratiQui] });
+  {
+    const m = mem.leggi('zc-porta-coda');
+    if (m && Array.isArray(m.coda)) {
+      coda.push(...m.coda); staffQui = Number(m.staffQui) || 0;
+      (m.entrati || []).forEach(([id, ora]) => entratiQui.set(id, ora));
+    }
+  }
 
   const ora = () => new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
 
+  const impronta = async (t) => {               // il PIN non si salva: solo la sua impronta, per riconoscerlo senza rete
+    try { const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('zonacalda|' + t)); return [...new Uint8Array(h)].map((b) => b.toString(16).padStart(2, '0')).join(''); }
+    catch (e) { return ''; }
+  };
   const caricaElenco = (persone) => {
     perToken.clear(); perId.clear();
     for (const p of persone) {
@@ -68,13 +92,13 @@
       if (staffQui) {
         const delta = staffQui > 0 ? 1 : -1;
         const r = await api({ op: 'staff', delta });
-        if (r.ok) { staffQui -= delta; conteggi(r.conteggi); attesaRete = 1000; continue; }
+        if (r.ok) { staffQui -= delta; ricorda(); conteggi(r.conteggi); attesaRete = 1000; continue; }
       } else {
         const { id, forza } = coda[0];
         const r = await api({ op: 'entra', id, forza });
         if (r.errore === 'pin' || r.errore === 'bloccato') { pinBloccato = true; avvisoCoda = '⚠︎ PIN cambiato: esci e rientra'; }
         if (r.ok || r.errore === 'gia_entrato' || r.errore === 'pieno' || r.errore === 'persona' || r.errore === 'non_confermato') {
-          coda.shift();
+          coda.shift(); ricorda();
           if (r.errore === 'gia_entrato') avvisoCoda = `⚠︎ ${r.persona ? r.persona.nome : ''} risultava già entrato`;
           else if (r.errore === 'pieno') avvisoCoda = '⚠︎ il foglio dice sala piena';
           else avvisoCoda = '';
@@ -96,14 +120,40 @@
     const r = await api({ op: 'elenco' });
     if (!r.ok) { if ((r.errore === 'pin' || r.errore === 'bloccato') && !$('lavoro').hidden) pinBloccato = true; return r; }
     pinBloccato = false;                             // PIN accettato: si riprende a salvare
-    if (Array.isArray(r.persone)) caricaElenco(r.persone);   // script vecchio: niente elenco, si cerca online
+    if (Array.isArray(r.persone)) {
+      caricaElenco(r.persone);
+      impronta(pin).then((h) => mem.scrivi('zc-porta-elenco', { h, persone: r.persone, conteggi: r.conteggi, quando: Date.now() }));
+    }
     conteggi(r.conteggi);
     return r;
   };
 
+  // ------------------------------------------------ chi è entrato dagli altri telefoni (ogni 3 secondi, richiesta leggera)
+  let novitaDa = 0;
+  const novita = async () => {
+    if (pinBloccato) return setTimeout(novita, 3000);
+    const r = await api({ op: 'novita', da: novitaDa });
+    if (r.ok && Array.isArray(r.entrati)) {
+      for (const [id, ora, t] of r.entrati) {
+        const p = perId.get(id);
+        if (p && p.stato !== 'entrato') { p.stato = 'entrato'; p.entrato = ora; }
+        novitaDa = Math.max(novitaDa, t);
+      }
+    }
+    setTimeout(novita, r.ok ? 3000 : 5000);
+  };
+
   // ------------------------------------------------ accesso
   const entra = async () => {
-    const r = await aggiorna();
+    let r = await aggiorna();
+    if (!r.ok && r.errore === 'rete') {              // niente rete: si parte con l'ultimo elenco salvato su questo telefono
+      const m = mem.leggi('zc-porta-elenco');
+      if (m && m.h && m.h === await impronta(pin) && Date.now() - m.quando < 24 * 3600e3) {
+        caricaElenco(m.persone); conteggi(m.conteggi);
+        avvisoCoda = '⚠︎ senza rete: elenco delle ' + new Date(m.quando).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+        r = { ok: true };
+      }
+    }
     if (!r.ok) {
       $('err-pin').textContent = r.errore === 'bloccato' ? 'troppi tentativi. riprova tra 10 minuti.'
         : r.errore === 'pin' ? 'PIN sbagliato.' : r.errore === 'non_attivo' ? 'sistema non ancora collegato.' : 'nessuna connessione. riprova.';
@@ -113,6 +163,8 @@
     $('accesso').hidden = true; $('lavoro').hidden = false;
     try { wake = await navigator.wakeLock.request('screen'); } catch (e) { /* non supportato */ }
     setInterval(() => { if (!salvando) aggiorna(); }, 20000);
+    novita();
+    if (coda.length || staffQui) { mostraConteggi(); salva(); }   // ingressi rimasti da prima della ricarica
     return true;
   };
   $('f-pin').addEventListener('submit', async (e) => {
@@ -124,6 +176,8 @@
   $('esci').addEventListener('click', () => {
     if (coda.length && !confirm(`ci sono ${coda.length} ingressi non ancora salvati. uscire lo stesso?`)) return;
     try { sessionStorage.removeItem('zc-pin'); } catch (e) { /* niente */ }
+    mem.togli('zc-porta-sessione'); mem.togli('zc-porta-elenco');
+    if (!coda.length && !staffQui) mem.togli('zc-porta-coda');
     location.reload();
   });
   addEventListener('beforeunload', (e) => { if (coda.length) { e.preventDefault(); e.returnValue = ''; } });
@@ -249,6 +303,7 @@
     entratiQui.set(id, quando);
     p.stato = 'entrato'; p.entrato = quando;
     coda.push({ id, forza: !!b.dataset.forza, staff: p.tipo === 'staff' });
+    ricorda();
     mostraConteggi();
     salva();
     const box = $('scheda');
@@ -256,7 +311,7 @@
     box.innerHTML = `<p class="grosso">DENTRO ✓</p><h2>${esc(maiuscole(p.nome))} ${esc(maiuscole(p.cognome))}</h2>`;
     vibra(120);
     clearTimeout(chiudi);
-    chiudi = setTimeout(() => { box.hidden = true; }, 900);
+    chiudi = setTimeout(() => { box.hidden = true; }, 350);        // via subito: pronti per il prossimo QR
     if (!$('cerca').hidden) { $('q').value = ''; $('risultati').innerHTML = ''; $('q').focus(); }
   });
 
@@ -374,7 +429,7 @@
   });
 
   // ------------------------------------------------ staff (subito, salvato in sottofondo)
-  const staff = (delta) => () => { staffQui += delta; mostraConteggi(); salva(); };
+  const staff = (delta) => () => { staffQui += delta; ricorda(); mostraConteggi(); salva(); };
   $('staff-piu').addEventListener('click', staff(1));
   $('staff-meno').addEventListener('click', staff(-1));
 })();
