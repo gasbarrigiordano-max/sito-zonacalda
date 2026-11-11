@@ -180,9 +180,11 @@
     g.font = font(130);
     neon(g, 'BACKSTAGE', W / 2, 507, 'rgba(255,255,255,.45)', [], 130 * .08);   // riflesso sotto, come inciso
     neon(g, 'BACKSTAGE', W / 2, 505, NERO, [], 130 * .08);
-    g.font = font(44); neon(g, nome + ', sei dentro.', W / 2, 628, NERO, []);
+    let fn = 58; g.font = font(fn);
+    while (g.measureText(nome + ', sei dentro.').width > CW - 100 && fn > 36) g.font = font(--fn);   // nomi lunghi: un po' più piccolo
+    neon(g, nome + ', sei dentro.', W / 2, 660, NERO, []);
     // QR su avorio, bordo nero
-    const lato = 400, pad = 28, L = lato + pad * 2, qx = (W - L) / 2, qy = 690;
+    const lato = 420, pad = 28, L = lato + pad * 2, qx = (W - L) / 2, qy = 790;
     tondo(g, qx - 5, qy - 5, L + 10, L + 10, 26); g.fillStyle = NERO; g.fill();
     tondo(g, qx, qy, L, L, 22); g.fillStyle = '#fff8e0'; g.fill();
     const q = qrcode(0, 'M'); q.addData(token); q.make();
