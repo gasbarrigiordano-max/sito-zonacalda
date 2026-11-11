@@ -116,7 +116,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'sms-1';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'sms-2';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -1212,15 +1212,15 @@ function elencoBkRegia_() {
 function testoSms_(tipo, x) {
   if (tipo === 'invito') {
     const scade = x[C.scade_il] ? quando_(new Date(x[C.scade_il])) : quando_(new Date(SERATA.scadenzaInviti));
-    return String(x[C.nome]).toLowerCase() + ', sei dentro. zonacalda - sat 14.11 - 23:30.\naccetta entro ' + scade + ': ' +
-      SERATA.sito + 'invito/?t=' + x[C.token] + '\ninvito personale, porta un documento. 23+.';
+    return String(x[C.nome]).toLowerCase() + ', sei dentro.\nzonacalda - sat 14.11 - 23:30.\n\naccetta entro ' + scade + '\n\n' +
+      SERATA.sito + 'invito/?t=' + x[C.token] + '\n\ninvito personale, porta un documento. 23+.';
   }
   if (tipo === 'backstage') {
-    return String(x[CB.nome]).toLowerCase() + ', sei nel backstage. zonacalda - sat 14.11 - dalle 23:30.\nil tuo pass d\'oro: ' +
-      SERATA.sito + 'backstage/?t=' + x[CB.token] + '\nmostralo all\'ingresso: entri senza invito. vale solo per te, porta un documento.';
+    return String(x[CB.nome]).toLowerCase() + ', sei nel backstage.\nzonacalda - sat 14.11 - dalle 23:30.\n\nil tuo pass d\'oro:\n\n' +
+      SERATA.sito + 'backstage/?t=' + x[CB.token] + '\n\nmostralo all\'ingresso: entri senza invito. vale solo per te, porta un documento.';
   }
-  return String(x[CS.nome]).toLowerCase() + ', sei dello staff. sat 14.11 - palazzo podestà.\nil tuo pass: ' +
-    SERATA.sito + 'staff/?t=' + x[CS.token] + '\nmostralo all\'ingresso. vale solo per te.';
+  return String(x[CS.nome]).toLowerCase() + ', sei dello staff.\nzonacalda - sat 14.11 - palazzo podestà.\n\nil tuo pass:\n\n' +
+    SERATA.sito + 'staff/?t=' + x[CS.token] + '\n\nmostralo all\'ingresso. vale solo per te.';
 }
 
 function elencoInvii_() {
