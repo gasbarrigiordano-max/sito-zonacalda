@@ -112,7 +112,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'regia-1';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'regia-2';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -1004,6 +1004,9 @@ function preparaBackstage() {
   riordinaBk_(sh);                                           // se le colonne sono di una versione vecchia, i dati vanno al loro posto
   sh.setFrozenRows(1);
   ['nascita', 'telefono', 'id', 'token'].forEach((k) => sh.getRange(2, CB[k] + 1, sh.getMaxRows() - 1, 1).setNumberFormat('@'));
+  ['pagato', 'creato', 'confermato_il', 'entrato_il', 'wa_inviato'].forEach((k) => sh.getRange(2, CB[k] + 1, sh.getMaxRows() - 1, 1).setNumberFormat('dd/mm hh:mm'));
+  ['note', 'stato'].forEach((k) => sh.getRange(2, CB[k] + 1, sh.getMaxRows() - 1, 1).setNumberFormat('General'));
+  sh.getRange(2, 1, sh.getMaxRows() - 1, COL_BK.length).clearDataValidations();     // le tendine vecchie potevano stare su un'altra colonna
   sh.getRange(2, CB.stato + 1, sh.getMaxRows() - 1, 1)
     .setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(STATI_BK, true).build());
   sh.hideColumns(CB.id + 1, 2);
