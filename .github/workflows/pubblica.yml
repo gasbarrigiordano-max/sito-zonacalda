@@ -28,7 +28,7 @@ jobs:
         run: |
           mkdir _site
           cp index.html 404.html style.css pagine.css main.js _site/
-          cp -r assets js vendor lista invito porta privacy staff _site/
+          cp -r assets js vendor lista invito porta privacy staff backstage _site/
           if [ -f CNAME ]; then cp CNAME _site/; fi
       - uses: actions/upload-pages-artifact@v3
         with:

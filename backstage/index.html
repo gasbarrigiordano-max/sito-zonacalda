@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zonacalda — backstage</title>
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#050505">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="../assets/zonacalda-diavolo-linee.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<meta property="og:title" content="Zonacalda — backstage">
+<meta property="og:description" content="dietro la console. posti contati. 😈">
+<meta property="og:image" content="https://zonacaldaclubuse.it/assets/og-zonacalda-2.png">
+<link rel="stylesheet" href="../style.css?v=20261109">
+<link rel="stylesheet" href="../pagine.css?v=20261109">
+<style>
+  .testa-2righe { padding-top: calc(.75rem + env(safe-area-inset-top)); }
+  .testa-2righe a { width: min(78vw, 360px); margin: 0 auto -2.2rem; }
+  .pass { text-align: center; }
+  .oro { background: linear-gradient(135deg,#a9781c,#e6bd55 30%,#fff0b8 45%,#d9a93a 60%,#fff3c8 85%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .pass .etichetta { display: inline-block; color: #1a1206; background: linear-gradient(135deg,#c99a2e,#fff0b8 40%,#d9a93a 70%,#e6bd55); border-radius: 999px; padding: .2rem .9rem; font-weight: 700;
+                     letter-spacing: .12em; font-size: .85rem; box-shadow: 0 0 16px rgba(240, 190, 80, .5); }
+  .pass h2 { font-size: 1.6rem; margin: .75rem 0 0; text-transform: none; }
+  .qr { background: #fff; padding: 14px; border-radius: 14px; width: min(78vw, 280px); margin: 1.25rem auto .75rem;
+        box-shadow: 0 0 0 3px #d9a93a, 0 0 28px rgba(240, 190, 80, .5); }
+  .qr svg { display: block; width: 100%; height: auto; }
+  .regole { color: var(--tenue); font-size: .9rem; line-height: 1.5; margin: 1rem 0 0; }
+  .foto-pass { display: block; width: min(88vw, 380px); height: auto; margin: 1.25rem auto .5rem; border-radius: 14px;
+               box-shadow: 0 0 0 1px #2a2626, 0 10px 40px rgba(0, 0, 0, .6); -webkit-touch-callout: default; }
+  .tieni { color: var(--tenue); font-size: .85rem; text-align: center; margin: 0 0 1rem; }
+</style>
+<script src="../js/api.js" defer></script>
+<script src="../vendor/qrcode.js" defer></script>
+<script src="../js/pass.js" defer></script>
+<script src="backstage.js" defer></script>
+<script>if (!/^(localhost|127\.)/.test(location.hostname)) addEventListener('load', function () { var r = (document.referrer || '').split(/[?#]/)[0]; new Image().src = 'https://zonacalda.goatcounter.com/count?p=' + encodeURIComponent(location.pathname) + '&r=' + encodeURIComponent(r) + '&s=' + screen.width + '&rnd=' + Math.random(); });</script>
+</head>
+<body>
+<header class="testa testa-2righe"><a href="../"><img src="../assets/zonacalda-logo-2righe-sito.svg" width="1090" height="770" alt="ZONA CALDA, club use: insegna neon rossa"></a></header>
+
+<main class="pagina">
+  <section id="s-modulo">
+    <h1 class="oro">backstage.</h1>
+    <p class="sotto">dietro la console. posti contati.<br>prenota qui: ti scriviamo noi su whatsapp per confermare.</p>
+
+    <form id="modulo" novalidate>
+      <label>nome
+        <input type="text" name="nome" autocomplete="given-name" autocapitalize="words" maxlength="60" required>
+      </label>
+      <label>cognome
+        <input type="text" name="cognome" autocomplete="family-name" autocapitalize="words" maxlength="60" required>
+      </label>
+      <label>data di nascita <span class="facoltativo">(verrà richiesto il documento all'entrata)</span>
+        <input type="date" name="nascita" autocomplete="bday" min="1926-01-01" max="2010-12-31" required>
+      </label>
+      <label>telefono <span class="facoltativo">(whatsapp)</span>
+        <input type="tel" name="telefono" autocomplete="tel" inputmode="tel" placeholder="+39 …" maxlength="20" required>
+      </label>
+      <div class="trappola" aria-hidden="true">
+        <label>sito <input type="text" name="sito" tabindex="-1" autocomplete="off"></label>
+      </div>
+      <label class="spunta"><input type="checkbox" name="informativa" required>
+        <span>ho letto l'<a href="../privacy/" target="_blank" rel="noopener">informativa privacy</a> e ho almeno 23 anni.</span>
+      </label>
+      <p class="errore" id="errore" role="alert"></p>
+      <button class="bottone" type="submit" id="invia">prenota.</button>
+    </form>
+  </section>
+
+  <section class="pass" id="s-pass" hidden aria-live="polite">
+    <img class="foto-pass" id="foto" alt="il tuo pass backstage con il QR" hidden>
+    <div id="semplice">
+      <span class="etichetta">BACKSTAGE</span>
+      <h2 id="chi"></h2>
+      <div class="qr" id="qr" role="img" aria-label="codice QR del pass backstage"></div>
+    </div>
+    <p class="tieni" id="tieni" hidden>tieni premuto sulla foto per salvarla.</p>
+    <button class="bottone" id="salva" hidden>salva il pass.</button>
+    <button class="bottone secondario" id="copia" hidden style="margin-top:.6rem">copia foto.</button>
+    <p class="regole">mostralo all'ingresso. vale solo per te.</p>
+  </section>
+
+  <div class="esito" id="esito" hidden aria-live="polite">
+    <p class="grande" id="esito-titolo"></p>
+    <p id="esito-testo"></p>
+  </div>
+
+  <p class="nota"><a href="../privacy/">privacy.</a></p>
+</main>
+</body>
+</html>

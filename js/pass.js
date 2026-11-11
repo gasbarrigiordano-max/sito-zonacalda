@@ -1,6 +1,7 @@
 // Zonacalda — pass come foto (PNG), disegnato sul telefono.
 //   ospiti: formato storia 1080×1920      staff: biglietto 1080×1350 con la scritta STAFF
-// zcPass({ token, nome, staff, base }) → Promise<Blob>
+//   backstage: biglietto in lamina d'oro 1080×1920
+// zcPass({ token, nome, staff, backstage, base }) → Promise<Blob>
 (() => {
   const ROSSO = '255,20,36';
   const TESTO_OSPITI = [
@@ -19,6 +20,16 @@
     'palazzo podestà · via dei prati 4, civitavecchia',
     '',
     'pass personale, valido per una persona.',
+  ];
+
+  const TESTO_BACKSTAGE = [
+    'sabato *14 novembre* · dalle *23:30*',
+    'palazzo podestà · via dei prati 4, civitavecchia',
+    '',
+    'accesso al *backstage*, dietro la console.',
+    '',
+    'pass personale, valido per una persona.',
+    'porta un documento d\'identità. 23+.',
   ];
 
   let pronto = null;
@@ -139,13 +150,76 @@
     paragrafo(g, TESTO_STAFF, W / 2, 1103, 23, 33.35, '#d9d3d3');
   };
 
-  window.zcPass = async ({ token, nome, staff: eStaff, base = '../' }) => {
+  // biglietto in lamina d'oro: logo e scritte incisi in nero
+  const NERO = '#1a1206';
+  const lamina = (g, x0, y0, x1, y1) => {
+    const gr = g.createLinearGradient(x0, y0, x1, y1);
+    [[0, '#7a5410'], [.18, '#c99a2e'], [.32, '#fff0b8'], [.46, '#d9a93a'], [.6, '#8a5e12'], [.76, '#e6bd55'], [.88, '#fff3c8'], [1, '#a9781c']]
+      .forEach(([o, c]) => gr.addColorStop(o, c));
+    return gr;
+  };
+  const backstage = (g, { logo }, token, nome) => {
+    const W = 1080, H = 1920, X = 70, Y = 90, CW = 940, CH = 1740;
+    g.fillStyle = '#0a0805'; g.fillRect(0, 0, W, H);
+    g.save();
+    tondo(g, X, Y, CW, CH, 34); g.shadowColor = 'rgba(0,0,0,.8)'; g.shadowBlur = 80; g.shadowOffsetY = 30;
+    g.fillStyle = lamina(g, X, Y, X + CW, Y + CH); g.fill();
+    g.restore();
+    g.save(); tondo(g, X, Y, CW, CH, 34); g.clip();
+    g.fillStyle = 'rgba(255,255,255,.05)';                     // spazzolatura del metallo
+    for (let x = X; x < X + CW; x += 5) g.fillRect(x, Y, 2, CH);
+    g.restore();
+    g.save(); g.lineWidth = 3; g.strokeStyle = 'rgba(255,255,255,.35)'; tondo(g, X + 1.5, Y + 1.5, CW - 3, CH - 3, 33); g.stroke(); g.restore();
+    if (logo) {                                                // il logo, inciso in nero
+      const lc = document.createElement('canvas'); lc.width = 400; lc.height = 282;
+      const lg = lc.getContext('2d'); lg.drawImage(logo, 0, 0, 400, 282);
+      lg.globalCompositeOperation = 'source-in'; lg.fillStyle = NERO; lg.fillRect(0, 0, 400, 282);
+      g.drawImage(lc, 340, 140);
+    }
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = font(130);
+    neon(g, 'BACKSTAGE', W / 2, 507, 'rgba(255,255,255,.45)', [], 130 * .08);   // riflesso sotto, come inciso
+    neon(g, 'BACKSTAGE', W / 2, 505, NERO, [], 130 * .08);
+    g.font = font(44); neon(g, nome + ', sei dentro.', W / 2, 628, NERO, []);
+    // QR su avorio, bordo nero
+    const lato = 400, pad = 28, L = lato + pad * 2, qx = (W - L) / 2, qy = 690;
+    tondo(g, qx - 5, qy - 5, L + 10, L + 10, 26); g.fillStyle = NERO; g.fill();
+    tondo(g, qx, qy, L, L, 22); g.fillStyle = '#fff8e0'; g.fill();
+    const q = qrcode(0, 'M'); q.addData(token); q.make();
+    const n = q.getModuleCount(), cella = lato / n;
+    g.fillStyle = '#000';
+    for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {
+      if (q.isDark(r, k)) g.fillRect(qx + pad + k * cella, qy + pad + r * cella, Math.ceil(cella), Math.ceil(cella));
+    }
+    // talloncino: due mezzelune e la riga da strappare
+    g.fillStyle = '#0a0805';
+    for (const cx of [X, X + CW]) { g.beginPath(); g.arc(cx, 1415, 35, 0, Math.PI * 2); g.fill(); }
+    g.save(); g.setLineDash([14, 10]); g.lineWidth = 5; g.strokeStyle = 'rgba(26,18,6,.45)';
+    g.beginPath(); g.moveTo(X + 60, 1415.5); g.lineTo(X + CW - 60, 1415.5); g.stroke(); g.restore();
+    // testo: le *parole* sottolineate
+    g.font = font(30); g.textAlign = 'left';
+    TESTO_BACKSTAGE.forEach((riga, i) => {
+      const pezzi = riga.split('*').map((t, k) => ({ t, b: k % 2 === 1 }));
+      const w = pezzi.reduce((s, p) => s + g.measureText(p.t).width, 0);
+      let x = W / 2 - w / 2;
+      const y = 1478 + 42.6 * (i + .5);
+      for (const p of pezzi) {
+        g.fillStyle = NERO; g.fillText(p.t, x, y);
+        const pw = g.measureText(p.t).width;
+        if (p.b) g.fillRect(x, y + 17, pw, 2);
+        x += pw;
+      }
+    });
+    g.textAlign = 'center';
+  };
+
+  window.zcPass = async ({ token, nome, staff: eStaff, backstage: eBk, base = '../' }) => {
     const risorse = await carica(base);
     const c = document.createElement('canvas');
     c.width = 1080; c.height = eStaff ? 1350 : 1920;
     const g = c.getContext('2d');
     const chi = String(nome || '').toLocaleLowerCase('it').trim();
-    (eStaff ? staff : ospite)(g, risorse, token, chi);
+    (eBk ? backstage : eStaff ? staff : ospite)(g, risorse, token, chi);
     return new Promise((ok, no) => c.toBlob((b) => (b ? ok(b) : no(new Error('pass'))), 'image/png'));
   };
 

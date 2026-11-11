@@ -77,6 +77,13 @@ const COL_STAFF = ['nome', 'cognome', 'stato', 'telefono', 'registrato_il', 'ent
 const STATI_STAFF = ['abilitato', 'registrato', 'entrato', 'escluso'];
 const CS = Object.fromEntries(COL_STAFF.map((n, i) => [n, i]));
 
+// backstage: si prenota dalla pagina /backstage; l'organizzatore incassa a parte, mette "pagato" e manda il pass d'oro
+const FOGLIO_BACKSTAGE = 'backstage';
+const POSTI_BACKSTAGE = 50;
+const COL_BK = ['nome', 'cognome', 'nascita', 'stato', 'telefono', 'note', 'creato', 'pagato_il', 'entrato_il', 'wa_inviato', 'id', 'token'];
+const STATI_BK = ['richiesta', 'pagato', 'entrato', 'annullato'];
+const CB = Object.fromEntries(COL_BK.map((n, i) => [n, i]));
+
 // ---------------------------------------------------------------- web app
 function doPost(e) {
   let req;
@@ -92,6 +99,7 @@ function doPost(e) {
       case 'porta':    return out_(porta_(req));
       case 'lista':    return out_({ ok: true, aperta: listaAperta_() });
       case 'staff':    return out_(registraStaff_(req));
+      case 'backstage': return out_(prenotaBackstage_(req));
       case 'pass':     return out_(leggiPass_(req.token));
       default:         return out_({ ok: false, errore: 'azione' });
     }
@@ -103,7 +111,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'colonne-1';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'backstage-1';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -243,13 +251,28 @@ function porta_(r) {
   if (r.op === 'elenco') {
     // tutti gli invitati, per cercarli sul telefono della porta senza aspettare il foglio
     const persone = righe.filter((x) => x[C.token]).map((x) => Object.assign(scheda_(x), { token: String(x[C.token]) }))
-      .concat(datiStaff_().filter((x) => x[CS.token]).map((x) => Object.assign(schedaStaff_(x), { token: String(x[CS.token]) })));
+      .concat(datiStaff_().filter((x) => x[CS.token]).map((x) => Object.assign(schedaStaff_(x), { token: String(x[CS.token]) })))
+      .concat(datiBk_().filter((x) => x[CB.token] && x[CB.stato] !== 'richiesta').map((x) => Object.assign(schedaBk_(x), { token: String(x[CB.token]) })));
     return { ok: true, persone, conteggi: conteggi_(righe, staff) };
   }
   if (r.op === 'qr') {
     const x = righe.find((y) => y[C.token] && String(y[C.token]) === String(r.token || ''));
     const s = x ? null : datiStaff_().find((y) => y[CS.token] && String(y[CS.token]) === String(r.token || ''));
-    return { ok: true, persona: x ? scheda_(x) : s ? schedaStaff_(s) : null, conteggi: conteggi_(righe, staff) };
+    const b = x || s ? null : datiBk_().find((y) => y[CB.token] && String(y[CB.token]) === String(r.token || ''));
+    return { ok: true, persona: x ? scheda_(x) : s ? schedaStaff_(s) : b ? schedaBk_(b) : null, conteggi: conteggi_(righe, staff) };
+  }
+  if (r.op === 'entra' && /^b/.test(String(r.id))) {           // backstage con il pass d'oro
+    const sh3 = foglioBk_();
+    const bb = sh3 ? datiBk_() : [];
+    const i = bb.findIndex((y) => String(y[CB.id]) === String(r.id));
+    if (i < 0) return { ok: false, errore: 'persona' };
+    const x = bb[i];
+    if (x[CB.stato] === 'entrato') return { ok: false, errore: 'gia_entrato', persona: schedaBk_(x), conteggi: conteggi_(righe, staff) };
+    if (x[CB.stato] !== 'pagato') return { ok: false, errore: 'persona', conteggi: conteggi_(righe, staff) };
+    const c = conteggi_(righe, staff);
+    if (c.dentro >= SERATA.capienza) return { ok: false, errore: 'pieno', persona: schedaBk_(x), conteggi: c };
+    scriviBk_(sh3, i, { stato: 'entrato', entrato_il: new Date() }, x);
+    return { ok: true, persona: schedaBk_(x), conteggi: conteggi_(righe, staff) };
   }
   if (r.op === 'entra' && /^s/.test(String(r.id))) {           // staff con il pass
     const sh2 = foglioStaff_();
@@ -296,9 +319,17 @@ function schedaStaff_(x) {
   };
 }
 
+function schedaBk_(x) {
+  return {
+    id: String(x[CB.id]), nome: x[CB.nome], cognome: x[CB.cognome], tipo: 'backstage', stato: x[CB.stato],
+    nascita: dataISO_(x[CB.nascita]), eta: eta_(dataISO_(x[CB.nascita]), SERATA.dataISO),
+    entrato: x[CB.entrato_il] ? Utilities.formatDate(new Date(x[CB.entrato_il]), 'Europe/Rome', 'HH:mm') : '',
+  };
+}
+
 function conteggi_(righe, staffAMano) {
   const n = (s) => righe.filter((x) => x[C.stato] === s).length;
-  const ospiti = n('entrato');
+  const ospiti = n('entrato') + datiBk_().filter((x) => x[CB.stato] === 'entrato').length;   // il backstage conta come ospite
   const staff = staffAMano + datiStaff_().filter((x) => x[CS.stato] === 'entrato').length;   // + chi è entrato col pass
   return { ospiti, staff, dentro: ospiti + staff, capienza: SERATA.capienza, attesi: n('confermato'), garantitoFino: SERATA.garantitoFino };
 }
@@ -322,6 +353,9 @@ function onOpen() {
     .addItem('Azzera contatore staff', 'azzeraStaff')
     .addItem('Prepara il foglio staff', 'preparaStaff')
     .addItem('Pannello pass staff WhatsApp', 'pannelloStaff')
+    .addSeparator()
+    .addItem('Prepara il foglio backstage', 'preparaBackstage')
+    .addItem('Pannello pass backstage WhatsApp', 'pannelloBackstage')
     .addSeparator()
     .addItem('Pannello invii WhatsApp', 'pannelloWhatsApp')
     .addSeparator()
@@ -742,6 +776,12 @@ function registraStaff_(r) {
 }
 
 function leggiPass_(token) {
+  if (/^b[a-f0-9]{20,40}$/.test(String(token || ''))) {        // pass backstage: vale solo dopo il pagamento
+    const b = datiBk_().find((y) => String(y[CB.token]) === String(token));
+    if (!b || b[CB.stato] === 'annullato') return { ok: false, errore: 'pass' };
+    if (b[CB.stato] === 'richiesta') return { ok: false, errore: 'non_pagato' };
+    return { ok: true, tipo: 'backstage', nome: b[CB.nome], cognome: b[CB.cognome], stato: b[CB.stato] };
+  }
   if (!token || !/^s[a-f0-9]{20,40}$/.test(String(token))) return { ok: false, errore: 'pass' };
   const x = datiStaff_().find((y) => String(y[CS.token]) === String(token));
   if (!x || x[CS.stato] === 'escluso') return { ok: false, errore: 'pass' };
@@ -873,3 +913,113 @@ function eta_(nascitaISO, alISO) {
 function aggiungiNota_(vecchia, nuova) {
   return vecchia ? vecchia + ' · ' + nuova : nuova;
 }
+
+// ---------------------------------------------------------------- backstage
+// Prenotazione dalla pagina /backstage: una persona alla volta, 23+, al massimo POSTI_BACKSTAGE (le annullate non contano).
+function prenotaBackstage_(r) {
+  if (r.sito) return { ok: true };                                // campo trappola per i bot
+  const sh = foglioBk_();
+  if (!sh) return { ok: false, errore: 'non_attivo' };
+  const nome = pulisci_(r.nome, 60), cognome = pulisci_(r.cognome, 60);
+  const telefono = normalizzaTelefono_(r.telefono);
+  const nascita = pulisci_(r.nascita, 10);
+  if (!nome || !cognome) return { ok: false, errore: 'campi' };
+  if (telefono.replace(/\D/g, '').length < 8) return { ok: false, errore: 'telefono' };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(nascita)) return { ok: false, errore: 'nascita' };
+  if (r.informativa !== true) return { ok: false, errore: 'informativa' };
+  const eta = eta_(nascita, SERATA.dataISO);
+  if (!(eta >= 0) || eta > 99) return { ok: false, errore: 'nascita' };
+  if (eta < SERATA.etaMinima) return { ok: false, errore: 'eta' };
+
+  const righe = datiBk_();
+  const cifre = (v) => String(v || '').replace(/\D/g, '').replace(/^39(?=3\d{8,9}$)/, '');
+  const stessa = righe.find((x) => cifre(x[CB.telefono]) === cifre(telefono) && x[CB.stato] !== 'annullato');
+  if (stessa) return { ok: true, gia: true };
+  if (righe.filter((x) => x[CB.nome] && x[CB.stato] !== 'annullato').length >= POSTI_BACKSTAGE) return { ok: false, errore: 'pieno' };
+
+  const riga = new Array(COL_BK.length).fill('');
+  riga[CB.nome] = nome; riga[CB.cognome] = cognome;
+  riga[CB.nascita] = "'" + nascita;
+  riga[CB.stato] = 'richiesta';
+  riga[CB.telefono] = "'" + telefono;
+  riga[CB.creato] = new Date();
+  riga[CB.id] = "'b" + Utilities.getUuid().replace(/-/g, '').slice(0, 7);
+  riga[CB.token] = "'b" + (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 31);
+  sh.appendRow(riga);
+  notifica_('backstage · ' + (nome + ' ' + cognome).toLowerCase() + ', ' + eta,
+    nome + ' ' + cognome + ', ' + eta + ' anni\ntelefono: ' + telefono +
+    '\n\nprenotazioni backstage: ' + (righe.filter((x) => x[CB.nome] && x[CB.stato] !== 'annullato').length + 1) + ' su ' + POSTI_BACKSTAGE +
+    '\nquando ha pagato metti "pagato" e mandagli il pass dal pannello backstage.');
+  return { ok: true };
+}
+
+function foglioBk_() { return SpreadsheetApp.getActive().getSheetByName(FOGLIO_BACKSTAGE); }
+
+function datiBk_() {
+  const sh = foglioBk_();
+  if (!sh) return [];
+  const n = sh.getLastRow() - 1;
+  return n > 0 ? sh.getRange(2, 1, n, COL_BK.length).getValues() : [];
+}
+
+function scriviBk_(sh, i, campi, riga) {
+  Object.keys(campi).forEach((k) => {
+    sh.getRange(i + 2, CB[k] + 1).setValue(campi[k]);
+    if (riga) riga[CB[k]] = campi[k];
+  });
+}
+
+function preparaBackstage() {
+  const ss = SpreadsheetApp.getActive();
+  const sh = ss.getSheetByName(FOGLIO_BACKSTAGE) || ss.insertSheet(FOGLIO_BACKSTAGE);
+  sh.getRange(1, 1, 1, COL_BK.length).setValues([COL_BK]).setFontWeight('bold');
+  sh.setFrozenRows(1);
+  ['nascita', 'telefono', 'id', 'token'].forEach((k) => sh.getRange(2, CB[k] + 1, sh.getMaxRows() - 1, 1).setNumberFormat('@'));
+  sh.getRange(2, CB.stato + 1, sh.getMaxRows() - 1, 1)
+    .setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(STATI_BK, true).build());
+  sh.hideColumns(CB.id + 1, 2);
+  coloraInviati_(sh, CB.wa_inviato, COL_BK.length);
+  SpreadsheetApp.getUi().alert('Foglio "backstage" pronto (massimo ' + POSTI_BACKSTAGE + ' posti).\nPagina da condividere: ' + SERATA.sito + 'backstage/\n' +
+    'Quando una persona ha pagato, metti lo stato "pagato": poi le mandi il pass d\'oro dal menu Pannello pass backstage WhatsApp.');
+}
+
+// segna la data del pagamento quando l'organizzatore mette "pagato" a mano
+function pagatoBk_(e) {
+  try {
+    const sh = e.range.getSheet();
+    if (sh.getName() !== FOGLIO_BACKSTAGE || e.range.getColumn() !== CB.stato + 1 || e.range.getRow() < 2) return;
+    if (e.value === 'pagato' && !sh.getRange(e.range.getRow(), CB.pagato_il + 1).getValue()) sh.getRange(e.range.getRow(), CB.pagato_il + 1).setValue(new Date());
+  } catch (err) { console.error('pagato', err); }
+}
+
+function pannelloBackstage() {
+  const sh = foglioBk_();
+  if (!sh) return SpreadsheetApp.getUi().alert('Manca la scheda "backstage": usa prima "Prepara il foglio backstage".');
+  coloraInviati_(sh, CB.wa_inviato, COL_BK.length);
+  SpreadsheetApp.getUi().showSidebar(HtmlService.createHtmlOutput(pannello_('pass backstage WhatsApp', 'elencoBackstageWhatsApp', 'segnaBackstageWhatsApp')).setTitle('😈 pass backstage'));
+  const attesa = datiBk_().filter((x) => x[CB.stato] === 'richiesta').length;
+  if (attesa) SpreadsheetApp.getActive().toast('in attesa di pagamento: ' + attesa + '. il pass compare qui solo con stato "pagato".', 'backstage', 15);
+}
+
+function elencoBackstageWhatsApp() {
+  return datiBk_().filter((x) => x[CB.token] && (x[CB.stato] === 'pagato' || x[CB.stato] === 'entrato')).map((x) => {
+    const tel = normalizzaTelefono_(x[CB.telefono]);
+    const pass = SERATA.sito + 'backstage/?t=' + x[CB.token];
+    // niente emoji: WhatsApp Web le rovina quando arrivano da un link
+    const testo = String(x[CB.nome]).toLowerCase() + ', sei nel backstage.\nsat 14.11 · palazzo podestà\n\nil tuo pass d\'oro:\n' +
+      pass + '\n\nmostralo all\'ingresso. vale solo per te.';
+    return { id: String(x[CB.id]), nome: String(x[CB.nome]) + ' ' + String(x[CB.cognome]), tel,
+             link: 'https://wa.me/' + tel.replace(/\D/g, '') + '?text=' + encodeURIComponent(testo), foto: pass, inviato: !!x[CB.wa_inviato] };
+  });
+}
+
+function segnaBackstageWhatsApp(id, si) {
+  const sh = foglioBk_();
+  const i = datiBk_().findIndex((x) => String(x[CB.id]) === String(id));
+  if (i < 0) return false;
+  scriviBk_(sh, i, { wa_inviato: si ? new Date() : '' });
+  return true;
+}
+
+// modifiche fatte a mano nel foglio (trigger semplice di Google)
+function onEdit(e) { pagatoBk_(e); }
