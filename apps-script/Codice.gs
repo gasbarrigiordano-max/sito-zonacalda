@@ -15,7 +15,7 @@ const SERATA = {
   capienza: 300,                     // totale, staff compreso
   staffPrevisto: 20,
   confermeMax: 315,                  // oltre questo numero: "posti finiti."
-  scadenzaInviti: '2026-11-11T19:00:00+01:00',   // tutti gli inviti si accettano entro mercoledì 11.11 alle 19:00
+  scadenzaInviti: '2026-11-12T21:00:00+01:00',   // tutti gli inviti si accettano entro giovedì 12.11 alle 21:00
   oreConferma: 12,                   // solo se si invita dopo quella scadenza: tempo per confermare
   garantitoFino: '2026-11-15T00:30:00+01:00',
   sito: 'https://zonacaldaclubuse.it/',
@@ -116,7 +116,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'porta-2';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'porta-3';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -393,6 +393,7 @@ function onOpen() {
     .addItem('Invia inviti a chi è "da invitare"', 'inviaInviti')
     .addItem('Invia inviti di riserva (30 minuti)', 'inviaRiserva')
     .addItem('Fai scadere gli inviti non confermati', 'scadiInviti')
+    .addItem('Sposta la scadenza degli inviti già mandati', 'spostaScadenza')
     .addItem('Manda le mail di conferma non partite', 'rimandaConferme')
     .addItem('Avvisa chi non è stato invitato', 'avvisaNonInvitati')
     .addSeparator()
@@ -504,6 +505,23 @@ function inviaInviti() {
   const fissa = new Date(SERATA.scadenzaInviti);
   invia_(fissa.getTime() - Date.now() > 3600000 ? fissa : new Date(Date.now() + SERATA.oreConferma * 3600000), false);
 }
+// Porta alla scadenza fissa gli inviti già mandati con una scadenza più corta, e rifà il loro messaggio WhatsApp.
+function spostaScadenza() {
+  const fissa = new Date(SERATA.scadenzaInviti);
+  const sh = foglio_();
+  let n = 0;
+  dati_(sh).forEach((x, i) => {
+    if (x[C.stato] !== 'invitato') return;
+    if (!x[C.token] || (x[C.scade_il] && new Date(x[C.scade_il]) >= fissa)) return;
+    const link = SERATA.sito + 'invito/?t=' + x[C.token];
+    const m = componiMail_(MAIL.invito, { nome: x[C.nome], scadenza: quando_(fissa) }, link);
+    const wa = 'https://wa.me/' + normalizzaTelefono_(x[C.telefono]).replace(/\D/g, '') + '?text=' + encodeURIComponent(m.testo);
+    scrivi_({ sh, n: i + 2, riga: x }, { scade_il: fissa, whatsapp: wa });
+    n++;
+  });
+  SpreadsheetApp.getUi().alert('Inviti spostati alla nuova scadenza (' + quando_(fissa) + '): ' + n + '.\nIl messaggio WhatsApp nel pannello ora ha la data giusta.');
+}
+
 function inviaRiserva() { invia_(new Date(Date.now() + 30 * 60000), true); }
 
 function invia_(scade, riserva) {
