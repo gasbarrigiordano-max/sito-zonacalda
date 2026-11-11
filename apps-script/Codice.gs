@@ -62,10 +62,11 @@ const MAIL = {
 };
 
 const FOGLIO = 'iscritti';
+// l'ordine si può cambiare: "Prepara / riordina il foglio" sposta i dati sotto le intestazioni giuste
 const COL = [
-  'creato', 'id', 'nome', 'cognome', 'nascita', 'email', 'telefono', 'instagram',
-  'fonte', 'prossime_serate', 'stato', 'token', 'invitato_il', 'scade_il',
-  'risposto_il', 'entrato_il', 'whatsapp', 'note', 'wa_inviato',
+  'nome', 'cognome', 'nascita', 'stato', 'telefono', 'email', 'instagram', 'note',
+  'prossime_serate', 'fonte', 'creato', 'invitato_il', 'scade_il', 'risposto_il',
+  'entrato_il', 'wa_inviato', 'whatsapp', 'id', 'token',
 ];
 const STATI = ['in lista', 'da invitare', 'invitato', 'confermato', 'rifiutato', 'scaduto', 'entrato', 'escluso'];
 const C = Object.fromEntries(COL.map((n, i) => [n, i]));   // indice di colonna (da 0)
@@ -102,7 +103,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'staff-5';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'colonne-1';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -156,6 +157,10 @@ function iscrivi_(r) {
   riga[C.stato] = 'in lista';
   if (eta < SERATA.etaMinima) riga[C.note] = 'meno di ' + SERATA.etaMinima + ' anni (' + eta + ')';
   sh.appendRow(riga);
+  notifica_('nuova iscrizione · ' + (nome + ' ' + cognome).toLowerCase() + ', ' + eta,
+    nome + ' ' + cognome + ', ' + eta + ' anni' + (eta < SERATA.etaMinima ? ' (meno di ' + SERATA.etaMinima + ')' : '') +
+    '\ntelefono: ' + telefono + (instagram ? '\ninstagram: @' + instagram : '') +
+    '\n\nin lista: ' + (righe.length + 1));
   return { ok: true };
 }
 
@@ -301,7 +306,7 @@ function conteggi_(righe, staffAMano) {
 // ---------------------------------------------------------------- menu del foglio
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('😈 Zonacalda')
-    .addItem('1. Prepara il foglio (solo la prima volta)', 'prepara')
+    .addItem('1. Prepara / riordina il foglio', 'prepara')
     .addSeparator()
     .addItem('Apri la lista', 'apriLista')
     .addItem('Chiudi la lista', 'chiudiLista')
@@ -321,23 +326,61 @@ function onOpen() {
     .addItem('Pannello invii WhatsApp', 'pannelloWhatsApp')
     .addSeparator()
     .addItem('Riepilogo', 'riepilogo')
+    .addItem('Notifiche iscrizioni: accendi', 'notificheAccese')
+    .addItem('Notifiche iscrizioni: spegni', 'notificheSpente')
     .addToUi();
 }
 
 function prepara() {
   const ss = SpreadsheetApp.getActive();
   const sh = ss.getSheetByName(FOGLIO) || ss.insertSheet(FOGLIO);
-  sh.getRange(1, 1, 1, COL.length).setValues([COL]).setFontWeight('bold');
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);                                  // niente iscrizioni dal sito mentre sposto le colonne
+  let spostate;
+  try { spostate = riordina_(ss, sh); } finally { lock.releaseLock(); }
   sh.setFrozenRows(1);
-  sh.getRange(2, C.nascita + 1, sh.getMaxRows() - 1, 1).setNumberFormat('@');
-  sh.getRange(2, C.telefono + 1, sh.getMaxRows() - 1, 1).setNumberFormat('@');
-  sh.getRange(2, C.token + 1, sh.getMaxRows() - 1, 1).setNumberFormat('@');
   const regola = SpreadsheetApp.newDataValidation().requireValueInList(STATI, true).build();
   sh.getRange(2, C.stato + 1, sh.getMaxRows() - 1, 1).setDataValidation(regola);
-  sh.hideColumns(C.token + 1);
+  sh.hideColumns(C.id + 1, 2);                           // id e token: servono allo script, non a te
   ScriptApp.getProjectTriggers().forEach((t) => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('scadiInviti').timeBased().everyMinutes(15).create();
-  SpreadsheetApp.getUi().alert('Foglio pronto. Ora imposta il PIN della porta dal menu 😈 Zonacalda.');
+  coloraInviati_(sh, C.wa_inviato, COL.length);
+  SpreadsheetApp.getUi().alert(spostate
+    ? 'Colonne riordinate (' + spostate.n + ' iscritti). Una copia di prima è nel foglio "' + spostate.copia + '": quando hai controllato puoi cancellarla.'
+    : 'Foglio pronto. Ora imposta il PIN della porta dal menu 😈 Zonacalda.');
+}
+
+// Rimette ogni dato sotto la sua intestazione, nell'ordine di COL. Prima fa una copia del foglio.
+function riordina_(ss, sh) {
+  const n = sh.getLastRow(), m = Math.max(sh.getLastColumn(), COL.length);
+  const testa = n ? sh.getRange(1, 1, 1, m).getValues()[0].map((h) => String(h).trim()) : [];
+  const giaInOrdine = COL.every((k, i) => testa[i] === k);
+  if (n < 2 || giaInOrdine) {
+    sh.getRange(1, 1, 1, COL.length).setValues([COL]).setFontWeight('bold');
+    formatiColonne_(sh);
+    return null;
+  }
+  const mancano = COL.filter((k) => !testa.includes(k) && !['wa_inviato', 'whatsapp', 'note'].includes(k));
+  if (mancano.length) throw new Error('Intestazioni che non riconosco nel foglio (mancano: ' + mancano.join(', ') + '). Non ho toccato niente.');
+  const copia = sh.copyTo(ss).setName(FOGLIO + ' prima del riordino ' + Utilities.formatDate(new Date(), 'Europe/Rome', 'dd-MM HH.mm'));
+  const vecchie = sh.getRange(2, 1, n - 1, m).getValues();
+  const righe = vecchie.map((r) => COL.map((k) => {
+    const i = testa.indexOf(k);
+    let v = i < 0 ? '' : r[i];
+    if (k === 'nascita' && v instanceof Date) v = Utilities.formatDate(v, 'Europe/Rome', 'yyyy-MM-dd');
+    return ['nascita', 'telefono', 'id', 'token'].includes(k) && v !== '' ? "'" + String(v).replace(/^'/, '') : v;
+  }));
+  sh.showColumns(1, sh.getMaxColumns());
+  const tutto = sh.getRange(1, 1, sh.getMaxRows(), m);
+  tutto.clearContent(); tutto.clearDataValidations(); tutto.clearFormat();
+  sh.getRange(1, 1, 1, COL.length).setValues([COL]).setFontWeight('bold');
+  formatiColonne_(sh);
+  sh.getRange(2, 1, righe.length, COL.length).setValues(righe);
+  return { n: righe.length, copia: copia.getName() };
+}
+
+function formatiColonne_(sh) {
+  ['nascita', 'telefono', 'id', 'token'].forEach((k) => sh.getRange(2, C[k] + 1, sh.getMaxRows() - 1, 1).setNumberFormat('@'));
 }
 
 function apriLista()  { PropertiesService.getScriptProperties().setProperty('LISTA', 'aperta'); SpreadsheetApp.getActive().toast('lista aperta.'); }
@@ -403,8 +446,28 @@ function invia_(scade, riserva) {
 function pannelloWhatsApp() {
   const sh = foglio_();
   if (sh.getRange(1, C.wa_inviato + 1).getValue() !== 'wa_inviato') sh.getRange(1, C.wa_inviato + 1).setValue('wa_inviato').setFontWeight('bold');
+  coloraInviati_(sh, C.wa_inviato, COL.length);
   const html = HtmlService.createHtmlOutput(pannello_('inviti WhatsApp', 'elencoWhatsApp', 'segnaWhatsApp')).setTitle('😈 inviti WhatsApp');
   SpreadsheetApp.getUi().showSidebar(html);
+}
+
+// la riga diventa rossa quando l'invito (o il pass) è stato mandato su WhatsApp: colonna wa_inviato piena
+const ROSSO_INVIATO = '#f28b82';
+function coloraInviati_(sh, colonna, larghezza) {
+  try {
+    const lettera = String.fromCharCode(65 + colonna);                // colonne entro la Z
+    const formula = '=$' + lettera + '2<>""';
+    const area = sh.getRange(2, 1, sh.getMaxRows() - 1, larghezza);
+    const altre = sh.getConditionalFormatRules().filter((r) => {
+      const c = r.getBooleanCondition && r.getBooleanCondition();
+      return !(c && /^=\$[A-Z]+2<>""$/.test(String(c.getCriteriaValues()[0])));   // tolgo la regola vecchia, anche se era su un'altra colonna
+    });
+    const regola = SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied(formula)
+      .setBackground(ROSSO_INVIATO).setRanges([area]).build();
+    sh.setConditionalFormatRules(altre.concat(regola));
+  } catch (err) {
+    console.error('colore righe', err);                               // il colore non deve mai bloccare gli inviti
+  }
 }
 
 function pannello_(titolo, elenco, segna) {
@@ -416,6 +479,7 @@ function pannelloStaff() {
   const sh = foglioStaff_();
   if (!sh) return SpreadsheetApp.getUi().alert('Manca la scheda "staff": usa prima "Prepara il foglio staff".');
   if (sh.getRange(1, CS.wa_inviato + 1).getValue() !== 'wa_inviato') sh.getRange(1, CS.wa_inviato + 1).setValue('wa_inviato').setFontWeight('bold');
+  coloraInviati_(sh, CS.wa_inviato, COL_STAFF.length);
   SpreadsheetApp.getUi().showSidebar(HtmlService.createHtmlOutput(pannello_('pass staff WhatsApp', 'elencoStaffWhatsApp', 'segnaStaffWhatsApp')).setTitle('😈 pass staff'));
   const mancano = datiStaff_().filter((x) => x[CS.nome] && !x[CS.token] && x[CS.stato] !== 'escluso').map((x) => x[CS.nome] + ' ' + x[CS.cognome]);
   if (mancano.length) SpreadsheetApp.getActive().toast(mancano.join(', '), 'non ancora registrati: ' + mancano.length, 20);
@@ -616,6 +680,28 @@ function togliNota_(nota, testo) {
   return String(nota || '').split(' · ').filter((s) => s && s !== testo).join(' · ');
 }
 
+// ---------------------------------------------------------------- notifiche
+// A ogni iscrizione (ospiti e staff) arriva una mail all'account che possiede lo script.
+// Si spengono e riaccendono dal menu. Usano la stessa quota giornaliera delle mail degli inviti.
+function notifica_(oggetto, testo) {
+  try {
+    if (PropertiesService.getScriptProperties().getProperty('NOTIFICHE') === 'no') return;
+    if (MailApp.getRemainingDailyQuota() < 20) return;           // lascia le ultime mail agli inviti
+    const a = Session.getEffectiveUser().getEmail();
+    if (a) MailApp.sendEmail({ to: a, subject: 'zonacalda · ' + oggetto, body: testo, name: 'zonacalda' });
+  } catch (err) { console.error('notifica', err); }
+}
+
+function notificheAccese() {
+  PropertiesService.getScriptProperties().setProperty('NOTIFICHE', 'sì');
+  SpreadsheetApp.getUi().alert('Notifiche accese: ti arriva una mail a ogni iscrizione (ospiti e staff).');
+}
+
+function notificheSpente() {
+  PropertiesService.getScriptProperties().setProperty('NOTIFICHE', 'no');
+  SpreadsheetApp.getUi().alert('Notifiche spente.');
+}
+
 function manda_(a, m) {
   MailApp.sendEmail({ to: a, subject: m.oggetto, body: m.testo, htmlBody: m.html, name: MAIL.mittente, replyTo: MAIL.rispondiA });
 }
@@ -648,6 +734,10 @@ function registraStaff_(r) {
   const token = 's' + (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 31);
   const id = 's' + Utilities.getUuid().replace(/-/g, '').slice(0, 7);
   scriviStaff_(sh, i, { telefono: "'" + telefono, token, id, registrato_il: new Date(), stato: 'registrato' }, x);
+  notifica_('staff registrato · ' + (x[CS.nome] + ' ' + x[CS.cognome]).toLowerCase(),
+    x[CS.nome] + ' ' + x[CS.cognome] + '\ntelefono: ' + telefono +
+    '\n\nstaff registrati: ' + righe.filter((y) => y[CS.token]).length + ' su ' + righe.filter((y) => y[CS.cognome]).length +
+    '\nil pass lo mandi dal pannello pass staff whatsapp.');
   return { ok: true, nome: x[CS.nome] };
 }
 
@@ -668,6 +758,7 @@ function preparaStaff() {
   sh.getRange(2, CS.stato + 1, sh.getMaxRows() - 1, 1)
     .setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(STATI_STAFF, true).build());
   sh.hideColumns(CS.id + 1, 2);
+  coloraInviati_(sh, CS.wa_inviato, COL_STAFF.length);
   SpreadsheetApp.getUi().alert('Foglio "staff" pronto.' + (sistemate ? '\nRighe sistemate (registrate con la versione vecchia): ' + sistemate + '.' : '') + '\nScrivi nome e cognome di chi può registrarsi (colonne A e B), stato "abilitato".\nPagina da mandare allo staff: ' + SERATA.sito + 'staff/\nI pass si mandano dal menu: Pannello pass staff WhatsApp.');
 }
 
