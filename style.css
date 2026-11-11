@@ -148,6 +148,9 @@ footer {
 .invito:hover, .invito:focus-visible { background: #ff4651; }
 .dove { display: block; color: var(--testo); text-decoration: none; font-size: .48rem; line-height: 1.5; margin-bottom: .6rem; }
 .dove:hover, .dove:focus-visible { color: var(--rosso); }
+.tel { display: inline-block; color: var(--tenue); text-decoration: none; font-size: .8rem; line-height: 1.4; margin-bottom: .8rem; }
+.tel span { color: var(--testo); font-size: 1rem; letter-spacing: .06em; }
+.tel:hover span, .tel:focus-visible span { color: var(--rosso); }
 footer p { margin: 0; }
 
 .ig-piede { display: inline-block; min-height: 0; margin: 0 0 .9rem; padding: .3rem 0 .1rem; font-size: .95rem; }
