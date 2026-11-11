@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zonacalda — regia</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#050505">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="../assets/zonacalda-diavolo-linee.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../style.css?v=20261109">
+<link rel="stylesheet" href="../pagine.css?v=20261109">
+<style>
+  body { min-height: 100svh; }
+  .regia { max-width: 560px; width: 100%; margin: 0 auto; padding: calc(.75rem + env(safe-area-inset-top)) 12px calc(3rem + env(safe-area-inset-bottom)); }
+  .barra { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+  .barra img { width: 140px; height: auto; margin: -14px -10px -14px -14px; }
+  .barra small { color: var(--tenue); font-size: .8rem; text-align: right; }
+  .tot { text-align: center; margin: .5rem 0 1rem; font-variant-numeric: tabular-nums; }
+  .tot b { font-size: 4rem; line-height: 1; color: #fff; text-shadow: 0 0 18px rgba(255, 20, 36, .55); }
+  .tot span { color: var(--tenue); font-size: 1.25rem; }
+  .barretta { height: 10px; border-radius: 99px; background: #1c1a1a; overflow: hidden; margin: .5rem auto 0; max-width: 360px; }
+  .barretta i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ff2634, #ff6b73); transition: width .6s; }
+  .blocco { background: #0f0e0e; border: 1px solid #262424; border-radius: 16px; padding: .9rem 1rem 1rem; margin: .75rem 0; }
+  .blocco.oro { border-color: #6b5016; box-shadow: 0 0 18px rgba(240, 190, 80, .15); }
+  .blocco h2 { margin: 0 0 .6rem; font-size: 1rem; letter-spacing: .14em; text-transform: uppercase; display: flex; justify-content: space-between; align-items: baseline; }
+  .blocco h2 small { letter-spacing: 0; text-transform: none; color: var(--tenue); font-weight: 400; font-size: .8rem; }
+  .blocco.oro h2 { color: #f0c860; }
+  .numeri { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; }
+  .n { background: #161414; border-radius: 12px; padding: .6rem .4rem; text-align: center; font-variant-numeric: tabular-nums; }
+  .n b { display: block; font-size: 1.9rem; line-height: 1.1; }
+  .n span { display: block; color: var(--tenue); font-size: .75rem; line-height: 1.25; margin-top: .15rem; }
+  .n.verde b { color: #4ade80; } .n.giallo b { color: #ffcf7a; } .n.grigio b { color: #bdb6b6; }
+  .piccoli { color: var(--tenue); font-size: .8rem; margin: .6rem 0 0; line-height: 1.5; }
+  .ultimi { list-style: none; margin: 0; padding: 0; }
+  .ultimi li { display: flex; gap: .6rem; padding: .45rem 0; border-top: 1px solid #1d1b1b; font-size: .95rem; }
+  .ultimi li:first-child { border-top: 0; }
+  .ultimi time { color: var(--tenue); font-variant-numeric: tabular-nums; }
+  .ultimi em { margin-left: auto; font-style: normal; font-size: .75rem; color: var(--tenue); }
+  .ultimi em.backstage { color: #f0c860; } .ultimi em.staff { color: #ff6b73; }
+  .blocco.tocca { cursor: pointer; }
+  .apri { display: block; text-align: right; color: #f0c860; font-size: .85rem; margin-top: .6rem; }
+  .indietro { background: none; border: 0; color: var(--tenue); font: inherit; padding: .4rem 0; cursor: pointer; }
+  .cerca-bk { width: 100%; margin: .5rem 0 .75rem; }
+  .bk { list-style: none; margin: 0; padding: 0; }
+  .bk li { display: flex; align-items: center; gap: .6rem; padding: .7rem .2rem; border-top: 1px solid #1d1b1b; }
+  .bk .num { color: var(--tenue); font-size: .8rem; min-width: 1.6rem; text-align: right; font-variant-numeric: tabular-nums; }
+  .bk .chi { flex: 1; min-width: 0; text-align: left; }
+  .bk .chi b { display: block; font-weight: 600; }
+  .bk .chi small { color: var(--tenue); font-size: .75rem; }
+  .bk .chi small.annullato { color: #ff6b73; }
+  .spunta { flex: none; align-self: center; display: inline-flex; align-items: center; justify-content: center; width: auto; min-width: 128px; height: 46px; margin: 0; white-space: nowrap; padding: 0 .7rem; border-radius: 12px; border: 1px solid #3a3636; background: #161414; color: var(--testo); font: inherit; font-size: .85rem; cursor: pointer; }
+  .spunta.si { background: #0b3a1d; border-color: #2bd46a; color: #6cf09a; font-weight: 700; }
+  .spunta.chiedi { background: #3a2a05; border-color: #ffb020; color: #ffcf7a; font-weight: 700; }
+  .stato { text-align: center; color: var(--tenue); font-size: .8rem; margin-top: 1rem; }
+  .stato.male { color: #ffcf7a; }
+</style>
+<script src="../js/api.js" defer></script>
+<script src="regia.js" defer></script>
+</head>
+<body>
+<main class="regia">
+
+  <section id="accesso" class="pagina" style="padding:0">
+    <div class="testa"><img src="../assets/zonacalda-logo-sito.svg" width="1244" height="544" alt="ZONACALDA, club use"></div>
+    <h1>regia.</h1>
+    <form id="f-pin">
+      <label>PIN
+        <input type="password" name="pin" inputmode="numeric" autocomplete="current-password" required>
+      </label>
+      <p class="errore" id="err-pin" role="alert"></p>
+      <button class="bottone" type="submit">entra.</button>
+    </form>
+  </section>
+
+  <section id="pannello" hidden>
+    <div class="barra">
+      <img src="../assets/zonacalda-logo-sito.svg" width="1244" height="544" alt="ZONACALDA">
+      <small>aggiornato alle <span id="agg">--:--</span><br><a href="#" id="esci">esci</a></small>
+    </div>
+
+    <div class="tot" aria-live="polite">
+      <b id="dentro">0</b> <span>/ <span id="capienza">300</span> dentro</span>
+      <div class="barretta"><i id="riempi"></i></div>
+    </div>
+
+    <div class="blocco">
+      <h2>pista <small id="l-tot"></small></h2>
+      <div class="numeri">
+        <div class="n verde"><b id="l-entrati">0</b><span>entrati</span></div>
+        <div class="n giallo"><b id="l-attesi">0</b><span>confermati,<br>da entrare</span></div>
+        <div class="n"><b id="l-invitati">0</b><span>invitati,<br>non confermati</span></div>
+      </div>
+      <div class="numeri" style="margin-top:.5rem">
+        <div class="n grigio"><b id="l-inlista">0</b><span>registrati,<br>non invitati</span></div>
+        <div class="n grigio"><b id="l-dainvitare">0</b><span>da invitare<br>(scelti)</span></div>
+        <div class="n grigio"><b id="l-no">0</b><span>rifiutati o<br>scaduti</span></div>
+      </div>
+    </div>
+
+    <div class="blocco oro tocca" id="apri-bk" role="button" tabindex="0">
+      <h2>backstage <small id="b-tot"></small></h2>
+      <div class="numeri">
+        <div class="n verde"><b id="b-entrati">0</b><span>entrati</span></div>
+        <div class="n giallo"><b id="b-attesi">0</b><span>confermati,<br>da entrare</span></div>
+        <div class="n"><b id="b-richieste">0</b><span>richieste da<br>confermare</span></div>
+      </div>
+      <p class="piccoli">pagati <b id="b-pagati" style="color:#4ade80">0</b> · da pagare <b id="b-dapagare" style="color:#ffcf7a">0</b></p>
+      <span class="apri">vedi tutti e segna i pagamenti →</span>
+    </div>
+
+    <div class="blocco">
+      <h2>staff <small id="s-tot"></small></h2>
+      <div class="numeri">
+        <div class="n verde"><b id="s-entrati">0</b><span>entrati</span></div>
+        <div class="n giallo"><b id="s-attesi">0</b><span>registrati,<br>da entrare</span></div>
+        <div class="n grigio"><b id="s-noreg">0</b><span>non ancora<br>registrati</span></div>
+      </div>
+    </div>
+
+    <div class="blocco">
+      <h2>chi è dentro <small>pista + backstage</small></h2>
+      <div class="numeri">
+        <div class="n"><b id="p-donne">0</b><span>donne<br>età media <i id="p-eta-d">–</i></span></div>
+        <div class="n"><b id="p-uomini">0</b><span>uomini<br>età media <i id="p-eta-u">–</i></span></div>
+        <div class="n grigio"><b id="p-eta">–</b><span>età media<br>di tutti</span></div>
+      </div>
+      <p class="piccoli" id="p-incerti"></p>
+    </div>
+
+    <div class="blocco">
+      <h2>ultimi ingressi</h2>
+      <ul class="ultimi" id="ultimi"><li>nessuno, per ora.</li></ul>
+    </div>
+
+    <p class="stato" id="stato" aria-live="polite"></p>
+  </section>
+
+  <section id="vista-bk" hidden>
+    <button class="indietro" id="chiudi-bk">← riepilogo</button>
+    <div class="blocco oro" style="margin-top:.25rem">
+      <h2>backstage <small>in ordine di prenotazione</small></h2>
+      <input class="cerca-bk" id="q-bk" type="search" placeholder="cerca un nome…" autocomplete="off">
+      <ol class="bk" id="lista-bk"><li>carico…</li></ol>
+      <p class="piccoli">tocca "segna pagato" e poi conferma. per togliere la spunta, toccala e conferma.</p>
+    </div>
+  </section>
+</main>
+</body>
+</html>

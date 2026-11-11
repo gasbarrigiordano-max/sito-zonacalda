@@ -80,7 +80,7 @@ const CS = Object.fromEntries(COL_STAFF.map((n, i) => [n, i]));
 // backstage: si prenota dalla pagina /backstage; l'organizzatore mette "confermato" e manda il pass d'oro (si paga in struttura)
 const FOGLIO_BACKSTAGE = 'backstage';
 const POSTI_BACKSTAGE = 50;
-const COL_BK = ['nome', 'cognome', 'nascita', 'stato', 'telefono', 'note', 'creato', 'confermato_il', 'entrato_il', 'wa_inviato', 'id', 'token'];
+const COL_BK = ['nome', 'cognome', 'nascita', 'stato', 'pagato', 'telefono', 'note', 'creato', 'confermato_il', 'entrato_il', 'wa_inviato', 'id', 'token'];
 const STATI_BK = ['richiesta', 'confermato', 'entrato', 'annullato'];
 const CB = Object.fromEntries(COL_BK.map((n, i) => [n, i]));
 
@@ -97,6 +97,7 @@ function doPost(e) {
       case 'conferma': return out_(rispondi_(req.token, true));
       case 'rifiuta':  return out_(rispondi_(req.token, false));
       case 'porta':    return out_(porta_(req));
+      case 'regia':    return out_(regia_(req));
       case 'lista':    return out_({ ok: true, aperta: listaAperta_() });
       case 'staff':    return out_(registraStaff_(req));
       case 'backstage': return out_(prenotaBackstage_(req));
@@ -111,7 +112,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'backstage-2';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'regia-1';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -349,6 +350,7 @@ function onOpen() {
     .addItem('Avvisa chi non è stato invitato', 'avvisaNonInvitati')
     .addSeparator()
     .addItem('Imposta PIN della porta', 'impostaPin')
+    .addItem('Imposta PIN della regia (solo tuo)', 'impostaPinRegia')
     .addItem('Imposta il luogo (lo vede solo chi conferma)', 'impostaLuogo')
     .addItem('Azzera contatore staff', 'azzeraStaff')
     .addItem('Prepara il foglio staff', 'preparaStaff')
@@ -429,6 +431,17 @@ function impostaPin() {
   if (!/^\d{6,}$/.test(pin)) return ui.alert('Il PIN deve avere almeno 6 cifre.');
   PropertiesService.getScriptProperties().setProperty('PIN', pin);
   ui.alert('PIN salvato.');
+}
+
+function impostaPinRegia() {
+  const ui = SpreadsheetApp.getUi();
+  const r = ui.prompt('PIN della regia', 'Scegli un PIN di almeno 6 cifre, diverso da quello della porta. Serve solo a te per aprire la pagina regia.', ui.ButtonSet.OK_CANCEL);
+  if (r.getSelectedButton() !== ui.Button.OK) return;
+  const pin = r.getResponseText().trim();
+  if (!/^\d{6,}$/.test(pin)) return ui.alert('Il PIN deve avere almeno 6 cifre.');
+  if (pin === PropertiesService.getScriptProperties().getProperty('PIN')) return ui.alert('Usa un PIN diverso da quello della porta.');
+  PropertiesService.getScriptProperties().setProperty('PIN_REGIA', pin);
+  ui.alert('PIN della regia salvato. Pagina: ' + SERATA.sito + 'regia/');
 }
 
 function impostaLuogo() {
@@ -953,6 +966,22 @@ function prenotaBackstage_(r) {
   return { ok: true };
 }
 
+function riordinaBk_(sh) {
+  const n = sh.getLastRow(), m = Math.max(sh.getLastColumn(), COL_BK.length);
+  const testa = n ? sh.getRange(1, 1, 1, m).getValues()[0].map((h) => String(h).trim()) : [];
+  if (n < 2 || COL_BK.every((k, i) => testa[i] === k)) { sh.getRange(1, 1, 1, COL_BK.length).setValues([COL_BK]).setFontWeight('bold'); return; }
+  const vecchio = { confermato_il: testa.includes('confermato_il') ? 'confermato_il' : 'pagato_il' };   // nella prima versione si chiamava pagato_il
+  const righe = sh.getRange(2, 1, n - 1, m).getValues().map((r) => COL_BK.map((k) => {
+    const i = testa.indexOf(vecchio[k] || k);
+    const v = i < 0 ? '' : r[i];
+    if (k === 'stato' && v === 'pagato') return 'confermato';
+    return ['nascita', 'telefono', 'id', 'token'].includes(k) && v !== '' ? "'" + String(v).replace(/^'/, '') : v;
+  }));
+  sh.getRange(1, 1, n, m).clearContent();
+  sh.getRange(1, 1, 1, COL_BK.length).setValues([COL_BK]).setFontWeight('bold');
+  sh.getRange(2, 1, righe.length, COL_BK.length).setValues(righe);
+}
+
 function foglioBk_() { return SpreadsheetApp.getActive().getSheetByName(FOGLIO_BACKSTAGE); }
 
 function datiBk_() {
@@ -972,7 +1001,7 @@ function scriviBk_(sh, i, campi, riga) {
 function preparaBackstage() {
   const ss = SpreadsheetApp.getActive();
   const sh = ss.getSheetByName(FOGLIO_BACKSTAGE) || ss.insertSheet(FOGLIO_BACKSTAGE);
-  sh.getRange(1, 1, 1, COL_BK.length).setValues([COL_BK]).setFontWeight('bold');
+  riordinaBk_(sh);                                           // se le colonne sono di una versione vecchia, i dati vanno al loro posto
   sh.setFrozenRows(1);
   ['nascita', 'telefono', 'id', 'token'].forEach((k) => sh.getRange(2, CB[k] + 1, sh.getMaxRows() - 1, 1).setNumberFormat('@'));
   sh.getRange(2, CB.stato + 1, sh.getMaxRows() - 1, 1)
@@ -1024,3 +1053,85 @@ function segnaBackstageWhatsApp(id, si) {
 
 // modifiche fatte a mano nel foglio (trigger semplice di Google)
 function onEdit(e) { confermaBk_(e); }
+
+// ---------------------------------------------------------------- regia
+// Pagina /regia: solo l'organizzatore, con un PIN suo. Solo lettura: numeri della serata e ultimi ingressi.
+function regia_(r) {
+  const props = PropertiesService.getScriptProperties();
+  const cache = CacheService.getScriptCache();
+  const errori = Number(cache.get('regia_errori') || 0);
+  if (errori >= 10) return { ok: false, errore: 'bloccato' };
+  if (!props.getProperty('PIN_REGIA') || String(r.pin) !== props.getProperty('PIN_REGIA')) {
+    cache.put('regia_errori', String(errori + 1), 600);
+    return { ok: false, errore: 'pin' };
+  }
+  if (r.op === 'backstage') return { ok: true, persone: elencoBkRegia_() };
+  if (r.op === 'pagato') {
+    const sh = foglioBk_();
+    const bk = datiBk_();
+    const i = bk.findIndex((x) => String(x[CB.id]) === String(r.id));
+    if (!sh || i < 0) return { ok: false, errore: 'persona' };
+    scriviBk_(sh, i, { pagato: r.si ? new Date() : '' }, bk[i]);
+    return { ok: true, persone: elencoBkRegia_() };
+  }
+  const conta = (righe, col, stati) => Object.fromEntries(stati.map((st) => [st, righe.filter((x) => x[col] === st).length]));
+  const ospiti = dati_(foglio_()).filter((x) => x[C.nome] || x[C.cognome]);
+  const staff = datiStaff_().filter((x) => x[CS.nome]);
+  const bk = datiBk_().filter((x) => x[CB.nome]);
+  const staffAMano = Number(props.getProperty('STAFF_DENTRO') || 0);
+  const ora = (d) => Utilities.formatDate(new Date(d), 'Europe/Rome', 'HH:mm');
+  const ultimi = []
+    .concat(ospiti.filter((x) => x[C.entrato_il]).map((x) => ({ t: new Date(x[C.entrato_il]).getTime(), chi: x[C.nome] + ' ' + x[C.cognome], tipo: 'lista' })))
+    .concat(bk.filter((x) => x[CB.entrato_il]).map((x) => ({ t: new Date(x[CB.entrato_il]).getTime(), chi: x[CB.nome] + ' ' + x[CB.cognome], tipo: 'backstage' })))
+    .concat(staff.filter((x) => x[CS.entrato_il]).map((x) => ({ t: new Date(x[CS.entrato_il]).getTime(), chi: x[CS.nome] + ' ' + x[CS.cognome], tipo: 'staff' })))
+    .sort((a, b) => b.t - a.t).slice(0, 15).map((u) => ({ ora: ora(u.t), chi: u.chi, tipo: u.tipo }));
+  const lista = conta(ospiti, C.stato, STATI);
+  const back = conta(bk, CB.stato, STATI_BK);
+  const st = conta(staff, CS.stato, STATI_STAFF);
+  const dentro = lista.entrato + back.entrato + st.entrato + staffAMano;
+  // chi è entrato (pista + backstage): uomini e donne stimati dal nome, età medie
+  const entrati = ospiti.filter((x) => x[C.stato] === 'entrato').map((x) => [x[C.nome], x[C.nascita]])
+    .concat(bk.filter((x) => x[CB.stato] === 'entrato').map((x) => [x[CB.nome], x[CB.nascita]]));
+  const gruppi = { uomini: [], donne: [], incerti: [] };
+  entrati.forEach(([nome, nascita]) => {
+    const g = genere_(nome);
+    gruppi[g === 'm' ? 'uomini' : g === 'f' ? 'donne' : 'incerti'].push(eta_(dataISO_(nascita), SERATA.dataISO));
+  });
+  const media = (a) => { const v = a.filter((e) => e >= 0 && e < 100); return v.length ? Math.round(v.reduce((x, y) => x + y, 0) / v.length * 10) / 10 : null; };
+  const pubblico = { uomini: gruppi.uomini.length, donne: gruppi.donne.length, incerti: gruppi.incerti.length,
+    etaUomini: media(gruppi.uomini), etaDonne: media(gruppi.donne), etaTutti: media(gruppi.uomini.concat(gruppi.donne, gruppi.incerti)) };
+  return {
+    ok: true, aggiornato: ora(new Date()), capienza: SERATA.capienza, dentro,
+    lista: Object.assign(lista, { totale: ospiti.length }),
+    backstage: Object.assign(back, { totale: bk.length, posti: POSTI_BACKSTAGE,
+      pagati: bk.filter((x) => x[CB.pagato] && x[CB.stato] !== 'annullato').length,
+      daPagare: bk.filter((x) => !x[CB.pagato] && (x[CB.stato] === 'confermato' || x[CB.stato] === 'entrato')).length }),
+    staff: Object.assign(st, { aMano: staffAMano, totale: staff.length }),
+    ultimi, pubblico,
+  };
+}
+
+// Uomo o donna dal nome di battesimo (stima): 'm', 'f' o '' se non è chiaro.
+const NOMI_M_IN_A = ['andrea', 'luca', 'nicola', 'mattia', 'elia', 'tobia', 'enea', 'gianluca', 'giosuè', 'battista', 'evangelista', 'mosè', 'noah', 'joshua', 'zaccaria', 'geremia', 'isaia', 'misha', 'sasha', 'nikita', 'ilya', 'kosta', 'santa'];
+const NOMI_F = ['beatrice', 'denise', 'elise', 'alice', 'irene', 'adele', 'rachele', 'noemi', 'nicole', 'michelle', 'emanuelle', 'clarice', 'eurydice', 'agnese', 'ester', 'esther', 'matilde', 'geraldine', 'desirè', 'desirée', 'desiree', 'chloe', 'zoe', 'zoé', 'joelle', 'aurore', 'mercedes', 'ines', 'inès', 'carmen', 'miriam', 'myriam', 'ruth', 'sharon', 'karin', 'karen', 'ingrid', 'astrid', 'jasmine', 'yasmine', 'yasmin', 'jasmin', 'kim', 'liz', 'beth', 'ilary', 'mary', 'kelly', 'emily', 'nancy', 'cathy', 'judith', 'margot', 'ivy', 'deborah', 'debora', 'sarah', 'hannah', 'leah', 'naomi', 'eleonor', 'eleanor', 'rose', 'grace', 'jade', 'claire', 'louise', 'sophie', 'charlotte', 'juliette', 'marie', 'annie', 'jennifer', 'vivien', 'vivienne', 'isabel', 'isabelle'];
+const NOMI_M = ['simone', 'daniele', 'gabriele', 'michele', 'davide', 'emanuele', 'raffaele', 'giuseppe', 'salvatore', 'cesare', 'ettore', 'achille', 'ercole', 'oreste', 'giovanni', 'cristian', 'christian', 'kevin', 'ivan', 'manuel', 'samuel', 'samuele', 'nathan', 'gabriel', 'daniel', 'michael', 'mike', 'jonathan', 'john', 'david', 'adam', 'alex', 'axel', 'max', 'fabian', 'denis', 'dennis', 'erik', 'eric', 'mark', 'marc', 'patrick', 'thomas', 'tommy', 'alessandro', 'raoul', 'paul', 'jacopo', 'tancredi', 'ivano', 'william', 'giosue', 'gioele', 'noel', 'joel', 'rayan', 'ryan', 'brian', 'omar', 'amir', 'karim', 'ali', 'yuri', 'dimitri', 'igor', 'boris', 'oscar', 'victor', 'vittore', 'astor', 'nikolas', 'nicolas', 'lucas', 'thiago', 'tiago', 'diego', 'iacopo', 'felice', 'pasquale', 'natale', 'amedeo', 'dante', 'leone', 'lorenzo', 'federico', 'adriano', 'ruben', 'loris', 'luis', 'luigi', 'remo', 'ugo', 'elia', 'nicolò', 'niccolò', 'nicolo', 'niccolo', 'mattèo'];
+function genere_(nome) {
+  const n = String(nome || '').trim().toLowerCase().split(/[\s-]+/)[0].normalize('NFC');
+  if (!n || n.length < 2) return '';
+  if (NOMI_M.includes(n) || NOMI_M_IN_A.includes(n)) return 'm';
+  if (NOMI_F.includes(n)) return 'f';
+  if (/[aà]$/.test(n)) return 'f';
+  if (/[oò]$/.test(n)) return 'm';
+  if (/(e|i)$/.test(n)) return /(ele|one|ore|ile|ene|ade|ide|nni|uri|ndi|edi)$/.test(n) ? 'm' : '';
+  return '';
+}
+
+// backstage per la regia: in ordine di prenotazione (chi prenota in gruppo compare di fila)
+function elencoBkRegia_() {
+  const quando = (d) => d ? Utilities.formatDate(new Date(d), 'Europe/Rome', 'dd/MM HH:mm') : '';
+  return datiBk_().filter((x) => x[CB.nome])
+    .map((x) => ({ x, t: x[CB.creato] ? new Date(x[CB.creato]).getTime() : 0 }))
+    .sort((a, b) => a.t - b.t)
+    .map(({ x }) => ({ id: String(x[CB.id]), nome: x[CB.nome], cognome: x[CB.cognome], stato: x[CB.stato], prenotato: quando(x[CB.creato]),
+                       pagato: quando(x[CB.pagato]), entrato: x[CB.entrato_il] ? Utilities.formatDate(new Date(x[CB.entrato_il]), 'Europe/Rome', 'HH:mm') : '' }));
+}
