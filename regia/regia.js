@@ -84,6 +84,53 @@
   $('apri-bk').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); apriBk(); } });
   $('chiudi-bk').addEventListener('click', () => { $('vista-bk').hidden = true; $('pannello').hidden = false; aggiorna(); });
 
+  // ------------------------------------------------ invii SMS dal telefono
+  let invii = null, scheda = 'inviti', chiediInv = '', timerInv = 0;
+  const iPhone = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  const linkSms = (tel, testo) => 'sms:' + tel.replace(/[^\d+]/g, '') + (iPhone ? '&' : '?') + 'body=' + encodeURIComponent(testo);
+  const disegnaInvii = () => {
+    if (!invii) return;
+    const tutti = $('inv-tutti').checked;
+    const elenco = invii[scheda] || [];
+    const daFare = elenco.filter((x) => !x.mandato).length;
+    metti('inv-conto', daFare + ' da mandare su ' + elenco.length);
+    const righe = elenco.filter((x) => tutti || !x.mandato || chiediInv === x.id);
+    $('lista-invii').innerHTML = righe.length ? righe.map((x) => {
+      const k = x.tipo + ':' + x.id;
+      const b = chiediInv === k ? `<button class="sms chiedi" data-k="${esc(k)}" data-ok="1">togliere? ok</button>`
+        : x.mandato ? `<button class="sms fatto" data-k="${esc(k)}">✓ mandato</button>`
+        : x.tel ? `<a class="sms" data-k="${esc(k)}" href="${esc(linkSms(x.tel, x.testo))}">manda SMS</a>` : '<span class="piccoli">manca il numero</span>';
+      return `<li class="${x.mandato ? 'fatto' : ''}"><div class="chi"><b>${esc(maiuscole(x.nome))}</b><small>${esc(x.tel || '')}</small></div>${b}</li>`;
+    }).join('') : '<li>' + (elenco.length ? 'tutti mandati. ✓' : 'nessuno.') + '</li>';
+  };
+  const caricaInvii = async () => {
+    const r = await api({ op: 'invii' });
+    if (r.ok) { invii = r.invii; disegnaInvii(); } else if (!invii) $('lista-invii').innerHTML = '<li>nessuna connessione. riprova.</li>';
+  };
+  const segna = async (x, si) => {
+    x.mandato = si; disegnaInvii();
+    const r = await api({ op: 'segna', tipo: x.tipo, id: x.id, si });
+    if (!r.ok) { x.mandato = !si; disegnaInvii(); alert('non salvato: nessuna connessione. riprova.'); }
+  };
+  $('lista-invii').addEventListener('click', (e) => {
+    const b = e.target.closest('.sms');
+    if (!b) return;
+    const [tipo, id] = b.dataset.k.split(':');
+    const x = (invii[scheda] || []).find((y) => y.tipo === tipo && y.id === id);
+    if (!x) return;
+    if (b.tagName === 'A') { setTimeout(() => segna(x, true), 400); return; }   // si apre Messaggi: la segno come fatta
+    if (!b.dataset.ok) { chiediInv = b.dataset.k; disegnaInvii(); clearTimeout(timerInv); timerInv = setTimeout(() => { chiediInv = ''; disegnaInvii(); }, 5000); return; }
+    clearTimeout(timerInv); chiediInv = ''; segna(x, false);
+  });
+  document.querySelectorAll('.schede-invii button').forEach((b) => b.addEventListener('click', () => {
+    scheda = b.dataset.tipo; chiediInv = '';
+    document.querySelectorAll('.schede-invii button').forEach((y) => y.setAttribute('aria-pressed', String(y === b)));
+    disegnaInvii();
+  }));
+  $('inv-tutti').addEventListener('change', disegnaInvii);
+  $('apri-invii').addEventListener('click', (e) => { e.preventDefault(); $('pannello').hidden = true; $('vista-invii').hidden = false; window.scrollTo(0, 0); caricaInvii(); });
+  $('chiudi-invii').addEventListener('click', () => { $('vista-invii').hidden = true; $('pannello').hidden = false; aggiorna(); });
+
   const entra = async () => {
     const r = await aggiorna();
     if (!r.ok) {
@@ -99,7 +146,7 @@
     clearInterval(giro);
     try { sessionStorage.removeItem('zc-regia'); sessionStorage.removeItem('zc-regia-s'); } catch (e) { /* niente */ }
     sessione = '';
-    pin = ''; $('pannello').hidden = true; $('vista-bk').hidden = true; $('accesso').hidden = false;
+    pin = ''; $('pannello').hidden = true; $('vista-bk').hidden = true; $('vista-invii').hidden = true; $('accesso').hidden = false;
   };
 
   $('f-pin').addEventListener('submit', (e) => { e.preventDefault(); pin = e.target.pin.value.trim(); metti('err-pin', ''); entra(); });
@@ -108,6 +155,7 @@
     if (document.visibilityState !== 'visible') return;
     if (!$('pannello').hidden) aggiorna();
     if (!$('vista-bk').hidden) caricaBk();
+    if (!$('vista-invii').hidden) caricaInvii();
   });
   if (pin) entra();
 })();

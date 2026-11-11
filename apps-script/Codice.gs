@@ -116,7 +116,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'porta-3';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'sms-1';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -1135,6 +1135,8 @@ function regia_(r) {
 
 function regiaLavoro_(r, props) {
   if (r.op === 'backstage') return { ok: true, persone: elencoBkRegia_() };
+  if (r.op === 'invii') return { ok: true, invii: elencoInvii_() };
+  if (r.op === 'segna') return segnaInvio_(r);
   if (r.op === 'pagato') {
     const sh = foglioBk_();
     const bk = datiBk_();
@@ -1203,4 +1205,52 @@ function elencoBkRegia_() {
     .sort((a, b) => a.t - b.t)
     .map(({ x }) => ({ id: String(x[CB.id]), nome: x[CB.nome], cognome: x[CB.cognome], stato: x[CB.stato], prenotato: quando(x[CB.creato]),
                        pagato: quando(x[CB.pagato]), entrato: x[CB.entrato_il] ? Utilities.formatDate(new Date(x[CB.entrato_il]), 'Europe/Rome', 'HH:mm') : '' }));
+}
+
+// ---------------------------------------------------------------- invii a mano (SMS dal telefono della regia)
+// Testi brevi e senza caratteri speciali: entrano in 1-2 SMS.
+function testoSms_(tipo, x) {
+  if (tipo === 'invito') {
+    const scade = x[C.scade_il] ? quando_(new Date(x[C.scade_il])) : quando_(new Date(SERATA.scadenzaInviti));
+    return String(x[C.nome]).toLowerCase() + ', sei dentro. zonacalda - sat 14.11 - 23:30.\naccetta entro ' + scade + ': ' +
+      SERATA.sito + 'invito/?t=' + x[C.token] + '\ninvito personale, porta un documento. 23+.';
+  }
+  if (tipo === 'backstage') {
+    return String(x[CB.nome]).toLowerCase() + ', sei nel backstage. zonacalda - sat 14.11 - dalle 23:30.\nil tuo pass d\'oro: ' +
+      SERATA.sito + 'backstage/?t=' + x[CB.token] + '\nmostralo all\'ingresso: entri senza invito. vale solo per te, porta un documento.';
+  }
+  return String(x[CS.nome]).toLowerCase() + ', sei dello staff. sat 14.11 - palazzo podestà.\nil tuo pass: ' +
+    SERATA.sito + 'staff/?t=' + x[CS.token] + '\nmostralo all\'ingresso. vale solo per te.';
+}
+
+function elencoInvii_() {
+  const tel = (v) => normalizzaTelefono_(String(v || '').replace(/^'/, ''));
+  const t = (d) => (d ? new Date(d).getTime() : 0);
+  const inviti = dati_(foglio_()).filter((x) => x[C.stato] === 'invitato' && x[C.token])
+    .sort((a, b) => t(a[C.invitato_il]) - t(b[C.invitato_il]))
+    .map((x) => ({ tipo: 'invito', id: String(x[C.id]), nome: x[C.nome] + ' ' + x[C.cognome], tel: tel(x[C.telefono]), testo: testoSms_('invito', x), mandato: !!x[C.wa_inviato] }));
+  const backstage = datiBk_().filter((x) => x[CB.token] && (x[CB.stato] === 'confermato' || x[CB.stato] === 'entrato'))
+    .map((x) => ({ tipo: 'backstage', id: String(x[CB.id]), nome: x[CB.nome] + ' ' + x[CB.cognome], tel: tel(x[CB.telefono]), testo: testoSms_('backstage', x), mandato: !!x[CB.wa_inviato] }));
+  const staff = datiStaff_().filter((x) => x[CS.token] && x[CS.stato] !== 'escluso')
+    .map((x) => ({ tipo: 'staff', id: String(x[CS.id]), nome: x[CS.nome] + ' ' + x[CS.cognome], tel: tel(x[CS.telefono]), testo: testoSms_('staff', x), mandato: !!x[CS.wa_inviato] }));
+  return { inviti, backstage, staff };
+}
+
+function segnaInvio_(r) {
+  const valore = r.si ? new Date() : '';
+  if (r.tipo === 'invito') {
+    const sh = foglio_(), righe = dati_(sh);
+    const i = righe.findIndex((x) => String(x[C.id]) === String(r.id));
+    if (i < 0) return { ok: false, errore: 'persona' };
+    scrivi_({ sh, n: i + 2, riga: righe[i] }, { wa_inviato: valore });
+  } else if (r.tipo === 'backstage') {
+    const bk = datiBk_(), i = bk.findIndex((x) => String(x[CB.id]) === String(r.id));
+    if (i < 0) return { ok: false, errore: 'persona' };
+    scriviBk_(foglioBk_(), i, { wa_inviato: valore }, bk[i]);
+  } else if (r.tipo === 'staff') {
+    const st = datiStaff_(), i = st.findIndex((x) => String(x[CS.id]) === String(r.id));
+    if (i < 0) return { ok: false, errore: 'persona' };
+    scriviStaff_(foglioStaff_(), i, { wa_inviato: valore }, st[i]);
+  } else return { ok: false, errore: 'tipo' };
+  return { ok: true };
 }
