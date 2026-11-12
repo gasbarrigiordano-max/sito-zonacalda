@@ -56,7 +56,32 @@
   };
 
   // ------------------------------------------------ backstage: elenco e pagamenti
+  // ------------------------------------------------ dati pronti: memoria del telefono + niente richieste doppie
+  const inVolo = {};
+  const spia = document.createElement('div');
+  spia.textContent = 'aggiorno…';
+  spia.style.cssText = 'position:fixed;top:calc(8px + env(safe-area-inset-top));right:10px;z-index:9;font-size:.75rem;color:#ffcf7a;background:#2a1a05;border-radius:99px;padding:.15rem .6rem;display:none';
+  document.body.appendChild(spia);
+  const spiaOn = () => { spia.style.display = Object.keys(inVolo).length ? 'block' : 'none'; };
+  // fresco: se i dati salvati hanno meno di N ms non si richiede niente (Google risponde una richiesta alla volta)
+  const scarica = (chiave, dati, fresco = 0) => {
+    if (inVolo[chiave]) return inVolo[chiave];
+    const g = mem.leggi('zc-regia-c-' + chiave);
+    if (fresco && g && g.ok && Date.now() - (g.quando || 0) < fresco) return Promise.resolve(g);
+    inVolo[chiave] = api(dati).then((r) => {
+      delete inVolo[chiave]; spiaOn();
+      if (r.ok) mem.scrivi('zc-regia-c-' + chiave, Object.assign(r, { quando: Date.now() }));
+      return r;
+    });
+    spiaOn();
+    return inVolo[chiave];
+  };
+  const giaVisto = (chiave) => mem.leggi('zc-regia-c-' + chiave);
+  const vecchio = (...chiavi) => chiavi.forEach((k) => { const g = mem.leggi('zc-regia-c-' + k); if (g) { g.quando = 0; mem.scrivi('zc-regia-c-' + k, g); } });
+  const precarica = () => { if (document.visibilityState === 'visible' && pin) { scarica('invii', { op: 'invii' }, 50000); scarica('backstage', { op: 'backstage' }, 50000); } };
+
   let bk = [], chiedi = '';
+  const inCorso = new Map();                              // id → cosa si sta salvando (resta anche se la lista si ridisegna)
   const disegnaBk = () => {
     const q = $('q-bk').value.trim().toLowerCase();
     const righe = bk.map((p, i) => ({ p, i })).filter(({ p }) => !q || (p.nome + ' ' + p.cognome + ' ' + p.cognome + ' ' + p.nome).toLowerCase().includes(q));
@@ -65,6 +90,7 @@
       // prima si conferma la richiesta, poi compare "segna pagato"
       const azione = p.stato === 'richiesta' ? 'conferma' : p.stato === 'annullato' ? '' : 'pagato';
       const b = !azione ? ''
+        : inCorso.has(p.id) ? '<button class="spunta chiedi" disabled>salvo…</button>'
         : chiedi === p.id ? `<button class="spunta chiedi" data-id="${esc(p.id)}" data-az="${azione}" data-ok="1">${azione === 'conferma' ? 'confermi? ok' : p.pagato ? 'togliere? ok' : 'pagato? ok'}</button>`
         : azione === 'conferma' ? `<button class="spunta conferma" data-id="${esc(p.id)}" data-az="conferma">conferma</button>`
         : p.pagato ? `<button class="spunta si" data-id="${esc(p.id)}" data-az="pagato">✓ pagato</button>`
@@ -73,8 +99,12 @@
     }).join('') : '<li>nessuno.</li>';
   };
   const caricaBk = async () => {
-    const r = await api({ op: 'backstage' });
-    if (r.ok) { bk = r.persone; disegnaBk(); } else if (!bk.length) $('lista-bk').innerHTML = '<li>nessuna connessione. riprova.</li>';
+    const g = giaVisto('backstage');
+    if (g && g.persone && !bk.length) { bk = g.persone; disegnaBk(); }           // subito gli ultimi dati
+    const r = await scarica('backstage', { op: 'backstage' }, 15000);
+    if (r.ok) {
+      bk = r.persone.map((y) => (inCorso.has(y.id) ? bk.find((z) => z.id === y.id) || y : y)); disegnaBk();
+    } else if (!bk.length) $('lista-bk').innerHTML = '<li>nessuna connessione. riprova.</li>';
   };
   let timerChiedi = 0;
   $('lista-bk').addEventListener('click', async (e) => {
@@ -87,10 +117,16 @@
       return;
     }
     clearTimeout(timerChiedi); chiedi = '';
-    b.disabled = true; b.textContent = 'salvo…';
-    const r = b.dataset.az === 'conferma' ? await api({ op: 'conferma', id, si: true }) : await api({ op: 'pagato', id, si: !p.pagato });
-    if (r.ok) { bk = r.persone; disegnaBk(); aggiorna(); }
-    else { disegnaBk(); alert('non salvato: nessuna connessione. riprova.'); }
+    const az = b.dataset.az;
+    inCorso.set(id, az); disegnaBk();
+    const r = az === 'conferma' ? await api({ op: 'conferma', id, si: true }) : await api({ op: 'pagato', id, si: !p.pagato });
+    inCorso.delete(id);
+    vecchio('backstage', 'nomi-bk', 'invii');
+    if (r.ok) {
+      const nuovi = new Map(r.persone.map((y) => [y.id, y]));
+      bk = bk.map((y) => (inCorso.has(y.id) ? y : nuovi.get(y.id) || y));   // chi è ancora in salvataggio resta com'è
+      disegnaBk(); aggiorna();
+    } else { disegnaBk(); alert('non salvato: nessuna connessione. riprova.'); }
   });
   $('q-bk').addEventListener('input', disegnaBk);
   const apriBk = () => { $('pannello').hidden = true; $('vista-bk').hidden = false; window.scrollTo(0, 0); caricaBk(); };
@@ -118,12 +154,15 @@
     }).join('') : '<li>' + (elenco.length ? 'tutti mandati. ✓' : 'nessuno.') + '</li>';
   };
   const caricaInvii = async () => {
-    const r = await api({ op: 'invii' });
+    const g = giaVisto('invii');
+    if (g && g.invii && !invii) { invii = g.invii; disegnaInvii(); }             // subito gli ultimi dati
+    const r = await scarica('invii', { op: 'invii' }, 15000);
     if (r.ok) { invii = r.invii; disegnaInvii(); } else if (!invii) $('lista-invii').innerHTML = '<li>nessuna connessione. riprova.</li>';
   };
   const segna = async (x, si) => {
     x.mandato = si; disegnaInvii();
     const r = await api({ op: 'segna', tipo: x.tipo, id: x.id, si });
+    vecchio('invii');
     if (!r.ok) { x.mandato = !si; disegnaInvii(); alert('non salvato: nessuna connessione. riprova.'); }
   };
   $('lista-invii').addEventListener('click', (e) => {
@@ -167,13 +206,12 @@
         : `<button class="spunta conferma az-bk" data-id="${esc(x.id)}" data-az="conferma">conferma</button>`;
     }
     if (x.stato !== 'confermato' && x.stato !== 'entrato') return '';
+    if (x.attesa) return '<span class="sms chiedi">preparo SMS…</span>';
     if (!x.sms) return '';
     if (x.sms.mandato) return '<span class="sms fatto">✓ SMS mandato</span>';
     return x.sms.tel ? `<a class="sms az-bk" data-id="${esc(x.id)}" data-az="sms" href="${esc(linkSms(x.sms.tel, x.sms.testo))}">manda SMS</a>` : '';
   };
-  const caricaBkNomi = async (stati) => {
-    const [n, b, i] = await Promise.all([api({ op: 'nomi', tipo: 'backstage', stati: ['richiesta', 'confermato', 'entrato', 'annullato'] }), api({ op: 'backstage' }), api({ op: 'invii' })]);
-    if (!n.ok || !b.ok) return false;
+  const unisciBk = (n, b, i, stati) => {
     const chiave = (s) => String(s || '').toLowerCase().trim();
     const extra = new Map(n.persone.map((p) => [chiave(p.nome), p]));
     const sms = new Map(((i.ok && i.invii && i.invii.backstage) || []).map((x) => [x.id, x]));
@@ -185,18 +223,34 @@
     nomi = tutti.filter((p) => mostrati.has(p.id)).sort((a, z) => a.nome.localeCompare(z.nome, 'it'));
     return true;
   };
+  const caricaBkNomi = async (stati) => {
+    const STATI = ['richiesta', 'confermato', 'entrato', 'annullato'];
+    const gn = giaVisto('nomi-bk'), gb = giaVisto('backstage'), gi = giaVisto('invii');
+    let mostrato = false;
+    if (gn && gb) { unisciBk(gn, gb, gi || {}, stati); disegnaNomi(); mostrato = true; }   // subito gli ultimi dati
+    const [n, b, i] = await Promise.all([scarica('nomi-bk', { op: 'nomi', tipo: 'backstage', stati: STATI }, 20000), scarica('backstage', { op: 'backstage' }, 20000), scarica('invii', { op: 'invii' }, 20000)]);
+    if (!n.ok || !b.ok) return mostrato;
+    const prima = new Map(nomi.map((x) => [x.id, x]));
+    unisciBk(n, b, i, stati);
+    nomi = nomi.map((x) => { const v = prima.get(x.id); return v && (v.attesa || v.stato !== x.stato && v.stato === 'confermato') ? v : x; });   // non tornare indietro su chi stai confermando
+    disegnaNomi();
+    return true;
+  };
   $('lista-nomi').addEventListener('click', async (e) => {
     const b = e.target.closest('.az-bk');
     if (!b) return;
     const id = b.dataset.id, x = nomi.find((y) => y.id === id);
     if (!x) return;
-    if (b.dataset.az === 'sms') { setTimeout(async () => { x.sms.mandato = true; disegnaNomi(); await api({ op: 'segna', tipo: 'backstage', id, si: true }); }, 400); return; }
+    if (b.dataset.az === 'sms') { setTimeout(async () => { x.sms.mandato = true; disegnaNomi(); await api({ op: 'segna', tipo: 'backstage', id, si: true }); vecchio('invii'); }, 400); return; }
     if (!b.dataset.ok) { chiediNome = id; disegnaNomi(); clearTimeout(timerNome); timerNome = setTimeout(() => { chiediNome = ''; disegnaNomi(); }, 5000); return; }
     clearTimeout(timerNome); chiediNome = '';
-    b.disabled = true; b.textContent = 'salvo…';
+    x.stato = 'confermato'; x.attesa = true; disegnaNomi();      // subito a schermo, il foglio si aggiorna dietro
     const r = await api({ op: 'conferma', id, si: true });
-    if (!r.ok) { disegnaNomi(); return alert('non salvato: nessuna connessione. riprova.'); }
-    await caricaBkNomi([]); disegnaNomi();
+    if (!r.ok) { x.stato = 'richiesta'; x.attesa = false; disegnaNomi(); return alert('non salvato: nessuna connessione. riprova.'); }
+    vecchio('nomi-bk', 'backstage');
+    const i = inVolo.invii ? await inVolo.invii.then(() => scarica('invii', { op: 'invii' })) : await scarica('invii', { op: 'invii' });   // solo il testo dell'SMS con il pass
+    x.sms = i.ok && i.invii ? (i.invii.backstage || []).find((y) => y.id === id) : null;
+    x.attesa = false; disegnaNomi();
   });
 
   const apriNomi = async (el) => {
@@ -206,11 +260,14 @@
     $('pannello').hidden = true; $('vista-nomi').hidden = false; window.scrollTo(0, 0);
     if (tipoNomi === 'backstage') {
       mostrati = null; chiediNome = '';
-      if (await caricaBkNomi((el.dataset.stati || '').split(','))) disegnaNomi(); else $('lista-nomi').innerHTML = '<li>nessuna connessione. riprova.</li>';
+      if (!(await caricaBkNomi((el.dataset.stati || '').split(',')))) $('lista-nomi').innerHTML = '<li>nessuna connessione. riprova.</li>';
       return;
     }
-    const r = await api({ op: 'nomi', tipo: tipoNomi, stati: (el.dataset.stati || '').split(','), g: el.dataset.g });
-    if (r.ok) { nomi = r.persone; disegnaNomi(); } else $('lista-nomi').innerHTML = '<li>nessuna connessione. riprova.</li>';
+    const ch = 'nomi-' + tipoNomi + '-' + (el.dataset.stati || el.dataset.g || '');
+    const g = giaVisto(ch);
+    if (g && g.persone) { nomi = g.persone; disegnaNomi(); }
+    const r = await scarica(ch, { op: 'nomi', tipo: tipoNomi, stati: (el.dataset.stati || '').split(','), g: el.dataset.g });
+    if (r.ok) { if (tipoNomi === el.dataset.tipo) { nomi = r.persone; disegnaNomi(); } } else if (!g) $('lista-nomi').innerHTML = '<li>nessuna connessione. riprova.</li>';
   };
   document.querySelectorAll('.n.apre').forEach((el) => {
     el.addEventListener('click', (e) => { e.stopPropagation(); apriNomi(el); });   // dentro il blocco backstage non apre l'elenco pagamenti
@@ -233,10 +290,13 @@
     $('accesso').hidden = true; $('pannello').hidden = false;
     document.documentElement.classList.remove('dentro');   // da qui in poi decide lo script
     clearInterval(giro); giro = setInterval(aggiorna, 15000);
+    setTimeout(precarica, 1500); clearInterval(apri.p); apri.p = setInterval(precarica, 60000);
   };
   const esci = () => {
     clearInterval(giro);
     mem.togli('zc-regia-accesso'); mem.togli('zc-regia-dati');
+    try { Object.keys(localStorage).filter((k) => k.startsWith('zc-regia-c-')).forEach((k) => localStorage.removeItem(k)); } catch (e) { /* niente */ }
+    clearInterval(apri.p);
     document.documentElement.classList.remove('dentro');
     sessione = '';
     pin = ''; $('pannello').hidden = true; $('vista-bk').hidden = true; $('vista-invii').hidden = true; $('vista-nomi').hidden = true; $('accesso').hidden = false;
