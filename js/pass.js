@@ -215,6 +215,9 @@
     g.textAlign = 'center';
   };
 
+  // carica subito font e logo (mentre si aspetta il foglio), così il pass si disegna appena arrivano i dati
+  window.zcPrecarica = (base = '../') => carica(base);
+
   window.zcPass = async ({ token, nome, staff: eStaff, backstage: eBk, base = '../' }) => {
     const risorse = await carica(base);
     const c = document.createElement('canvas');

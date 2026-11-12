@@ -24,6 +24,7 @@
   .tot { text-align: center; margin: .5rem 0 1rem; font-variant-numeric: tabular-nums; }
   .tot b { font-size: 4rem; line-height: 1; color: #fff; text-shadow: 0 0 18px rgba(255, 20, 36, .55); }
   .tot span { color: var(--tenue); font-size: 1.25rem; }
+  .sotto-tot { color: var(--tenue); font-size: .85rem; margin-top: .2rem; }
   .barretta { height: 10px; border-radius: 99px; background: #1c1a1a; overflow: hidden; margin: .5rem auto 0; max-width: 360px; }
   .barretta i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ff2634, #ff6b73); transition: width .6s; }
   .blocco { background: #0f0e0e; border: 1px solid #262424; border-radius: 16px; padding: .9rem 1rem 1rem; margin: .75rem 0; }
@@ -79,6 +80,8 @@
   .nomi li b { font-weight: 600; flex: 1; }
   .nomi li small { color: var(--tenue); font-size: .8rem; white-space: nowrap; }
   .nomi li a { color: var(--tenue); font-size: .8rem; text-decoration: none; }
+  .nomi li { flex-wrap: wrap; align-items: center; }
+  .nomi li .spunta, .nomi li .sms { margin-left: auto; height: 40px; min-width: 120px; font-size: .85rem; }
   .stato { text-align: center; color: var(--tenue); font-size: .8rem; margin-top: 1rem; }
   .stato.male { color: #ffcf7a; }
   /* Mac e iPad: i blocchi si dispongono in colonne */
@@ -109,7 +112,7 @@
   }
 </style>
 <script src="../js/api.js?v=20261112" defer></script>
-<script src="regia.js?v=20261112c" defer></script>
+<script src="regia.js?v=20261112e" defer></script>
 </head>
 <body>
 <main class="regia">
@@ -135,7 +138,8 @@
     <a class="bottone a-sms" id="apri-invii" href="#" style="margin:.25rem 0 .5rem">📱 invii SMS</a>
 
     <div class="tot a-tot" aria-live="polite">
-      <b id="dentro">0</b> <span>/ <span id="capienza">300</span> dentro</span>
+      <b id="dentro">0</b> <span>/ <span id="capienza">0</span> dentro</span>
+      <div class="sotto-tot">pista + backstage confermati · <span id="tot-staff">(staff 0 / 0 · in tutto 0 / 0)</span></div>
       <div class="barretta"><i id="riempi"></i></div>
     </div>
 

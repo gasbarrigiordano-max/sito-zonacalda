@@ -36,13 +36,27 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // aperta dal link della mail: mostra il pass
+  const ricordo = {                                      // il pass resta sul telefono: alla riapertura compare subito
+    leggi: (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } },
+    scrivi: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* niente */ } },
+    togli: (k) => { try { localStorage.removeItem(k); } catch (e) { /* niente */ } },
+  };
+  // aperto dal link: mostra il pass (subito, se è già stato aperto su questo telefono) e intanto lo controlla
   const t = new URLSearchParams(location.search).get('t');
   if (t) {
     $('s-modulo').hidden = true;
+    if (window.zcPrecarica) zcPrecarica();
+    const k = 'zc-pass-' + t, gia = ricordo.leggi(k);
+    if (gia && gia.nome) mostraPass(t, gia.nome, gia.cognome);
     zcApi({ azione: 'pass', token: t }).then((r) => {
-      if (r.ok) mostraPass(t, r.nome, r.cognome);
-      else if (r.errore === 'rete') esito('nessuna connessione.', 'riprova tra poco.');
+      if (r.ok) {
+        ricordo.scrivi(k, { nome: r.nome, cognome: r.cognome });
+        if (!gia || gia.nome !== r.nome || gia.cognome !== r.cognome) mostraPass(t, r.nome, r.cognome);
+        return;
+      }
+      if (r.errore === 'rete' && gia) return;                // senza rete resta il pass salvato
+      ricordo.togli(k);
+      if (r.errore === 'rete') esito('nessuna connessione.', 'riprova tra poco.');
       else if (r.errore === 'non_confermato') esito('pass non ancora attivo.', 'arriva appena confermiamo la prenotazione. 😈');
       else esito('pass non valido.', 'chiedi a chi ti ha mandato il link.');
     });

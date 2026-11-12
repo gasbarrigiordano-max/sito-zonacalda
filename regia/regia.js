@@ -23,8 +23,12 @@
 
   const mostra = (r) => {
     const L = r.lista, B = r.backstage, S = r.staff;
-    metti('agg', r.aggiornato); metti('dentro', r.dentro); metti('capienza', r.capienza);
-    $('riempi').style.width = Math.min(100, (r.dentro / r.capienza) * 100) + '%';
+    // dentro su attesi: pista e backstage confermati (anche già entrati); staff a parte, tra parentesi
+    const dentroPB = L.entrato + B.entrato, attesiPB = L.confermato + L.entrato + B.confermato + B.entrato;
+    const dentroS = S.entrato + S.aMano, attesiS = S.registrato + S.entrato + S.aMano;
+    metti('agg', r.aggiornato); metti('dentro', dentroPB); metti('capienza', attesiPB);
+    metti('tot-staff', `(staff ${dentroS} / ${attesiS} · in tutto ${dentroPB + dentroS} / ${attesiPB + attesiS})`);
+    $('riempi').style.width = (attesiPB ? Math.min(100, (dentroPB / attesiPB) * 100) : 0) + '%';
     metti('l-tot', L.totale + ' registrati');
     metti('l-entrati', L.entrato); metti('l-attesi', L.confermato); metti('l-invitati', L.invitato);
     metti('l-inlista', L['in lista']); metti('l-dainvitare', L['da invitare']); metti('l-no', L.rifiutato + L.scaduto);
@@ -151,14 +155,60 @@
       const info = [x.eta !== null && x.eta !== undefined ? x.eta + ' anni' : '', x.ora ? 'entrato ' + x.ora : '',
         tipoNomi === 'genere' || /,/.test($('nomi-titolo').dataset.stati || '') ? x.stato : '', x.pagato ? '✓ pagato' : ''].filter(Boolean).join(' · ');
       const t = x.tel ? ` <a href="tel:${esc(x.tel.replace(/[^\d+]/g, ''))}">${esc(x.tel)}</a>` : '';
-      return `<li><b>${esc(maiuscole(x.nome))}</b><small>${esc(info)}</small>${t}</li>`;
+      return `<li><b>${esc(maiuscole(x.nome))}</b><small>${esc(info)}</small>${t}${tipoNomi === 'backstage' ? azioneBk(x) : ''}</li>`;
     }).join('') : '<li>nessuno.</li>';
   };
+  // backstage: dall'elenco si conferma e poi si manda l'SMS con il pass d'oro
+  let mostrati = null, chiediNome = '', timerNome = 0;
+  const azioneBk = (x) => {
+    if (!x.id) return '';
+    if (x.stato === 'richiesta') {
+      return chiediNome === x.id ? `<button class="spunta chiedi az-bk" data-id="${esc(x.id)}" data-az="conferma" data-ok="1">confermi? ok</button>`
+        : `<button class="spunta conferma az-bk" data-id="${esc(x.id)}" data-az="conferma">conferma</button>`;
+    }
+    if (x.stato !== 'confermato' && x.stato !== 'entrato') return '';
+    if (!x.sms) return '';
+    if (x.sms.mandato) return '<span class="sms fatto">✓ SMS mandato</span>';
+    return x.sms.tel ? `<a class="sms az-bk" data-id="${esc(x.id)}" data-az="sms" href="${esc(linkSms(x.sms.tel, x.sms.testo))}">manda SMS</a>` : '';
+  };
+  const caricaBkNomi = async (stati) => {
+    const [n, b, i] = await Promise.all([api({ op: 'nomi', tipo: 'backstage', stati: ['richiesta', 'confermato', 'entrato', 'annullato'] }), api({ op: 'backstage' }), api({ op: 'invii' })]);
+    if (!n.ok || !b.ok) return false;
+    const chiave = (s) => String(s || '').toLowerCase().trim();
+    const extra = new Map(n.persone.map((p) => [chiave(p.nome), p]));
+    const sms = new Map(((i.ok && i.invii && i.invii.backstage) || []).map((x) => [x.id, x]));
+    const tutti = b.persone.map((p) => {
+      const e = extra.get(chiave(p.nome + ' ' + p.cognome)) || {};
+      return { id: p.id, nome: p.nome + ' ' + p.cognome, stato: p.stato, eta: e.eta, tel: e.tel, ora: p.entrato, pagato: !!p.pagato, sms: sms.get(p.id) };
+    });
+    if (!mostrati) mostrati = new Set(tutti.filter((p) => stati.includes(p.stato)).map((p) => p.id));   // chi confermi resta in elenco
+    nomi = tutti.filter((p) => mostrati.has(p.id)).sort((a, z) => a.nome.localeCompare(z.nome, 'it'));
+    return true;
+  };
+  $('lista-nomi').addEventListener('click', async (e) => {
+    const b = e.target.closest('.az-bk');
+    if (!b) return;
+    const id = b.dataset.id, x = nomi.find((y) => y.id === id);
+    if (!x) return;
+    if (b.dataset.az === 'sms') { setTimeout(async () => { x.sms.mandato = true; disegnaNomi(); await api({ op: 'segna', tipo: 'backstage', id, si: true }); }, 400); return; }
+    if (!b.dataset.ok) { chiediNome = id; disegnaNomi(); clearTimeout(timerNome); timerNome = setTimeout(() => { chiediNome = ''; disegnaNomi(); }, 5000); return; }
+    clearTimeout(timerNome); chiediNome = '';
+    b.disabled = true; b.textContent = 'salvo…';
+    const r = await api({ op: 'conferma', id, si: true });
+    if (!r.ok) { disegnaNomi(); return alert('non salvato: nessuna connessione. riprova.'); }
+    await caricaBkNomi([]); disegnaNomi();
+  });
+
   const apriNomi = async (el) => {
     tipoNomi = el.dataset.tipo;
     metti('nomi-titolo', el.dataset.titolo); $('nomi-titolo').dataset.stati = el.dataset.stati || '';
     $('q-nomi').value = ''; nomi = []; $('lista-nomi').innerHTML = '<li>carico…</li>'; metti('nomi-conto', '');
     $('pannello').hidden = true; $('vista-nomi').hidden = false; window.scrollTo(0, 0);
+    if (tipoNomi === 'backstage') {
+      mostrati = null; chiediNome = '';
+      if (await caricaBkNomi((el.dataset.stati || '').split(','))) disegnaNomi(); else $('lista-nomi').innerHTML = '<li>nessuna connessione. riprova.</li>';
+      return;
+    }
     const r = await api({ op: 'nomi', tipo: tipoNomi, stati: (el.dataset.stati || '').split(','), g: el.dataset.g });
     if (r.ok) { nomi = r.persone; disegnaNomi(); } else $('lista-nomi').innerHTML = '<li>nessuna connessione. riprova.</li>';
   };

@@ -48,13 +48,19 @@
     if ($('s-invitato').hidden) altro('qualcosa non va.', 'riprova tra poco.');
   };
 
+  // l'invito confermato resta sul telefono: alla riapertura il pass compare subito, poi si controlla col foglio
+  const chiave = 'zc-invito-' + token;
+  const ricordo = (() => { try { return JSON.parse(localStorage.getItem(chiave) || 'null'); } catch (e) { return null; } })();
+  const salva = (r) => { try { if (r && r.ok && r.stato === 'confermato') localStorage.setItem(chiave, JSON.stringify(r)); else localStorage.removeItem(chiave); } catch (e) { /* niente */ } };
   const carica = async (azione) => {
     const r = await zcApi({ azione, token });
-    if (r.ok) disegna(r); else errore(r);
+    if (r.ok) {
+      salva(r);
+      if (azione === 'invito' && ricordo && r.stato === ricordo.stato && r.nome === ricordo.nome) return;   // già a schermo
+      disegna(r);
+    } else if (!(r.errore === 'rete' && ricordo)) { if (r.errore !== 'rete') salva(null); errore(r); }
   };
 
-  if (!/^[A-Za-z0-9]{20,40}$/.test(token)) altro('invito non valido.', 'controlla il link che ti abbiamo mandato.');
-  else carica('invito');
 
   const scegli = (azione, btn) => async () => {
     $('si').disabled = $('no').disabled = true;
@@ -85,4 +91,12 @@
     if (!foto) await preparaFoto();
     if (foto) zcSalvaPass(foto, 'zonacalda-invito.png');
   });
+
+  // avvio (in fondo: qui tutto è già definito)
+  if (!/^[A-Za-z0-9]{20,40}$/.test(token)) altro('invito non valido.', 'controlla il link che ti abbiamo mandato.');
+  else {
+    if (window.zcPrecarica) zcPrecarica();
+    if (ricordo && ricordo.stato === 'confermato') disegna(ricordo);
+    carica('invito');
+  }
 })();
