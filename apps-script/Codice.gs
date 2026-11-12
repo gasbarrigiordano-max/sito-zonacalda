@@ -15,7 +15,9 @@ const SERATA = {
   capienza: 300,                     // totale, staff compreso
   staffPrevisto: 20,
   confermeMax: 315,                  // oltre questo numero: "posti finiti."
-  scadenzaInviti: '2026-11-13T21:00:00+01:00',   // tutti gli inviti si accettano entro venerdì 13.11 alle 21:00
+  scadenzaInviti: '2026-11-13T21:00:00+01:00',   // inviti mandati fino a venerdì mattina: si accettano entro venerdì 13.11 alle 21:00
+  cambioScadenza: '2026-11-13T06:00:00+01:00',   // da venerdì alle 6 i nuovi inviti hanno la seconda scadenza
+  scadenzaInviti2: '2026-11-14T12:00:00+01:00',  // inviti mandati da venerdì 13.11: si accettano entro sabato 14.11 alle 12:00
   oreConferma: 12,                   // solo se si invita dopo quella scadenza: tempo per confermare
   garantitoFino: '2026-11-15T00:30:00+01:00',
   sito: 'https://zonacaldaclubuse.it/',
@@ -116,7 +118,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'nomi-6';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'nomi-7';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -500,10 +502,17 @@ function impostaLuogo() {
   ui.alert('Luogo salvato.');
 }
 
+// scadenza per un invito mandato adesso: prima di venerdì mattina venerdì 21:00, dopo sabato 12:00;
+// se manca meno di un'ora, 12 ore da adesso
+function scadenzaInvitiOra_() {
+  const ora = Date.now();
+  const fissa = new Date(ora < new Date(SERATA.cambioScadenza).getTime() ? SERATA.scadenzaInviti : SERATA.scadenzaInviti2);
+  return fissa.getTime() - ora > 3600000 ? fissa : new Date(ora + SERATA.oreConferma * 3600000);
+}
+
 function inviaInviti() {
   // scadenza fissa uguale per tutti; se è già passata (o manca meno di un'ora), 12 ore da adesso
-  const fissa = new Date(SERATA.scadenzaInviti);
-  invia_(fissa.getTime() - Date.now() > 3600000 ? fissa : new Date(Date.now() + SERATA.oreConferma * 3600000), false);
+  invia_(scadenzaInvitiOra_(), false);
 }
 // Porta alla scadenza fissa gli inviti già mandati con una scadenza più corta, e rifà il loro messaggio WhatsApp.
 function spostaScadenza() {
@@ -1276,7 +1285,7 @@ function elencoBkRegia_() {
 // Testi brevi e senza caratteri speciali: entrano in 1-2 SMS.
 function testoSms_(tipo, x) {
   if (tipo === 'invito') {
-    const scade = x[C.scade_il] ? quando_(new Date(x[C.scade_il])) : quando_(new Date(SERATA.scadenzaInviti));
+    const scade = x[C.scade_il] ? quando_(new Date(x[C.scade_il])) : quando_(scadenzaInvitiOra_());
     return String(x[C.nome]).toLowerCase() + ', sei dentro.\nzonacalda - sat 14.11 - 23:30.\n\naccetta entro ' + scade + '\n\n' +
       SERATA.sito + 'invito/?t=' + x[C.token] + '\n\ninvito personale, porta un documento. 23+.';
   }
