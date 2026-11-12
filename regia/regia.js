@@ -80,6 +80,22 @@
   const vecchio = (...chiavi) => chiavi.forEach((k) => { const g = mem.leggi('zc-regia-c-' + k); if (g) { g.quando = 0; mem.scrivi('zc-regia-c-' + k, g); } });
   const precarica = () => { if (document.visibilityState === 'visible' && pin) { scarica('invii', { op: 'invii' }, 50000); scarica('backstage', { op: 'backstage' }, 50000); } };
 
+  // SMS segnati da questo telefono: valgono finché il foglio non li conferma (così un elenco vecchio non li rimette "da mandare")
+  const segnati = mem.leggi('zc-regia-segnati') || {};
+  const ricordaSegnato = (tipo, id, si) => { segnati[tipo + ':' + id] = { v: !!si, t: Date.now() }; mem.scrivi('zc-regia-segnati', segnati); };
+  const sistemaInvii = (inv) => {
+    if (!inv) return inv;
+    let cambiato = false;
+    ['inviti', 'backstage', 'staff'].forEach((g) => (inv[g] || []).forEach((x) => {
+      const k = x.tipo + ':' + x.id, o = segnati[k];
+      if (!o) return;
+      if (!!x.mandato === o.v || Date.now() - o.t > 30 * 60e3) { delete segnati[k]; cambiato = true; }   // il foglio è d'accordo (o è passato troppo)
+      else x.mandato = o.v;
+    }));
+    if (cambiato) mem.scrivi('zc-regia-segnati', segnati);
+    return inv;
+  };
+
   let bk = [], chiedi = '';
   const inCorso = new Map();                              // id → cosa si sta salvando (resta anche se la lista si ridisegna)
   const disegnaBk = () => {
@@ -155,15 +171,15 @@
   };
   const caricaInvii = async () => {
     const g = giaVisto('invii');
-    if (g && g.invii && !invii) { invii = g.invii; disegnaInvii(); }             // subito gli ultimi dati
+    if (g && g.invii && !invii) { invii = sistemaInvii(g.invii); disegnaInvii(); }   // subito gli ultimi dati
     const r = await scarica('invii', { op: 'invii' }, 15000);
-    if (r.ok) { invii = r.invii; disegnaInvii(); } else if (!invii) $('lista-invii').innerHTML = '<li>nessuna connessione. riprova.</li>';
+    if (r.ok) { invii = sistemaInvii(r.invii); disegnaInvii(); } else if (!invii) $('lista-invii').innerHTML = '<li>nessuna connessione. riprova.</li>';
   };
   const segna = async (x, si) => {
-    x.mandato = si; disegnaInvii();
+    x.mandato = si; ricordaSegnato(x.tipo, x.id, si); disegnaInvii();
     const r = await api({ op: 'segna', tipo: x.tipo, id: x.id, si });
     vecchio('invii');
-    if (!r.ok) { x.mandato = !si; disegnaInvii(); alert('non salvato: nessuna connessione. riprova.'); }
+    if (!r.ok) { x.mandato = !si; ricordaSegnato(x.tipo, x.id, !si); disegnaInvii(); alert('non salvato: nessuna connessione. riprova.'); }
   };
   $('lista-invii').addEventListener('click', (e) => {
     const b = e.target.closest('.sms');
@@ -214,7 +230,7 @@
   const unisciBk = (n, b, i, stati) => {
     const chiave = (s) => String(s || '').toLowerCase().trim();
     const extra = new Map(n.persone.map((p) => [chiave(p.nome), p]));
-    const sms = new Map(((i.ok && i.invii && i.invii.backstage) || []).map((x) => [x.id, x]));
+    const sms = new Map(((i.ok && i.invii && sistemaInvii(i.invii).backstage) || []).map((x) => [x.id, x]));
     const tutti = b.persone.map((p) => {
       const e = extra.get(chiave(p.nome + ' ' + p.cognome)) || {};
       return { id: p.id, nome: p.nome + ' ' + p.cognome, stato: p.stato, eta: e.eta, tel: e.tel, ora: p.entrato, pagato: !!p.pagato, sms: sms.get(p.id) };
@@ -241,7 +257,7 @@
     if (!b) return;
     const id = b.dataset.id, x = nomi.find((y) => y.id === id);
     if (!x) return;
-    if (b.dataset.az === 'sms') { setTimeout(async () => { x.sms.mandato = true; disegnaNomi(); await api({ op: 'segna', tipo: 'backstage', id, si: true }); vecchio('invii'); }, 400); return; }
+    if (b.dataset.az === 'sms') { setTimeout(async () => { x.sms.mandato = true; ricordaSegnato('backstage', id, true); disegnaNomi(); await api({ op: 'segna', tipo: 'backstage', id, si: true }); vecchio('invii'); }, 400); return; }
     if (!b.dataset.ok) { chiediNome = id; disegnaNomi(); clearTimeout(timerNome); timerNome = setTimeout(() => { chiediNome = ''; disegnaNomi(); }, 5000); return; }
     clearTimeout(timerNome); chiediNome = '';
     x.stato = 'confermato'; x.attesa = true; disegnaNomi();      // subito a schermo, il foglio si aggiorna dietro
@@ -249,7 +265,7 @@
     if (!r.ok) { x.stato = 'richiesta'; x.attesa = false; disegnaNomi(); return alert('non salvato: nessuna connessione. riprova.'); }
     vecchio('nomi-bk', 'backstage');
     const i = inVolo.invii ? await inVolo.invii.then(() => scarica('invii', { op: 'invii' })) : await scarica('invii', { op: 'invii' });   // solo il testo dell'SMS con il pass
-    x.sms = i.ok && i.invii ? (i.invii.backstage || []).find((y) => y.id === id) : null;
+    x.sms = i.ok && i.invii ? (sistemaInvii(i.invii).backstage || []).find((y) => y.id === id) : null;
     x.attesa = false; disegnaNomi();
   });
 
