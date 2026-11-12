@@ -116,7 +116,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'colori-1';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'nomi-1';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -1158,6 +1158,7 @@ function regia_(r) {
 function regiaLavoro_(r, props) {
   if (r.op === 'backstage') return { ok: true, persone: elencoBkRegia_() };
   if (r.op === 'invii') return { ok: true, invii: elencoInvii_() };
+  if (r.op === 'nomi') return { ok: true, persone: nomiRegia_(r) };
   if (r.op === 'segna') return segnaInvio_(r);
   if (r.op === 'pagato') {
     const sh = foglioBk_();
@@ -1275,4 +1276,31 @@ function segnaInvio_(r) {
     scriviStaff_(foglioStaff_(), i, { wa_inviato: valore }, st[i]);
   } else return { ok: false, errore: 'tipo' };
   return { ok: true };
+}
+
+// ---------------------------------------------------------------- regia: i nomi dietro a ogni numero
+function nomiRegia_(r) {
+  const stati = Array.isArray(r.stati) ? r.stati.map(String) : [];
+  const ora = (d) => (d ? Utilities.formatDate(new Date(d), 'Europe/Rome', 'HH:mm') : '');
+  const tel = (v) => String(v || '').replace(/^'/, '');
+  const anni = (n) => { const e = eta_(dataISO_(n), SERATA.dataISO); return e >= 0 && e < 100 ? e : null; };
+  const lista = () => dati_(foglio_()).filter((x) => x[C.nome] || x[C.cognome]);
+  let out = [];
+  if (r.tipo === 'lista') {
+    out = lista().filter((x) => stati.includes(x[C.stato]))
+      .map((x) => ({ nome: x[C.nome] + ' ' + x[C.cognome], eta: anni(x[C.nascita]), tel: tel(x[C.telefono]), stato: x[C.stato], ora: ora(x[C.entrato_il]) }));
+  } else if (r.tipo === 'backstage') {
+    out = datiBk_().filter((x) => x[CB.nome] && stati.includes(x[CB.stato]))
+      .map((x) => ({ nome: x[CB.nome] + ' ' + x[CB.cognome], eta: anni(x[CB.nascita]), tel: tel(x[CB.telefono]), stato: x[CB.stato], ora: ora(x[CB.entrato_il]), pagato: !!x[CB.pagato] }));
+  } else if (r.tipo === 'staff') {
+    out = datiStaff_().filter((x) => x[CS.nome] && stati.includes(x[CS.stato]))
+      .map((x) => ({ nome: x[CS.nome] + ' ' + x[CS.cognome], tel: tel(x[CS.telefono]), stato: x[CS.stato], ora: ora(x[CS.entrato_il]) }));
+  } else if (r.tipo === 'genere') {                     // chi è dentro, uomini / donne / incerti
+    const g = String(r.g || '');
+    out = lista().filter((x) => x[C.stato] === 'entrato').map((x) => [x[C.nome], x[C.cognome], x[C.nascita], x[C.entrato_il], 'pista'])
+      .concat(datiBk_().filter((x) => x[CB.stato] === 'entrato').map((x) => [x[CB.nome], x[CB.cognome], x[CB.nascita], x[CB.entrato_il], 'backstage']))
+      .filter(([n]) => genere_(n) === g)
+      .map(([n, c, na, en, dove]) => ({ nome: n + ' ' + c, eta: anni(na), stato: dove, ora: ora(en) }));
+  }
+  return out.sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'it'));
 }

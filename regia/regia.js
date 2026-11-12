@@ -138,6 +138,34 @@
   $('apri-invii').addEventListener('click', (e) => { e.preventDefault(); $('pannello').hidden = true; $('vista-invii').hidden = false; window.scrollTo(0, 0); caricaInvii(); });
   $('chiudi-invii').addEventListener('click', () => { $('vista-invii').hidden = true; $('pannello').hidden = false; aggiorna(); });
 
+  // ------------------------------------------------ i nomi dietro a ogni numero
+  let nomi = [], tipoNomi = '';
+  const disegnaNomi = () => {
+    const q = $('q-nomi').value.trim().toLowerCase();
+    const righe = nomi.filter((x) => !q || x.nome.toLowerCase().includes(q));
+    metti('nomi-conto', righe.length + (q ? ' su ' + nomi.length : ''));
+    $('lista-nomi').innerHTML = righe.length ? righe.map((x) => {
+      const info = [x.eta !== null && x.eta !== undefined ? x.eta + ' anni' : '', x.ora ? 'entrato ' + x.ora : '',
+        tipoNomi === 'genere' || /,/.test($('nomi-titolo').dataset.stati || '') ? x.stato : '', x.pagato ? '✓ pagato' : ''].filter(Boolean).join(' · ');
+      const t = x.tel ? ` <a href="tel:${esc(x.tel.replace(/[^\d+]/g, ''))}">${esc(x.tel)}</a>` : '';
+      return `<li><b>${esc(maiuscole(x.nome))}</b><small>${esc(info)}</small>${t}</li>`;
+    }).join('') : '<li>nessuno.</li>';
+  };
+  const apriNomi = async (el) => {
+    tipoNomi = el.dataset.tipo;
+    metti('nomi-titolo', el.dataset.titolo); $('nomi-titolo').dataset.stati = el.dataset.stati || '';
+    $('q-nomi').value = ''; nomi = []; $('lista-nomi').innerHTML = '<li>carico…</li>'; metti('nomi-conto', '');
+    $('pannello').hidden = true; $('vista-nomi').hidden = false; window.scrollTo(0, 0);
+    const r = await api({ op: 'nomi', tipo: tipoNomi, stati: (el.dataset.stati || '').split(','), g: el.dataset.g });
+    if (r.ok) { nomi = r.persone; disegnaNomi(); } else $('lista-nomi').innerHTML = '<li>nessuna connessione. riprova.</li>';
+  };
+  document.querySelectorAll('.n.apre').forEach((el) => {
+    el.addEventListener('click', (e) => { e.stopPropagation(); apriNomi(el); });   // dentro il blocco backstage non apre l'elenco pagamenti
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); apriNomi(el); } });
+  });
+  $('q-nomi').addEventListener('input', disegnaNomi);
+  $('chiudi-nomi').addEventListener('click', () => { $('vista-nomi').hidden = true; $('pannello').hidden = false; aggiorna(); });
+
   const entra = async () => {
     const r = await aggiorna();
     if (!r.ok) {
@@ -158,7 +186,7 @@
     mem.togli('zc-regia-accesso'); mem.togli('zc-regia-dati');
     document.documentElement.classList.remove('dentro');
     sessione = '';
-    pin = ''; $('pannello').hidden = true; $('vista-bk').hidden = true; $('vista-invii').hidden = true; $('accesso').hidden = false;
+    pin = ''; $('pannello').hidden = true; $('vista-bk').hidden = true; $('vista-invii').hidden = true; $('vista-nomi').hidden = true; $('accesso').hidden = false;
   };
 
   $('f-pin').addEventListener('submit', (e) => { e.preventDefault(); pin = e.target.pin.value.trim(); metti('err-pin', ''); entra(); });

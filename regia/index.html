@@ -70,13 +70,22 @@
          background: #ff2634; color: #fff; font-weight: 700; text-decoration: none; white-space: nowrap; font-size: .9rem; border: 0; cursor: pointer; }
   .sms.fatto { background: #0b3a1d; color: #6cf09a; border: 1px solid #2bd46a; }
   .sms.chiedi { background: #3a2a05; color: #ffcf7a; border: 1px solid #ffb020; }
+  .n.apre { cursor: pointer; transition: background .15s; }
+  .n.apre:hover, .n.apre:focus-visible { background: #221f1f; outline: none; }
+  .n.apre::after { content: '›'; display: block; color: #555; font-size: .8rem; line-height: 1; margin-top: .15rem; }
+  .nomi { list-style: none; margin: 0; padding: 0; }
+  .nomi li { display: flex; align-items: baseline; gap: .6rem; padding: .6rem .2rem; border-top: 1px solid #1d1b1b; text-align: left; }
+  .nomi li b { font-weight: 600; flex: 1; }
+  .nomi li small { color: var(--tenue); font-size: .8rem; white-space: nowrap; }
+  .nomi li a { color: var(--tenue); font-size: .8rem; text-decoration: none; }
   .stato { text-align: center; color: var(--tenue); font-size: .8rem; margin-top: 1rem; }
   .stato.male { color: #ffcf7a; }
   /* Mac e iPad: i blocchi si dispongono in colonne */
   @media (min-width: 820px) {
     main.regia { max-width: 1400px !important; width: 100%; padding-inline: 28px; }
     .a-stato { text-align: center; }
-    main.regia > #pannello, main.regia > #vista-bk, main.regia > #vista-invii { width: 100%; box-sizing: border-box; }
+    main.regia > #pannello, main.regia > #vista-bk, main.regia > #vista-invii, main.regia > #vista-nomi { width: 100%; box-sizing: border-box; }
+    .nomi { display: grid; grid-template-columns: 1fr 1fr; column-gap: 2rem; }
     #pannello:not([hidden]) { display: grid; gap: 0 18px; align-items: start;
       grid-template-columns: 1fr 1fr;
       grid-template-areas: "barra barra" "tot sms" "pista pista" "bk staff" "chi ultimi" "stato stato"; }
@@ -99,7 +108,7 @@
   }
 </style>
 <script src="../js/api.js?v=20261112" defer></script>
-<script src="regia.js?v=20261112" defer></script>
+<script src="regia.js?v=20261112b" defer></script>
 </head>
 <body>
 <main class="regia">
@@ -132,23 +141,23 @@
     <div class="blocco a-pista">
       <h2>pista <small id="l-tot"></small></h2>
       <div class="numeri">
-        <div class="n verde"><b id="l-entrati">0</b><span>entrati</span></div>
-        <div class="n giallo"><b id="l-attesi">0</b><span>confermati,<br>da entrare</span></div>
-        <div class="n"><b id="l-invitati">0</b><span>invitati,<br>non confermati</span></div>
+        <div class="n verde apre" data-tipo="lista" data-stati="entrato" data-titolo="pista · entrati" role="button" tabindex="0"><b id="l-entrati">0</b><span>entrati</span></div>
+        <div class="n giallo apre" data-tipo="lista" data-stati="confermato" data-titolo="pista · confermati, da entrare" role="button" tabindex="0"><b id="l-attesi">0</b><span>confermati,<br>da entrare</span></div>
+        <div class="n apre" data-tipo="lista" data-stati="invitato" data-titolo="pista · invitati, non confermati" role="button" tabindex="0"><b id="l-invitati">0</b><span>invitati,<br>non confermati</span></div>
       </div>
       <div class="numeri" style="margin-top:.5rem">
-        <div class="n grigio"><b id="l-inlista">0</b><span>registrati,<br>non invitati</span></div>
-        <div class="n grigio"><b id="l-dainvitare">0</b><span>da invitare<br>(scelti)</span></div>
-        <div class="n grigio"><b id="l-no">0</b><span>rifiutati o<br>scaduti</span></div>
+        <div class="n grigio apre" data-tipo="lista" data-stati="in lista" data-titolo="pista · registrati, non invitati" role="button" tabindex="0"><b id="l-inlista">0</b><span>registrati,<br>non invitati</span></div>
+        <div class="n grigio apre" data-tipo="lista" data-stati="da invitare" data-titolo="pista · da invitare" role="button" tabindex="0"><b id="l-dainvitare">0</b><span>da invitare<br>(scelti)</span></div>
+        <div class="n grigio apre" data-tipo="lista" data-stati="rifiutato,scaduto" data-titolo="pista · rifiutati o scaduti" role="button" tabindex="0"><b id="l-no">0</b><span>rifiutati o<br>scaduti</span></div>
       </div>
     </div>
 
     <div class="blocco oro tocca a-bk" id="apri-bk" role="button" tabindex="0">
       <h2>backstage <small id="b-tot"></small></h2>
       <div class="numeri">
-        <div class="n verde"><b id="b-entrati">0</b><span>entrati</span></div>
-        <div class="n giallo"><b id="b-attesi">0</b><span>confermati,<br>da entrare</span></div>
-        <div class="n"><b id="b-richieste">0</b><span>richieste da<br>confermare</span></div>
+        <div class="n verde apre" data-tipo="backstage" data-stati="entrato" data-titolo="backstage · entrati" role="button" tabindex="0"><b id="b-entrati">0</b><span>entrati</span></div>
+        <div class="n giallo apre" data-tipo="backstage" data-stati="confermato" data-titolo="backstage · confermati, da entrare" role="button" tabindex="0"><b id="b-attesi">0</b><span>confermati,<br>da entrare</span></div>
+        <div class="n apre" data-tipo="backstage" data-stati="richiesta" data-titolo="backstage · richieste da confermare" role="button" tabindex="0"><b id="b-richieste">0</b><span>richieste da<br>confermare</span></div>
       </div>
       <p class="piccoli">pagati <b id="b-pagati" style="color:#4ade80">0</b> · da pagare <b id="b-dapagare" style="color:#ffcf7a">0</b></p>
       <span class="apri">vedi tutti e segna i pagamenti →</span>
@@ -157,17 +166,17 @@
     <div class="blocco a-staff">
       <h2>staff <small id="s-tot"></small></h2>
       <div class="numeri">
-        <div class="n verde"><b id="s-entrati">0</b><span>entrati</span></div>
-        <div class="n giallo"><b id="s-attesi">0</b><span>registrati,<br>da entrare</span></div>
-        <div class="n grigio"><b id="s-noreg">0</b><span>non ancora<br>registrati</span></div>
+        <div class="n verde apre" data-tipo="staff" data-stati="entrato" data-titolo="staff · entrati" role="button" tabindex="0"><b id="s-entrati">0</b><span>entrati</span></div>
+        <div class="n giallo apre" data-tipo="staff" data-stati="registrato" data-titolo="staff · registrati, da entrare" role="button" tabindex="0"><b id="s-attesi">0</b><span>registrati,<br>da entrare</span></div>
+        <div class="n grigio apre" data-tipo="staff" data-stati="abilitato" data-titolo="staff · non ancora registrati" role="button" tabindex="0"><b id="s-noreg">0</b><span>non ancora<br>registrati</span></div>
       </div>
     </div>
 
     <div class="blocco a-chi">
       <h2>chi è dentro <small>pista + backstage</small></h2>
       <div class="numeri">
-        <div class="n"><b id="p-donne">0</b><span>donne<br>età media <i id="p-eta-d">–</i></span></div>
-        <div class="n"><b id="p-uomini">0</b><span>uomini<br>età media <i id="p-eta-u">–</i></span></div>
+        <div class="n apre" data-tipo="genere" data-g="f" data-titolo="dentro · donne" role="button" tabindex="0"><b id="p-donne">0</b><span>donne<br>età media <i id="p-eta-d">–</i></span></div>
+        <div class="n apre" data-tipo="genere" data-g="m" data-titolo="dentro · uomini" role="button" tabindex="0"><b id="p-uomini">0</b><span>uomini<br>età media <i id="p-eta-u">–</i></span></div>
         <div class="n grigio"><b id="p-eta">–</b><span>età media<br>di tutti</span></div>
       </div>
       <p class="piccoli" id="p-incerti"></p>
@@ -179,6 +188,15 @@
     </div>
 
     <p class="stato a-stato" id="stato" aria-live="polite"></p>
+  </section>
+
+  <section id="vista-nomi" hidden>
+    <button class="indietro" id="chiudi-nomi">← riepilogo</button>
+    <div class="blocco" style="margin-top:.25rem">
+      <h2><span id="nomi-titolo"></span> <small id="nomi-conto"></small></h2>
+      <input class="cerca-bk" id="q-nomi" type="search" placeholder="cerca un nome…" autocomplete="off">
+      <ol class="nomi" id="lista-nomi"><li>carico…</li></ol>
+    </div>
   </section>
 
   <section id="vista-invii" hidden>
