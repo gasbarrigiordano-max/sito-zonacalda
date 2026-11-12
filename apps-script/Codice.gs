@@ -116,7 +116,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'nomi-2';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'nomi-3';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -170,10 +170,8 @@ function iscrivi_(r) {
   riga[C.stato] = 'in lista';
   if (eta < SERATA.etaMinima) riga[C.note] = 'meno di ' + SERATA.etaMinima + ' anni (' + eta + ')';
   sh.appendRow(riga);
-  notifica_('nuova iscrizione · ' + (nome + ' ' + cognome).toLowerCase() + ', ' + eta,
-    nome + ' ' + cognome + ', ' + eta + ' anni' + (eta < SERATA.etaMinima ? ' (meno di ' + SERATA.etaMinima + ')' : '') +
-    '\ntelefono: ' + telefono + (instagram ? '\ninstagram: @' + instagram : '') +
-    '\n\nin lista: ' + (righe.length + 1));
+  accoda_('lista', (nome + ' ' + cognome).toLowerCase() + ', ' + eta + ' anni' + (eta < SERATA.etaMinima ? ' (meno di ' + SERATA.etaMinima + ')' : '') +
+    ' · ' + telefono + (instagram ? ' · @' + instagram : ''), 'in lista in tutto: ' + (righe.length + 1));
   return { ok: true };
 }
 
@@ -412,6 +410,7 @@ function onOpen() {
     .addSeparator()
     .addItem('Riepilogo', 'riepilogo')
     .addItem('Notifiche iscrizioni: accendi', 'notificheAccese')
+    .addItem('Manda subito i riepiloghi in attesa', 'mandaRiepiloghiOra')
     .addItem('Notifiche iscrizioni: spegni', 'notificheSpente')
     .addToUi();
 }
@@ -817,18 +816,50 @@ function togliNota_(nota, testo) {
 // ---------------------------------------------------------------- notifiche
 // A ogni iscrizione (ospiti e staff) arriva una mail all'account che possiede lo script.
 // Si spengono e riaccendono dal menu. Usano la stessa quota giornaliera delle mail degli inviti.
-function notifica_(oggetto, testo) {
+function notifica_(oggetto, testo) {                     // true se è partita
   try {
-    if (PropertiesService.getScriptProperties().getProperty('NOTIFICHE') === 'no') return;
-    if (MailApp.getRemainingDailyQuota() < 20) return;           // lascia le ultime mail agli inviti
+    if (PropertiesService.getScriptProperties().getProperty('NOTIFICHE') === 'no') return false;
+    if (MailApp.getRemainingDailyQuota() < 20) return false;     // lascia le ultime mail agli inviti
     const a = Session.getEffectiveUser().getEmail();
-    if (a) MailApp.sendEmail({ to: a, subject: 'zonacalda · ' + oggetto, body: testo, name: 'zonacalda' });
-  } catch (err) { console.error('notifica', err); }
+    if (!a) return false;
+    MailApp.sendEmail({ to: a, subject: 'zonacalda · ' + oggetto, body: testo, name: 'zonacalda' });
+    return true;
+  } catch (err) { console.error('notifica', err); return false; }
+}
+
+// Riepiloghi: una mail ogni 10 iscritti in lista, ogni 5 prenotazioni backstage, ogni 5 staff registrati.
+const OGNI = { lista: 10, backstage: 5, staff: 5 };
+const TITOLO_RIEPILOGO = { lista: 'nuovi in lista', backstage: 'nuove prenotazioni backstage', staff: 'nuovi staff registrati' };
+function accoda_(tipo, riga, totale) {
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const k = 'NOTIF_' + tipo;
+    const v = JSON.parse(props.getProperty(k) || '[]');
+    v.push(Utilities.formatDate(new Date(), 'Europe/Rome', 'dd/MM HH:mm') + '  ' + riga);
+    // se la mail non parte (quota finita), i nomi restano in attesa e arrivano nel riepilogo dopo
+    if (v.length >= OGNI[tipo] && mandaRiepilogo_(tipo, v, totale)) props.deleteProperty(k);
+    else props.setProperty(k, JSON.stringify(v.slice(-80)));
+  } catch (err) { console.error('riepilogo', err); }
+}
+
+function mandaRiepilogo_(tipo, righe, totale) {
+  return notifica_(righe.length + ' ' + TITOLO_RIEPILOGO[tipo], righe.map((r, i) => (i + 1) + '. ' + r).join('\n') + (totale ? '\n\n' + totale : ''));
+}
+
+// dal menu: manda subito quelli rimasti in attesa (meno di 10 / 5)
+function mandaRiepiloghiOra() {
+  const props = PropertiesService.getScriptProperties();
+  let n = 0;
+  Object.keys(OGNI).forEach((tipo) => {
+    const v = JSON.parse(props.getProperty('NOTIF_' + tipo) || '[]');
+    if (v.length && mandaRiepilogo_(tipo, v, '')) { props.deleteProperty('NOTIF_' + tipo); n += v.length; }
+  });
+  SpreadsheetApp.getUi().alert(n ? 'Riepilogo mandato: ' + n + ' persone.' : 'Nessuno in attesa.');
 }
 
 function notificheAccese() {
   PropertiesService.getScriptProperties().setProperty('NOTIFICHE', 'sì');
-  SpreadsheetApp.getUi().alert('Notifiche accese: ti arriva una mail a ogni iscrizione (ospiti e staff).');
+  SpreadsheetApp.getUi().alert('Notifiche accese: una mail ogni 10 iscritti in lista, ogni 5 prenotazioni backstage e ogni 5 staff.');
 }
 
 function notificheSpente() {
@@ -868,10 +899,8 @@ function registraStaff_(r) {
   const token = 's' + (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 31);
   const id = 's' + Utilities.getUuid().replace(/-/g, '').slice(0, 7);
   scriviStaff_(sh, i, { telefono: "'" + telefono, token, id, registrato_il: new Date(), stato: 'registrato' }, x);
-  notifica_('staff registrato · ' + (x[CS.nome] + ' ' + x[CS.cognome]).toLowerCase(),
-    x[CS.nome] + ' ' + x[CS.cognome] + '\ntelefono: ' + telefono +
-    '\n\nstaff registrati: ' + righe.filter((y) => y[CS.token]).length + ' su ' + righe.filter((y) => y[CS.cognome]).length +
-    '\nil pass lo mandi dal pannello pass staff whatsapp.');
+  accoda_('staff', (x[CS.nome] + ' ' + x[CS.cognome]).toLowerCase() + ' · ' + telefono,
+    'staff registrati: ' + righe.filter((y) => y[CS.token]).length + ' su ' + righe.filter((y) => y[CS.cognome]).length + '. il pass lo mandi dalla regia (invii SMS) o dal pannello staff.');
   return { ok: true, nome: x[CS.nome] };
 }
 
@@ -1046,10 +1075,8 @@ function prenotaBackstage_(r) {
   riga[CB.id] = "'b" + Utilities.getUuid().replace(/-/g, '').slice(0, 7);
   riga[CB.token] = "'b" + (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 31);
   sh.appendRow(riga);
-  notifica_('backstage · ' + (nome + ' ' + cognome).toLowerCase() + ', ' + eta,
-    nome + ' ' + cognome + ', ' + eta + ' anni\ntelefono: ' + telefono +
-    '\n\nprenotazioni backstage: ' + (righe.filter((x) => x[CB.nome] && x[CB.stato] !== 'annullato').length + 1) + ' su ' + POSTI_BACKSTAGE +
-    '\nquando la confermi metti "confermato" e mandale il pass dal pannello backstage.');
+  accoda_('backstage', (nome + ' ' + cognome).toLowerCase() + ', ' + eta + ' anni · ' + telefono,
+    'prenotazioni backstage: ' + (righe.filter((x) => x[CB.nome] && x[CB.stato] !== 'annullato').length + 1) + ' su ' + POSTI_BACKSTAGE + '. le confermi dalla regia (backstage → conferma).');
   return { ok: true };
 }
 
