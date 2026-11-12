@@ -118,7 +118,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'nomi-7';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'tg-1';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -213,6 +213,14 @@ function rispondi_(token, si) {
   }
   scrivi_(t, { stato: si ? 'confermato' : 'rifiutato', risposto_il: new Date() });
   if (si) mandaConferma_(t);
+  if (telegramAttivo_()) {
+    const tutti = dati_(t.sh);
+    const conf = tutti.filter((y) => y[C.stato] === 'confermato' || y[C.stato] === 'entrato').length;
+    const eta = eta_(dataISO_(x[C.nascita]), SERATA.dataISO);
+    const chi = (x[C.nome] + ' ' + x[C.cognome]).toLowerCase() + (eta >= 0 && eta < 100 ? ', ' + eta + ' anni' : '');
+    tg_(si ? '✅ ha confermato: ' + chi + '\nconfermati: ' + conf + ' / ' + SERATA.confermeMax
+           : '❌ ha rifiutato: ' + chi + '\nil posto è libero: se serve, usa gli inviti di riserva.');
+  }
   return leggiInvito_(token);
 }
 
@@ -413,6 +421,9 @@ function onOpen() {
     .addItem('Riepilogo', 'riepilogo')
     .addItem('Notifiche iscrizioni: accendi', 'notificheAccese')
     .addItem('Manda subito i riepiloghi in attesa', 'mandaRiepiloghiOra')
+    .addItem('Collega Telegram', 'collegaTelegram')
+    .addItem('Telegram: manda una prova', 'provaTelegram')
+    .addItem('Scollega Telegram', 'scollegaTelegram')
     .addItem('Notifiche iscrizioni: spegni', 'notificheSpente')
     .addToUi();
 }
@@ -840,6 +851,7 @@ function notifica_(oggetto, testo) {                     // true se è partita
 const OGNI = { lista: 10, backstage: 5, staff: 5 };
 const TITOLO_RIEPILOGO = { lista: 'nuovi in lista', backstage: 'nuove prenotazioni backstage', staff: 'nuovi staff registrati' };
 function accoda_(tipo, riga, totale) {
+  if (telegramAttivo_() && tg_(TG_TITOLO[tipo] + riga + (totale ? '\n' + totale : ''))) return;   // una notifica per persona, subito
   try {
     const props = PropertiesService.getScriptProperties();
     const k = 'NOTIF_' + tipo;
@@ -864,6 +876,54 @@ function mandaRiepiloghiOra() {
     if (v.length && mandaRiepilogo_(tipo, v, '')) { props.deleteProperty('NOTIF_' + tipo); n += v.length; }
   });
   SpreadsheetApp.getUi().alert(n ? 'Riepilogo mandato: ' + n + ' persone.' : 'Nessuno in attesa.');
+}
+
+// ---------------------------------------------------------------- Telegram
+// Le notifiche arrivano su Telegram, una per persona, in tempo reale. Il codice del bot non sta nel codice: lo salva "Collega Telegram".
+const TG_TITOLO = { lista: '🆕 in lista: ', backstage: '⭐ backstage: ', staff: '👤 staff registrato: ' };
+function telegramAttivo_() {
+  const p = PropertiesService.getScriptProperties();
+  return !!(p.getProperty('TG_TOKEN') && p.getProperty('TG_CHAT')) && p.getProperty('NOTIFICHE') !== 'no';
+}
+function tg_(testo, token, chat) {                     // true se Telegram l'ha ricevuto
+  try {
+    const p = PropertiesService.getScriptProperties();
+    token = token || p.getProperty('TG_TOKEN'); chat = chat || p.getProperty('TG_CHAT');
+    if (!token || !chat) return false;
+    const r = UrlFetchApp.fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
+      method: 'post', muteHttpExceptions: true,
+      payload: { chat_id: String(chat), text: String(testo).slice(0, 4000), disable_web_page_preview: 'true' },
+    });
+    return r.getResponseCode() === 200;
+  } catch (err) { console.error('telegram', err); return false; }
+}
+
+function collegaTelegram() {
+  const ui = SpreadsheetApp.getUi();
+  const p = PropertiesService.getScriptProperties();
+  const r = ui.prompt('Collega Telegram', 'Incolla il codice del bot che ti ha dato @BotFather (tipo 123456:ABC…).\nPrima scrivi /start al tuo bot su Telegram.', ui.ButtonSet.OK_CANCEL);
+  if (r.getSelectedButton() !== ui.Button.OK) return;
+  const token = r.getResponseText().trim();
+  if (!/^\d+:[A-Za-z0-9_-]{20,}$/.test(token)) return ui.alert('Questo non sembra il codice di un bot. Copialo di nuovo da @BotFather.');
+  const chiedi = (metodo) => JSON.parse(UrlFetchApp.fetch('https://api.telegram.org/bot' + token + '/' + metodo, { muteHttpExceptions: true }).getContentText() || '{}');
+  if (!chiedi('getMe').ok) return ui.alert('Telegram non riconosce questo codice. Controllalo e riprova.');
+  const agg = chiedi('getUpdates');
+  const chat = ((agg.result || []).map((u) => u.message && u.message.chat).filter((c) => c && c.type === 'private').pop() || {}).id;
+  p.setProperty('TG_TOKEN', token);
+  if (!chat) return ui.alert('Codice salvato. Ora apri il tuo bot su Telegram, scrivigli /start, e rifai "Collega Telegram".');
+  p.setProperty('TG_CHAT', String(chat));
+  const ok = tg_('😈 zonacalda collegato. da ora ti arriva qui ogni iscrizione, conferma, rifiuto, backstage e staff.');
+  ui.alert(ok ? 'Telegram collegato: ti è arrivato un messaggio di prova.' : 'Salvato, ma il messaggio di prova non è partito. Riprova tra poco.');
+}
+
+function provaTelegram() {
+  SpreadsheetApp.getUi().alert(tg_('prova zonacalda: le notifiche funzionano.') ? 'Messaggio mandato su Telegram.' : 'Telegram non collegato o non raggiungibile.');
+}
+
+function scollegaTelegram() {
+  const p = PropertiesService.getScriptProperties();
+  p.deleteProperty('TG_TOKEN'); p.deleteProperty('TG_CHAT');
+  SpreadsheetApp.getUi().alert('Telegram scollegato: le notifiche tornano per mail, a riepilogo.');
 }
 
 function notificheAccese() {
