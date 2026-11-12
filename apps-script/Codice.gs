@@ -118,7 +118,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'tg-1';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'tg-2';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -172,8 +172,8 @@ function iscrivi_(r) {
   riga[C.stato] = 'in lista';
   if (eta < SERATA.etaMinima) riga[C.note] = 'meno di ' + SERATA.etaMinima + ' anni (' + eta + ')';
   sh.appendRow(riga);
-  accoda_('lista', (nome + ' ' + cognome).toLowerCase() + ', ' + eta + ' anni' + (eta < SERATA.etaMinima ? ' (meno di ' + SERATA.etaMinima + ')' : '') +
-    ' · ' + telefono + (instagram ? ' · @' + instagram : ''), 'in lista in tutto: ' + (righe.length + 1));
+  accoda_('lista', (nome + ' ' + cognome).toLowerCase() + ', ' + eta + ' anni' + (eta < SERATA.etaMinima ? ' (meno di ' + SERATA.etaMinima + ')' : ''),
+    'in lista in tutto: ' + (righe.length + 1) + '\n' + contiPista_(righe));
   return { ok: true };
 }
 
@@ -201,6 +201,12 @@ function leggiInvito_(token) {
   return ris;
 }
 
+// "confermati da entrare: X · invitati non confermati: Y" (righe = dati del foglio iscritti)
+function contiPista_(righe) {
+  const n = (st) => righe.filter((y) => y[C.stato] === st).length;
+  return 'confermati da entrare: ' + n('confermato') + ' · invitati non confermati: ' + n('invitato');
+}
+
 function rispondi_(token, si) {
   const t = trova_(token);
   if (!t) return { ok: false, errore: 'invito' };
@@ -215,11 +221,9 @@ function rispondi_(token, si) {
   if (si) mandaConferma_(t);
   if (telegramAttivo_()) {
     const tutti = dati_(t.sh);
-    const conf = tutti.filter((y) => y[C.stato] === 'confermato' || y[C.stato] === 'entrato').length;
     const eta = eta_(dataISO_(x[C.nascita]), SERATA.dataISO);
     const chi = (x[C.nome] + ' ' + x[C.cognome]).toLowerCase() + (eta >= 0 && eta < 100 ? ', ' + eta + ' anni' : '');
-    tg_(si ? '✅ ha confermato: ' + chi + '\nconfermati: ' + conf + ' / ' + SERATA.confermeMax
-           : '❌ ha rifiutato: ' + chi + '\nil posto è libero: se serve, usa gli inviti di riserva.');
+    tg_((si ? '✅ ha confermato: ' : '❌ ha rifiutato: ') + chi + '\n' + contiPista_(tutti));
   }
   return leggiInvito_(token);
 }
@@ -880,7 +884,7 @@ function mandaRiepiloghiOra() {
 
 // ---------------------------------------------------------------- Telegram
 // Le notifiche arrivano su Telegram, una per persona, in tempo reale. Il codice del bot non sta nel codice: lo salva "Collega Telegram".
-const TG_TITOLO = { lista: '🆕 in lista: ', backstage: '⭐ backstage: ', staff: '👤 staff registrato: ' };
+const TG_TITOLO = { lista: '🆕 in lista: ', backstage: '🍾 backstage: ', staff: '🛠️ staff registrato: ' };
 function telegramAttivo_() {
   const p = PropertiesService.getScriptProperties();
   return !!(p.getProperty('TG_TOKEN') && p.getProperty('TG_CHAT')) && p.getProperty('NOTIFICHE') !== 'no';
@@ -968,8 +972,8 @@ function registraStaff_(r) {
   const token = 's' + (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 31);
   const id = 's' + Utilities.getUuid().replace(/-/g, '').slice(0, 7);
   scriviStaff_(sh, i, { telefono: "'" + telefono, token, id, registrato_il: new Date(), stato: 'registrato' }, x);
-  accoda_('staff', (x[CS.nome] + ' ' + x[CS.cognome]).toLowerCase() + ' · ' + telefono,
-    'staff registrati: ' + righe.filter((y) => y[CS.token]).length + ' su ' + righe.filter((y) => y[CS.cognome]).length + '. il pass lo mandi dalla regia (invii SMS) o dal pannello staff.');
+  accoda_('staff', (x[CS.nome] + ' ' + x[CS.cognome]).toLowerCase(),
+    'staff registrati: ' + righe.filter((y) => y[CS.token]).length + ' su ' + righe.filter((y) => y[CS.cognome]).length);
   return { ok: true, nome: x[CS.nome] };
 }
 
@@ -1144,8 +1148,10 @@ function prenotaBackstage_(r) {
   riga[CB.id] = "'b" + Utilities.getUuid().replace(/-/g, '').slice(0, 7);
   riga[CB.token] = "'b" + (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 31);
   sh.appendRow(riga);
-  accoda_('backstage', (nome + ' ' + cognome).toLowerCase() + ', ' + eta + ' anni · ' + telefono,
-    'prenotazioni backstage: ' + (righe.filter((x) => x[CB.nome] && x[CB.stato] !== 'annullato').length + 1) + ' su ' + POSTI_BACKSTAGE + '. le confermi dalla regia (backstage → conferma).');
+  const nb = (st) => righe.filter((y) => y[CB.nome] && y[CB.stato] === st).length;
+  accoda_('backstage', (nome + ' ' + cognome).toLowerCase() + ', ' + eta + ' anni',
+    'richieste da confermare: ' + (nb('richiesta') + 1) + ' · confermati da entrare: ' + nb('confermato') +
+    ' · posti ' + (righe.filter((y) => y[CB.nome] && y[CB.stato] !== 'annullato').length + 1) + ' / ' + POSTI_BACKSTAGE);
   return { ok: true };
 }
 
