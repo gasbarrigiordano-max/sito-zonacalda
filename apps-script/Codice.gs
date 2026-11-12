@@ -116,7 +116,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'nomi-1';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'nomi-2';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -1160,6 +1160,16 @@ function regiaLavoro_(r, props) {
   if (r.op === 'invii') return { ok: true, invii: elencoInvii_() };
   if (r.op === 'nomi') return { ok: true, persone: nomiRegia_(r) };
   if (r.op === 'segna') return segnaInvio_(r);
+  if (r.op === 'conferma') {                        // richiesta → confermato (o indietro), dalla regia
+    const sh = foglioBk_();
+    const bk = datiBk_();
+    const i = bk.findIndex((x) => String(x[CB.id]) === String(r.id));
+    if (!sh || i < 0) return { ok: false, errore: 'persona' };
+    const st = bk[i][CB.stato];
+    if (r.si && st === 'richiesta') scriviBk_(sh, i, { stato: 'confermato', confermato_il: bk[i][CB.confermato_il] || new Date() }, bk[i]);
+    else if (!r.si && st === 'confermato') scriviBk_(sh, i, { stato: 'richiesta' }, bk[i]);
+    return { ok: true, persone: elencoBkRegia_() };
+  }
   if (r.op === 'pagato') {
     const sh = foglioBk_();
     const bk = datiBk_();

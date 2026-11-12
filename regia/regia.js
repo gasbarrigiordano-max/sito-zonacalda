@@ -58,10 +58,13 @@
     const righe = bk.map((p, i) => ({ p, i })).filter(({ p }) => !q || (p.nome + ' ' + p.cognome + ' ' + p.cognome + ' ' + p.nome).toLowerCase().includes(q));
     $('lista-bk').innerHTML = righe.length ? righe.map(({ p, i }) => {
       const info = `prenotato ${esc(p.prenotato)} · ${esc(p.stato)}${p.entrato ? ' alle ' + esc(p.entrato) : ''}`;
-      const b = chiedi === p.id
-        ? `<button class="spunta chiedi" data-id="${esc(p.id)}" data-ok="1">${p.pagato ? 'togliere? ok' : 'pagato? ok'}</button>`
-        : p.pagato ? `<button class="spunta si" data-id="${esc(p.id)}">✓ pagato</button>`
-        : `<button class="spunta" data-id="${esc(p.id)}">segna pagato</button>`;
+      // prima si conferma la richiesta, poi compare "segna pagato"
+      const azione = p.stato === 'richiesta' ? 'conferma' : p.stato === 'annullato' ? '' : 'pagato';
+      const b = !azione ? ''
+        : chiedi === p.id ? `<button class="spunta chiedi" data-id="${esc(p.id)}" data-az="${azione}" data-ok="1">${azione === 'conferma' ? 'confermi? ok' : p.pagato ? 'togliere? ok' : 'pagato? ok'}</button>`
+        : azione === 'conferma' ? `<button class="spunta conferma" data-id="${esc(p.id)}" data-az="conferma">conferma</button>`
+        : p.pagato ? `<button class="spunta si" data-id="${esc(p.id)}" data-az="pagato">✓ pagato</button>`
+        : `<button class="spunta" data-id="${esc(p.id)}" data-az="pagato">segna pagato</button>`;
       return `<li><span class="num">${i + 1}</span><div class="chi"><b>${esc(maiuscole(p.nome + ' ' + p.cognome))}</b><small class="${esc(p.stato)}">${info}</small></div>${b}</li>`;
     }).join('') : '<li>nessuno.</li>';
   };
@@ -81,7 +84,7 @@
     }
     clearTimeout(timerChiedi); chiedi = '';
     b.disabled = true; b.textContent = 'salvo…';
-    const r = await api({ op: 'pagato', id, si: !p.pagato });
+    const r = b.dataset.az === 'conferma' ? await api({ op: 'conferma', id, si: true }) : await api({ op: 'pagato', id, si: !p.pagato });
     if (r.ok) { bk = r.persone; disegnaBk(); aggiorna(); }
     else { disegnaBk(); alert('non salvato: nessuna connessione. riprova.'); }
   });
