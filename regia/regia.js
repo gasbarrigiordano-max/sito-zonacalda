@@ -269,8 +269,25 @@
     x.attesa = false; disegnaNomi();
   });
 
+  // staff contato a mano: si vede in "staff · entrati"
+  let mano = 0, manoInVolo = 0;
+  const mostraMano = () => { metti('mano-n', mano); };
+  const cambiaMano = async (d) => {
+    if (d < 0 && mano <= 0) return;
+    mano += d; manoInVolo++; mostraMano();
+    const r = await api({ op: 'staffmano', delta: d });
+    manoInVolo--;
+    if (r.ok && typeof r.aMano === 'number') { if (!manoInVolo) { mano = r.aMano; mostraMano(); } aggiorna(); }
+    else if (r.ok) { mano -= d; mostraMano(); alert('serve il codice del foglio nuovo (nomi-5).'); }
+    else { mano -= d; mostraMano(); alert('non salvato: nessuna connessione. riprova.'); }
+  };
+  $('mano-piu').addEventListener('click', () => cambiaMano(1));
+  $('mano-meno').addEventListener('click', () => cambiaMano(-1));
+
   const apriNomi = async (el) => {
     tipoNomi = el.dataset.tipo;
+    $('mano').hidden = !(tipoNomi === 'staff' && el.dataset.stati === 'entrato');
+    if (!$('mano').hidden) { const d = mem.leggi('zc-regia-dati'); mano = (d && d.staff && d.staff.aMano) || 0; mostraMano(); }
     metti('nomi-titolo', el.dataset.titolo); $('nomi-titolo').dataset.stati = el.dataset.stati || '';
     $('q-nomi').value = ''; nomi = []; $('lista-nomi').innerHTML = '<li>carico…</li>'; metti('nomi-conto', '');
     $('pannello').hidden = true; $('vista-nomi').hidden = false; window.scrollTo(0, 0);

@@ -76,6 +76,10 @@
   .n.apre { cursor: pointer; transition: background .15s; }
   .n.apre:hover, .n.apre:focus-visible { background: #221f1f; outline: none; }
   .n.apre::after { content: '›'; display: block; color: #555; font-size: .8rem; line-height: 1; margin-top: .15rem; }
+  .mano { display: flex; align-items: center; gap: .6rem; background: #161414; border-radius: 12px; padding: .6rem .8rem; margin: .25rem 0 .75rem; }
+  .mano span { flex: 1; text-align: left; font-size: .9rem; } .mano small { color: var(--tenue); font-size: .75rem; }
+  .mano button { width: 52px; height: 52px; border-radius: 12px; border: 1px solid #3a3636; background: #221f1f; color: #fff; font-size: 1.6rem; cursor: pointer; }
+  .mano b { min-width: 2.2ch; text-align: center; font-size: 1.8rem; font-variant-numeric: tabular-nums; color: #4ade80; }
   .nomi { list-style: none; margin: 0; padding: 0; }
   .nomi li { display: flex; align-items: baseline; gap: .6rem; padding: .6rem .2rem; border-top: 1px solid #1d1b1b; text-align: left; }
   .nomi li b { font-weight: 600; flex: 1; }
@@ -113,7 +117,7 @@
   }
 </style>
 <script src="../js/api.js?v=20261112" defer></script>
-<script src="regia.js?v=20261112h" defer></script>
+<script src="regia.js?v=20261112i" defer></script>
 </head>
 <body>
 <main class="regia">
@@ -200,6 +204,10 @@
     <button class="indietro" id="chiudi-nomi">← riepilogo</button>
     <div class="blocco" style="margin-top:.25rem">
       <h2><span id="nomi-titolo"></span> <small id="nomi-conto"></small></h2>
+      <div id="mano" class="mano" hidden>
+        <span>contati a mano<br><small>dj, organizzatori, chi non ha il pass</small></span>
+        <button id="mano-meno" aria-label="uno in meno">−</button><b id="mano-n">0</b><button id="mano-piu" aria-label="uno in più">+</button>
+      </div>
       <input class="cerca-bk" id="q-nomi" type="search" placeholder="cerca un nome…" autocomplete="off">
       <ol class="nomi" id="lista-nomi"><li>carico…</li></ol>
     </div>

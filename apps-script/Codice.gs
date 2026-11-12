@@ -116,7 +116,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'nomi-3';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'nomi-5';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -1186,6 +1186,11 @@ function regiaLavoro_(r, props) {
   if (r.op === 'backstage') return { ok: true, persone: elencoBkRegia_() };
   if (r.op === 'invii') return { ok: true, invii: elencoInvii_() };
   if (r.op === 'nomi') return { ok: true, persone: nomiRegia_(r) };
+  if (r.op === 'staffmano') {                         // staff contato a mano (dj, organizzatori…): + o − dalla regia
+    const n = Math.max(0, Number(props.getProperty('STAFF_DENTRO') || 0) + (Number(r.delta) > 0 ? 1 : -1));
+    props.setProperty('STAFF_DENTRO', String(n));
+    return { ok: true, aMano: n };
+  }
   if (r.op === 'segna') return segnaInvio_(r);
   if (r.op === 'conferma') {                        // richiesta → confermato (o indietro), dalla regia
     const sh = foglioBk_();
