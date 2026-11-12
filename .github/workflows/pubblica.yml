@@ -27,7 +27,7 @@ jobs:
       - name: Prepara i file del sito (senza strumenti e automazioni)
         run: |
           mkdir _site
-          cp index.html 404.html style.css pagine.css main.js _site/
+          cp index.html 404.html style.css pagine.css main.js apple-touch-icon.png favicon.ico _site/
           cp -r assets js vendor lista invito porta privacy staff backstage regia _site/
           if [ -f CNAME ]; then cp CNAME _site/; fi
       - uses: actions/upload-pages-artifact@v3
