@@ -15,7 +15,7 @@ const SERATA = {
   capienza: 300,                     // totale, staff compreso
   staffPrevisto: 20,
   confermeMax: 315,                  // oltre questo numero: "posti finiti."
-  scadenzaInviti: '2026-11-12T21:00:00+01:00',   // tutti gli inviti si accettano entro giovedì 12.11 alle 21:00
+  scadenzaInviti: '2026-11-13T21:00:00+01:00',   // tutti gli inviti si accettano entro venerdì 13.11 alle 21:00
   oreConferma: 12,                   // solo se si invita dopo quella scadenza: tempo per confermare
   garantitoFino: '2026-11-15T00:30:00+01:00',
   sito: 'https://zonacaldaclubuse.it/',
@@ -116,7 +116,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'nomi-3';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'nomi-4';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
