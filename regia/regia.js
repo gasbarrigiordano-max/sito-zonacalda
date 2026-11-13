@@ -208,6 +208,11 @@
     const anni = nomi.map((x) => x.eta).filter((e) => typeof e === 'number' && e >= 0 && e < 100);
     const media = anni.length ? ' · età media ' + (Math.round(anni.reduce((a, b) => a + b, 0) / anni.length * 10) / 10).toString().replace('.', ',') : '';
     metti('nomi-conto', righe.length + (q ? ' su ' + nomi.length : '') + media);
+    // uomini e donne (stimati dal nome, come nel riepilogo): solo se il foglio li manda e l'elenco non è già diviso per genere
+    const conG = tipoNomi !== 'genere' && nomi.some((x) => typeof x.g === 'string');
+    const nG = (g) => nomi.filter((x) => (x.g || '') === g).length;
+    metti('nomi-pubblico', conG ? nG('m') + ' uomini · ' + nG('f') + ' donne' + (nG('') ? ' · ' + nG('') + ' incerti' : '') : '');
+    $('nomi-pubblico').hidden = !conG;
     $('lista-nomi').innerHTML = righe.length ? righe.map((x) => {
       const info = [x.eta !== null && x.eta !== undefined ? x.eta + ' anni' : '', x.ora ? 'entrato ' + x.ora : '',
         tipoNomi === 'genere' || /,/.test($('nomi-titolo').dataset.stati || '') ? x.stato : '', x.pagato ? '✓ pagato' : ''].filter(Boolean).join(' · ');
@@ -293,7 +298,7 @@
     const sms = new Map(((i.ok && i.invii && sistemaInvii(i.invii).backstage) || []).map((x) => [x.id, x]));
     const tutti = b.persone.map((p) => {
       const e = extra.get(chiave(p.nome + ' ' + p.cognome)) || {};
-      return { id: p.id, nome: p.nome + ' ' + p.cognome, stato: p.stato, eta: e.eta, tel: e.tel, ora: p.entrato, pagato: !!p.pagato, sms: sms.get(p.id) };
+      return { id: p.id, nome: p.nome + ' ' + p.cognome, stato: p.stato, eta: e.eta, g: e.g, tel: e.tel, ora: p.entrato, pagato: !!p.pagato, sms: sms.get(p.id) };
     });
     if (!mostrati) mostrati = new Set(tutti.filter((p) => stati.includes(p.stato)).map((p) => p.id));   // chi confermi resta in elenco
     nomi = tutti.filter((p) => mostrati.has(p.id)).sort((a, z) => a.nome.localeCompare(z.nome, 'it'));
@@ -349,7 +354,7 @@
     $('mano').hidden = !(tipoNomi === 'staff' && el.dataset.stati === 'entrato');
     if (!$('mano').hidden) { const d = mem.leggi('zc-regia-dati'); mano = (d && d.staff && d.staff.aMano) || 0; mostraMano(); }
     metti('nomi-titolo', el.dataset.titolo); $('nomi-titolo').dataset.stati = el.dataset.stati || '';
-    $('q-nomi').value = ''; nomi = []; $('lista-nomi').innerHTML = '<li>carico…</li>'; metti('nomi-conto', '');
+    $('q-nomi').value = ''; nomi = []; $('lista-nomi').innerHTML = '<li>carico…</li>'; metti('nomi-conto', ''); $('nomi-pubblico').hidden = true;
     $('pannello').hidden = true; $('vista-nomi').hidden = false; window.scrollTo(0, 0);
     if (tipoNomi === 'backstage') {
       mostrati = null; chiediNome = '';

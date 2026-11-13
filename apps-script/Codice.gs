@@ -137,7 +137,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'tg-9';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'tg-10';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -1519,13 +1519,13 @@ function nomiRegia_(r) {
   let out = [];
   if (r.tipo === 'lista') {
     out = lista().filter((x) => stati.includes(x[C.stato]))
-      .map((x) => ({ id: String(x[C.id] || ''), nome: x[C.nome] + ' ' + x[C.cognome], eta: anni(x[C.nascita]), tel: tel(x[C.telefono]), stato: x[C.stato], ora: ora(x[C.entrato_il]) }));
+      .map((x) => ({ id: String(x[C.id] || ''), nome: x[C.nome] + ' ' + x[C.cognome], eta: anni(x[C.nascita]), tel: tel(x[C.telefono]), stato: x[C.stato], ora: ora(x[C.entrato_il]), g: genere_(x[C.nome]) }));
   } else if (r.tipo === 'backstage') {
     out = datiBk_().filter((x) => x[CB.nome] && stati.includes(x[CB.stato]))
-      .map((x) => ({ nome: x[CB.nome] + ' ' + x[CB.cognome], eta: anni(x[CB.nascita]), tel: tel(x[CB.telefono]), stato: x[CB.stato], ora: ora(x[CB.entrato_il]), pagato: !!x[CB.pagato] }));
+      .map((x) => ({ nome: x[CB.nome] + ' ' + x[CB.cognome], eta: anni(x[CB.nascita]), tel: tel(x[CB.telefono]), stato: x[CB.stato], ora: ora(x[CB.entrato_il]), pagato: !!x[CB.pagato], g: genere_(x[CB.nome]) }));
   } else if (r.tipo === 'staff') {
     out = datiStaff_().filter((x) => x[CS.nome] && stati.includes(x[CS.stato]))
-      .map((x) => ({ nome: x[CS.nome] + ' ' + x[CS.cognome], tel: tel(x[CS.telefono]), stato: x[CS.stato], ora: ora(x[CS.entrato_il]) }));
+      .map((x) => ({ nome: x[CS.nome] + ' ' + x[CS.cognome], tel: tel(x[CS.telefono]), stato: x[CS.stato], ora: ora(x[CS.entrato_il]), g: genere_(x[CS.nome]) }));
   } else if (r.tipo === 'genere') {                     // chi è dentro, uomini / donne / incerti
     const g = String(r.g || '');
     out = lista().filter((x) => x[C.stato] === 'entrato').map((x) => [x[C.nome], x[C.cognome], x[C.nascita], x[C.entrato_il], 'pista'])
