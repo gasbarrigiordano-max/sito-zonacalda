@@ -5,7 +5,7 @@
   const ETA_MINIMA = 23;
   const $ = (id) => document.getElementById(id);
   let pin = '';
-  const ORE_ACCESSO = 5;                                      // dopo il PIN si resta dentro 5 ore, anche ricaricando
+  const ORE_ACCESSO = 24;                                     // dopo il PIN si resta dentro 24 ore, anche ricaricando
   let stream = null, scansione = false, ultimo = '', vistoQr = 0, wake = null;
 
   // memoria del telefono: resiste a ricarica, schermo bloccato, batteria che si spegne

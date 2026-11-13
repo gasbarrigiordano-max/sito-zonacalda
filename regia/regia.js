@@ -7,7 +7,7 @@
     scrivi: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* niente */ } },
     togli: (k) => { try { localStorage.removeItem(k); } catch (e) { /* niente */ } },
   };
-  const ORE_ACCESSO = 5;                                      // dopo il PIN si resta dentro 5 ore, anche ricaricando
+  const ORE_ACCESSO = 24;                                     // dopo il PIN si resta dentro 24 ore, anche ricaricando
   let giro = 0, falliti = 0, sessione = '';
   const api = async (dati) => {
     const r = await zcApi({ azione: 'regia', pin, sessione, ...dati });
