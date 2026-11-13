@@ -94,31 +94,50 @@ function doPost(e) {
   if (req.azione === 'porta' && req.op === 'novita') {
     try { return out_(novitaPorta_(req)); } catch (err) { console.error(err); return out_({ ok: false, errore: 'interno' }); }
   }
+  // la regia che legge soltanto (numeri, nomi, elenchi) non aspetta il lucchetto: non resta in coda dietro a chi sta confermando
+  if (req.azione === 'regia' && (!req.op || ['nomi', 'invii', 'backstage'].indexOf(req.op) >= 0)) {
+    try {
+      SOLO_LETTURA_ = true; DA_COMPLETARE_ = false;
+      const letto = regia_(req);
+      SOLO_LETTURA_ = false;
+      if (!DA_COMPLETARE_) return out_(letto);            // se c'è una riga backstage da completare si rifà sotto, con il lucchetto
+    } catch (err) { SOLO_LETTURA_ = false; console.error(err); return out_({ ok: false, errore: 'interno' }); }
+  }
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
+  DOPO_ = [];
+  let ris;
   try {
     switch (req.azione) {
-      case 'iscrivi':  return out_(iscrivi_(req));
-      case 'invito':   return out_(leggiInvito_(req.token));
-      case 'conferma': return out_(rispondi_(req.token, true));
-      case 'rifiuta':  return out_(rispondi_(req.token, false));
-      case 'porta':    return out_(porta_(req));
-      case 'regia':    return out_(regia_(req));
-      case 'lista':    return out_({ ok: true, aperta: listaAperta_() });
-      case 'staff':    return out_(registraStaff_(req));
-      case 'backstage': return out_(prenotaBackstage_(req));
-      case 'pass':     return out_(leggiPass_(req.token));
-      default:         return out_({ ok: false, errore: 'azione' });
+      case 'iscrivi':  ris = iscrivi_(req); break;
+      case 'invito':   ris = leggiInvito_(req.token); break;
+      case 'conferma': ris = rispondi_(req.token, true); break;
+      case 'rifiuta':  ris = rispondi_(req.token, false); break;
+      case 'porta':    ris = porta_(req); break;
+      case 'regia':    ris = regia_(req); break;
+      case 'lista':    ris = { ok: true, aperta: listaAperta_() }; break;
+      case 'staff':    ris = registraStaff_(req); break;
+      case 'backstage': ris = prenotaBackstage_(req); break;
+      case 'pass':     ris = leggiPass_(req.token); break;
+      default:         ris = { ok: false, errore: 'azione' };
     }
   } catch (err) {
     console.error(err);
-    return out_({ ok: false, errore: 'interno' });
+    ris = { ok: false, errore: 'interno' };
   } finally {
     lock.releaseLock();
   }
+  // telegram e mail partono dopo aver lasciato il lucchetto: gli altri non aspettano
+  const dopo = DOPO_; DOPO_ = null;
+  dopo.forEach((fn) => { try { fn(); } catch (err) { console.error('dopo', err); } });
+  return out_(ris);
 }
 
-const VERSIONE = 'tg-8';                 // si legge aprendo l'indirizzo /exec nel browser
+let DOPO_ = null;                                         // lavori lenti da fare a lucchetto lasciato (solo dentro doPost)
+let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
+function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
+
+const VERSIONE = 'tg-9';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -218,12 +237,13 @@ function rispondi_(token, si) {
     if (confermati >= SERATA.confermeMax) return { ok: false, errore: 'pieno' };
   }
   scrivi_(t, { stato: si ? 'confermato' : 'rifiutato', risposto_il: new Date() });
-  if (si) mandaConferma_(t);
+  if (si) dopo_(() => mandaConferma_(t));
   if (telegramAttivo_()) {
     const tutti = dati_(t.sh);
     const eta = eta_(dataISO_(x[C.nascita]), SERATA.dataISO);
     const chi = (x[C.nome] + ' ' + x[C.cognome]).toLowerCase() + (eta >= 0 && eta < 100 ? ', ' + eta + ' anni' : '');
-    tg_((si ? '✅ ha confermato: ' : '❌ ha rifiutato: ') + chi + '\n' + contiPista_(tutti));
+    const testo = (si ? '✅ ha confermato: ' : '❌ ha rifiutato: ') + chi + '\n' + contiPista_(tutti);
+    dopo_(() => tg_(testo));
   }
   return leggiInvito_(token);
 }
@@ -318,11 +338,12 @@ function portaLavoro_(r) {
     const b = x || s ? null : datiBk_().find((y) => y[CB.token] && String(y[CB.token]) === String(r.token || ''));
     return { ok: true, persona: x ? scheda_(x) : s ? schedaStaff_(s) : b ? schedaBk_(b) : null, conteggi: conteggi_(righe, staff) };
   }
-  if (r.op === 'entra' && /^b/.test(String(r.id))) {           // backstage con il pass d'oro
-    const sh3 = foglioBk_();
-    const bb = sh3 ? datiBk_() : [];
-    const i = bb.findIndex((y) => String(y[CB.id]) === String(r.id));
-    if (i < 0) return { ok: false, errore: 'persona' };
+  // i codici della lista sono 8 caratteri a caso e possono iniziare per "b": se non è nel backstage si cerca tra gli ospiti, più sotto
+  const sh3 = r.op === 'entra' && /^b/.test(String(r.id)) ? foglioBk_() : null;
+  const bb = sh3 ? datiBk_() : [];
+  const iBk = bb.findIndex((y) => String(y[CB.id]) === String(r.id));
+  if (iBk >= 0) {                                              // backstage con il pass d'oro
+    const i = iBk;
     const x = bb[i];
     if (x[CB.stato] === 'entrato') return { ok: false, errore: 'gia_entrato', persona: schedaBk_(x), conteggi: conteggi_(righe, staff) };
     if (x[CB.stato] !== 'confermato') return { ok: false, errore: 'persona', conteggi: conteggi_(righe, staff) };
@@ -347,7 +368,7 @@ function portaLavoro_(r) {
     return { ok: true, persona: schedaStaff_(x), conteggi: conteggi_(righe, staff) };
   }
   if (r.op === 'entra') {
-    const i = righe.findIndex((y) => y[C.id] === r.id);
+    const i = String(r.id || '').trim() ? righe.findIndex((y) => String(y[C.id]) === String(r.id)) : -1;   // il foglio può aver trasformato un codice di sole cifre in numero
     if (i < 0) return { ok: false, errore: 'persona' };
     const x = righe[i];
     if (x[C.stato] === 'entrato') return { ok: false, errore: 'gia_entrato', persona: scheda_(x), conteggi: conteggi_(righe, staff) };
@@ -364,7 +385,7 @@ function portaLavoro_(r) {
 
 function scheda_(x) {
   return {
-    id: x[C.id], nome: x[C.nome], cognome: x[C.cognome],
+    id: String(x[C.id]), nome: x[C.nome], cognome: x[C.cognome],
     eta: eta_(dataISO_(x[C.nascita]), SERATA.dataISO),
     nascita: dataISO_(x[C.nascita]),
     stato: x[C.stato],
@@ -404,6 +425,7 @@ function onOpen() {
     .addItem('Chiudi la lista', 'chiudiLista')
     .addSeparator()
     .addItem('Invia inviti a chi è "da invitare"', 'inviaInviti')
+    .addItem('Invia inviti anche per mail', 'inviaInvitiMail')
     .addItem('Invia inviti di riserva (30 minuti)', 'inviaRiserva')
     .addItem('Fai scadere gli inviti non confermati', 'scadiInviti')
     .addItem('Sposta la scadenza degli inviti già mandati', 'spostaScadenza')
@@ -527,8 +549,9 @@ function scadenzaInvitiOra_() {
 
 function inviaInviti() {
   // scadenza fissa uguale per tutti; se è già passata (o manca meno di un'ora), 12 ore da adesso
-  invia_(scadenzaInvitiOra_(), false);
+  invia_(scadenzaInvitiOra_(), false, false);
 }
+function inviaInvitiMail() { invia_(scadenzaInvitiOra_(), false, true); }   // come sopra, e in più parte la mail di invito
 // Porta alla scadenza fissa gli inviti già mandati con una scadenza più corta, e rifà il loro messaggio WhatsApp.
 function spostaScadenza() {
   const fissa = new Date(SERATA.scadenzaInviti);
@@ -546,7 +569,7 @@ function spostaScadenza() {
   SpreadsheetApp.getUi().alert('Inviti spostati alla nuova scadenza (' + quando_(fissa) + '): ' + n + '.\nIl messaggio WhatsApp nel pannello ora ha la data giusta.');
 }
 
-function inviaRiserva() { invia_(new Date(Date.now() + 30 * 60000), true); }
+function inviaRiserva() { invia_(new Date(Date.now() + 30 * 60000), true, false); }
 
 // una persona "da invitare" → "invitato": codice, scadenza, mail (se si può) e link WhatsApp. restituisce true se la mail è partita
 function invitaRiga_(t, scade, riserva, conMail) {
@@ -588,25 +611,24 @@ function invitaDaRegia_(r) {
   if (i < 0) return { ok: false, errore: 'persona' };
   const x = righe[i];
   if (x[C.stato] === 'da invitare') {
-    let quota = 0;
-    try { quota = MailApp.getRemainingDailyQuota(); } catch (err) { console.error(err); }
-    invitaRiga_({ sh, n: i + 2, riga: x }, scadenzaInvitiOra_(), false, quota > 0 && !!String(x[C.email]).trim());
+    invitaRiga_({ sh, n: i + 2, riga: x }, scadenzaInvitiOra_(), false, false);   // niente mail: l'invito parte con l'SMS
   } else if (x[C.stato] !== 'invitato') return { ok: false, errore: 'stato', stato: x[C.stato] };
   return { ok: true, stato: x[C.stato], id: String(x[C.id]), invito: true,
     sms: { tel: normalizzaTelefono_(String(x[C.telefono] || '').replace(/^'/, '')), testo: testoSms_('invito', x), mandato: !!x[C.wa_inviato] } };
 }
 
-function invia_(scade, riserva) {
+// gli inviti si mandano per SMS / WhatsApp; la mail parte solo con "Invia inviti anche per mail"
+function invia_(scade, riserva, conMail) {
   const sh = foglio_();
   const righe = dati_(sh);
   let email = 0, solo_whatsapp = 0;
-  const quota = MailApp.getRemainingDailyQuota();
+  const quota = conMail ? MailApp.getRemainingDailyQuota() : 0;
   righe.forEach((x, i) => {
     if (x[C.stato] !== 'da invitare') return;
-    if (invitaRiga_({ sh, n: i + 2, riga: x }, scade, riserva, email < quota)) email++; else solo_whatsapp++;
+    if (invitaRiga_({ sh, n: i + 2, riga: x }, scade, riserva, !!conMail && email < quota)) email++; else solo_whatsapp++;
   });
   // avviso che non blocca lo script (una finestra "OK" lasciata aperta lo faceva andare in timeout)
-  SpreadsheetApp.getActive().toast('email inviate: ' + email + (solo_whatsapp ? ' · solo WhatsApp: ' + solo_whatsapp : '') +
+  SpreadsheetApp.getActive().toast((conMail ? 'email inviate: ' + email + (solo_whatsapp ? ' · solo WhatsApp: ' + solo_whatsapp : '') : 'inviti pronti: ' + solo_whatsapp + ' (nessuna mail)') +
     '. ora apri il Pannello invii WhatsApp.', '😈 inviti pronti', 10);
   pannelloWhatsApp();
 }
@@ -888,8 +910,13 @@ function notifica_(oggetto, testo) {                     // true se è partita
 // Riepiloghi: una mail ogni 10 iscritti in lista, ogni 5 prenotazioni backstage, ogni 5 staff registrati.
 const OGNI = { lista: 10, backstage: 5, staff: 5 };
 const TITOLO_RIEPILOGO = { lista: 'nuovi in lista', backstage: 'nuove prenotazioni backstage', staff: 'nuovi staff registrati' };
-function accoda_(tipo, riga, totale) {
+function accoda_(tipo, riga, totale) { dopo_(() => accodaOra_(tipo, riga, totale)); }
+
+function accodaOra_(tipo, riga, totale) {
   if (telegramAttivo_() && tg_(TG_TITOLO[tipo] + riga + (totale ? '\n' + totale : ''))) return;   // una notifica per persona, subito
+  const lock = LockService.getScriptLock();
+  let preso = false;
+  try { lock.waitLock(10000); preso = true; } catch (err) { console.error('riepilogo, lucchetto', err); }
   try {
     const props = PropertiesService.getScriptProperties();
     const k = 'NOTIF_' + tipo;
@@ -899,6 +926,7 @@ function accoda_(tipo, riga, totale) {
     if (v.length >= OGNI[tipo] && mandaRiepilogo_(tipo, v, totale)) props.deleteProperty(k);
     else props.setProperty(k, JSON.stringify(v.slice(-80)));
   } catch (err) { console.error('riepilogo', err); }
+  finally { if (preso) lock.releaseLock(); }
 }
 
 function mandaRiepilogo_(tipo, righe, totale) {
@@ -1223,6 +1251,7 @@ function datiBk_() {
 function completaBk_(sh, righe) {
   righe.forEach((x, i) => {
     if (!String(x[CB.nome]).trim() || String(x[CB.token]).trim()) return;
+    if (SOLO_LETTURA_) { DA_COMPLETARE_ = true; return; }   // chi legge soltanto non scrive: lo fa la richiesta con il lucchetto
     const campi = {
       id: 'b' + Utilities.getUuid().replace(/-/g, '').slice(0, 7),
       token: 'b' + (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 31),
@@ -1470,10 +1499,11 @@ function confermaDaRegia_(r) {
     if (!String(x[C.token]).trim()) campi.token = nuovoToken_();
     scrivi_(t, campi);
     scrivi_(t, { note: aggiungiNota_(x[C.note], 'confermato dalla regia') });
-    if (String(x[C.email]).trim()) mandaConferma_(t);
+    if (String(x[C.email]).trim()) dopo_(() => mandaConferma_(t));
     if (telegramAttivo_()) {
       const eta = eta_(dataISO_(x[C.nascita]), SERATA.dataISO);
-      tg_('✅ confermato dalla regia: ' + (x[C.nome] + ' ' + x[C.cognome]).toLowerCase() + (eta >= 0 && eta < 100 ? ', ' + eta + ' anni' : '') + '\n' + contiPista_(dati_(sh)));
+      const testo = '✅ confermato dalla regia: ' + (x[C.nome] + ' ' + x[C.cognome]).toLowerCase() + (eta >= 0 && eta < 100 ? ', ' + eta + ' anni' : '') + '\n' + contiPista_(dati_(sh));
+      dopo_(() => tg_(testo));
     }
   } else if (x[C.stato] !== 'confermato' && x[C.stato] !== 'entrato') return { ok: false, errore: 'stato', stato: x[C.stato] };
   return { ok: true, stato: x[C.stato], id: String(x[C.id]),
