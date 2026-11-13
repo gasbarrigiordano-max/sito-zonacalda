@@ -118,7 +118,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'tg-3';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'tg-4';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -569,7 +569,10 @@ function invia_(scade, riserva) {
       } catch (err) { console.error(err); }
     }
     if (!inviata) solo_whatsapp++;
-    scrivi_(t, { stato: 'invitato', token, invitato_il: new Date(), scade_il: scade, whatsapp: wa });
+    const campi = { stato: 'invitato', token, invitato_il: new Date(), scade_il: scade, whatsapp: wa };
+    if (!String(x[C.id]).trim()) campi.id = Utilities.getUuid().slice(0, 8);   // riga scritta a mano: senza codice la porta non la farebbe entrare
+    if (!x[C.creato]) campi.creato = new Date();
+    scrivi_(t, campi);
   });
   // avviso che non blocca lo script (una finestra "OK" lasciata aperta lo faceva andare in timeout)
   SpreadsheetApp.getActive().toast('email inviate: ' + email + (solo_whatsapp ? ' · solo WhatsApp: ' + solo_whatsapp : '') +
