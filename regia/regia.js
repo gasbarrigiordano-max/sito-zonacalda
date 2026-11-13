@@ -229,6 +229,7 @@
   };
   // pista: chi ha l'invito ma non ha confermato (o l'ha fatto scadere) si conferma da qui, poi parte l'SMS con il suo ingresso
   const fattiLista = new Map();                           // id → { attesa, sms, mandato }: resta anche se l'elenco si ricarica
+  const vecchiaLista = () => { try { Object.keys(localStorage).filter((k) => k.indexOf('zc-regia-c-nomi-lista-') === 0).forEach((k) => vecchio(k.slice('zc-regia-c-'.length))); } catch (err) { /* niente */ } };
   const azioneLista = (x) => {
     if (!x.id) return '';
     const f = fattiLista.get(x.id);
@@ -237,6 +238,7 @@
       if (f.mandato) return '<span class="sms fatto">✓ SMS mandato</span>';
       return f.sms && f.sms.tel ? `<a class="sms az-li" data-id="${esc(x.id)}" data-az="sms" href="${esc(linkSms(f.sms.tel, f.sms.testo))}">manda SMS</a>` : '<span class="sms fatto">✓ confermato</span>';
     }
+    if (x.stato === 'in lista') return `<button class="spunta az-li" data-id="${esc(x.id)}" data-az="scegli" data-ok="1">da invitare</button>`;   // come cambiare lo stato nel foglio
     if (x.stato === 'da invitare') {                      // manda l'invito: la conferma resta all'invitato
       return chiediNome === x.id ? `<button class="spunta chiedi az-li" data-id="${esc(x.id)}" data-az="invita" data-ok="1">inviti? ok</button>`
         : `<button class="spunta conferma az-li" data-id="${esc(x.id)}" data-az="invita">invita</button>`;
@@ -260,12 +262,21 @@
     if (!b.dataset.ok) { chiediNome = id; disegnaNomi(); clearTimeout(timerNome); timerNome = setTimeout(() => { chiediNome = ''; disegnaNomi(); }, 5000); return; }
     clearTimeout(timerNome); chiediNome = '';
     fattiLista.set(id, { attesa: true }); disegnaNomi();
+    if (b.dataset.az === 'scegli') {
+      const r = await api({ op: 'sceglilista', id });
+      fattiLista.delete(id);
+      const x = nomi.find((y) => y.id === id);
+      if (r.ok && r.scelto) { if (x) x.stato = 'da invitare'; vecchiaLista(); }
+      else alert(r.ok ? 'serve il codice del foglio nuovo (tg-8).' : r.errore === 'stato' || r.errore === 'persona' ? 'non fatto: nel foglio questa persona ha cambiato stato. ricarica l\'elenco.' : 'non salvato: nessuna connessione. riprova.');
+      disegnaNomi();
+      return;
+    }
     const invita = b.dataset.az === 'invita';
     const r = await api({ op: invita ? 'invitalista' : 'confermalista', id });
     if (r.ok && r.stato && !!r.invito === invita) {
       fattiLista.set(id, { sms: r.sms, invito: invita, mandato: !!(r.sms && r.sms.mandato) });
       vecchio('invii');
-      try { Object.keys(localStorage).filter((k) => k.indexOf('zc-regia-c-nomi-lista-') === 0).forEach((k) => vecchio(k.slice('zc-regia-c-'.length))); } catch (err) { /* niente */ }
+      vecchiaLista();
     } else {
       fattiLista.delete(id);
       alert(r.ok ? 'serve il codice del foglio nuovo (tg-7).' : r.errore === 'pieno' ? 'non confermato: la lista dei confermati è piena.'
@@ -349,7 +360,8 @@
     const r = await scarica(ch, { op: 'nomi', tipo: tipoNomi, stati: (el.dataset.stati || '').split(','), g: el.dataset.g });
     if (r.ok) {
       if (tipoNomi === el.dataset.tipo && $('nomi-titolo').dataset.stati === (el.dataset.stati || '')) {
-        const tenuti = nomi.filter((x) => x.id && fattiLista.has(x.id) && !r.persone.some((y) => y.id === x.id));   // chi hai appena confermato resta finché non esci
+        const stati = (el.dataset.stati || '').split(',');
+        const tenuti = nomi.filter((x) => x.id && (fattiLista.has(x.id) || !stati.includes(x.stato)) && !r.persone.some((y) => y.id === x.id));   // chi hai appena confermato resta finché non esci
         nomi = r.persone.concat(tenuti).sort((a, z) => String(a.nome).localeCompare(String(z.nome), 'it')); disegnaNomi();
       }
     } else if (!g) $('lista-nomi').innerHTML = '<li>nessuna connessione. riprova.</li>';

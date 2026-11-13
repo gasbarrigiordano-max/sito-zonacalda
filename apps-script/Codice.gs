@@ -118,7 +118,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'tg-7';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'tg-8';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -568,6 +568,17 @@ function invitaRiga_(t, scade, riserva, conMail) {
   if (!x[C.creato]) campi.creato = new Date();
   scrivi_(t, campi);
   return inviata;
+}
+
+// dalla regia: "in lista" → "da invitare" (come cambiare lo stato a mano nel foglio). non manda niente
+function scegliDaRegia_(r) {
+  const sh = foglio_(), righe = dati_(sh);
+  const i = String(r.id || '').trim() ? righe.findIndex((x) => String(x[C.id]) === String(r.id)) : -1;
+  if (i < 0) return { ok: false, errore: 'persona' };
+  const x = righe[i];
+  if (x[C.stato] === 'in lista') scrivi_({ sh, n: i + 2, riga: x }, { stato: 'da invitare' });
+  else if (x[C.stato] !== 'da invitare') return { ok: false, errore: 'stato', stato: x[C.stato] };
+  return { ok: true, stato: x[C.stato], id: String(x[C.id]), scelto: true };
 }
 
 // dalla regia: manda l'invito a una sola persona "da invitare" (come "Invia inviti" del foglio). la conferma resta all'invitato
@@ -1312,6 +1323,7 @@ function regiaLavoro_(r, props) {
   if (r.op === 'segna') return segnaInvio_(r);
   if (r.op === 'confermalista') return confermaDaRegia_(r);
   if (r.op === 'invitalista') return invitaDaRegia_(r);
+  if (r.op === 'sceglilista') return scegliDaRegia_(r);
   if (r.op === 'conferma') {                        // richiesta → confermato (o indietro), dalla regia
     const sh = foglioBk_();
     const bk = datiBk_();
