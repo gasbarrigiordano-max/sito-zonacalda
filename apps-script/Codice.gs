@@ -118,7 +118,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'tg-2';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'tg-3';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -1101,6 +1101,8 @@ function dataISO_(v) {
   const s = String(v || '').replace(/^'/, '').trim();
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (m) return m[0];
+  const it = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);       // scritta a mano all'italiana: giorno/mese/anno
+  if (it) return it[3] + '-' + it[2].padStart(2, '0') + '-' + it[1].padStart(2, '0');
   const d = new Date(s);
   return isNaN(d) ? s : Utilities.formatDate(d, 'Europe/Rome', 'yyyy-MM-dd');
 }
@@ -1177,7 +1179,25 @@ function datiBk_() {
   const sh = foglioBk_();
   if (!sh) return [];
   const n = sh.getLastRow() - 1;
-  return n > 0 ? sh.getRange(2, 1, n, COL_BK.length).getValues() : [];
+  const righe = n > 0 ? sh.getRange(2, 1, n, COL_BK.length).getValues() : [];
+  completaBk_(sh, righe);
+  return righe;
+}
+
+// Righe scritte a mano nel foglio backstage: senza codice del pass non avrebbero QR.
+// Qui ricevono id e codice (come chi prenota dal sito); lo stato vuoto diventa "richiesta".
+function completaBk_(sh, righe) {
+  righe.forEach((x, i) => {
+    if (!String(x[CB.nome]).trim() || String(x[CB.token]).trim()) return;
+    const campi = {
+      id: 'b' + Utilities.getUuid().replace(/-/g, '').slice(0, 7),
+      token: 'b' + (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 31),
+    };
+    if (!x[CB.stato]) campi.stato = 'richiesta';
+    if (!x[CB.creato]) campi.creato = new Date();
+    if ((campi.stato || x[CB.stato]) === 'confermato' && !x[CB.confermato_il]) campi.confermato_il = new Date();
+    try { scriviBk_(sh, i, campi, x); } catch (err) { console.error('completa backstage', err); }
+  });
 }
 
 function scriviBk_(sh, i, campi, riga) {
