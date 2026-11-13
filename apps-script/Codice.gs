@@ -118,7 +118,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'tg-4';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'tg-5';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -1290,6 +1290,7 @@ function regiaLavoro_(r, props) {
     return { ok: true, aMano: n };
   }
   if (r.op === 'segna') return segnaInvio_(r);
+  if (r.op === 'confermalista') return confermaDaRegia_(r);
   if (r.op === 'conferma') {                        // richiesta → confermato (o indietro), dalla regia
     const sh = foglioBk_();
     const bk = datiBk_();
@@ -1378,6 +1379,10 @@ function testoSms_(tipo, x) {
     return String(x[C.nome]).toLowerCase() + ', sei dentro.\nzonacalda - sat 14.11 - 23:30.\n\naccetta entro ' + scade + '\n\n' +
       SERATA.sito + 'invito/?t=' + x[C.token] + '\n\ninvito personale, porta un documento. 23+.';
   }
+  if (tipo === 'confermato') {
+    return String(x[C.nome]).toLowerCase() + ', sei in lista: confermato.\nzonacalda - sat 14.11 - 23:30.\n\nil tuo ingresso:\n\n' +
+      SERATA.sito + 'invito/?t=' + x[C.token] + '\n\nmostralo alla porta. vale solo per te, porta un documento. 23+.';
+  }
   if (tipo === 'backstage') {
     return String(x[CB.nome]).toLowerCase() + ', sei nel backstage.\nzonacalda - sat 14.11 - dalle 23:30.\n\nil tuo pass d\'oro:\n\n' +
       SERATA.sito + 'backstage/?t=' + x[CB.token] + '\n\nmostralo all\'ingresso: entri senza invito. vale solo per te, porta un documento.';
@@ -1419,6 +1424,29 @@ function segnaInvio_(r) {
 }
 
 // ---------------------------------------------------------------- regia: i nomi dietro a ogni numero
+// la regia conferma al posto dell'invitato (ha detto sì a voce o in chat): vale come il suo "accetto", anche a invito scaduto
+function confermaDaRegia_(r) {
+  const sh = foglio_(), righe = dati_(sh);
+  const i = String(r.id || '').trim() ? righe.findIndex((x) => String(x[C.id]) === String(r.id)) : -1;
+  if (i < 0) return { ok: false, errore: 'persona' };
+  const x = righe[i], t = { sh, n: i + 2, riga: x };
+  if (x[C.stato] === 'invitato' || x[C.stato] === 'scaduto') {
+    const confermati = righe.filter((y) => y[C.stato] === 'confermato' || y[C.stato] === 'entrato').length;
+    if (confermati >= SERATA.confermeMax) return { ok: false, errore: 'pieno' };
+    const campi = { stato: 'confermato', risposto_il: new Date() };
+    if (!String(x[C.token]).trim()) campi.token = nuovoToken_();
+    scrivi_(t, campi);
+    scrivi_(t, { note: aggiungiNota_(x[C.note], 'confermato dalla regia') });
+    if (String(x[C.email]).trim()) mandaConferma_(t);
+    if (telegramAttivo_()) {
+      const eta = eta_(dataISO_(x[C.nascita]), SERATA.dataISO);
+      tg_('✅ confermato dalla regia: ' + (x[C.nome] + ' ' + x[C.cognome]).toLowerCase() + (eta >= 0 && eta < 100 ? ', ' + eta + ' anni' : '') + '\n' + contiPista_(dati_(sh)));
+    }
+  } else if (x[C.stato] !== 'confermato' && x[C.stato] !== 'entrato') return { ok: false, errore: 'stato', stato: x[C.stato] };
+  return { ok: true, stato: x[C.stato], id: String(x[C.id]),
+    sms: { tel: normalizzaTelefono_(String(x[C.telefono] || '').replace(/^'/, '')), testo: testoSms_('confermato', x) } };
+}
+
 function nomiRegia_(r) {
   const stati = Array.isArray(r.stati) ? r.stati.map(String) : [];
   const ora = (d) => (d ? Utilities.formatDate(new Date(d), 'Europe/Rome', 'HH:mm') : '');
@@ -1428,7 +1456,7 @@ function nomiRegia_(r) {
   let out = [];
   if (r.tipo === 'lista') {
     out = lista().filter((x) => stati.includes(x[C.stato]))
-      .map((x) => ({ nome: x[C.nome] + ' ' + x[C.cognome], eta: anni(x[C.nascita]), tel: tel(x[C.telefono]), stato: x[C.stato], ora: ora(x[C.entrato_il]) }));
+      .map((x) => ({ id: String(x[C.id] || ''), nome: x[C.nome] + ' ' + x[C.cognome], eta: anni(x[C.nascita]), tel: tel(x[C.telefono]), stato: x[C.stato], ora: ora(x[C.entrato_il]) }));
   } else if (r.tipo === 'backstage') {
     out = datiBk_().filter((x) => x[CB.nome] && stati.includes(x[CB.stato]))
       .map((x) => ({ nome: x[CB.nome] + ' ' + x[CB.cognome], eta: anni(x[CB.nascita]), tel: tel(x[CB.telefono]), stato: x[CB.stato], ora: ora(x[CB.entrato_il]), pagato: !!x[CB.pagato] }));
