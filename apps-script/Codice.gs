@@ -138,7 +138,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'tg-12';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'tg-13';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -628,6 +628,20 @@ function invitaDaRegia_(r) {
 }
 
 // gli inviti si mandano per SMS / WhatsApp; la mail parte solo con "Invia inviti anche per mail"
+// dalla regia: invita in un colpo tutti i "da invitare" (come "Invia inviti" del foglio, senza mail). la conferma resta a ognuno
+function invitaTuttiDaRegia_() {
+  const sh = foglio_(), righe = dati_(sh);
+  const scade = scadenzaInvitiOra_();
+  const invitati = [];
+  righe.forEach((x, i) => {
+    if (x[C.stato] !== 'da invitare' || !(x[C.nome] || x[C.cognome])) return;
+    invitaRiga_({ sh, n: i + 2, riga: x }, scade, false, false);
+    invitati.push({ id: String(x[C.id]), nome: x[C.nome] + ' ' + x[C.cognome],
+      sms: { tel: normalizzaTelefono_(String(x[C.telefono] || '').replace(/^'/, '')), testo: testoSms_('invito', x), mandato: !!x[C.wa_inviato] } });
+  });
+  return { ok: true, tutti: true, invitati };
+}
+
 function invia_(scade, riserva, conMail) {
   const sh = foglio_();
   const righe = dati_(sh);
@@ -1363,6 +1377,7 @@ function regiaLavoro_(r, props) {
   if (r.op === 'confermalista') return confermaDaRegia_(r);
   if (r.op === 'passlista') return passDaRegia_(r);
   if (r.op === 'invitalista') return invitaDaRegia_(r);
+  if (r.op === 'invitatutti') return invitaTuttiDaRegia_();
   if (r.op === 'sceglilista') return scegliDaRegia_(r);
   if (r.op === 'conferma') {                        // richiesta → confermato (o indietro), dalla regia
     const sh = foglioBk_();

@@ -213,6 +213,7 @@
     const nG = (g) => nomi.filter((x) => (x.g || '') === g).length;
     metti('nomi-pubblico', conG ? nG('m') + ' uomini · ' + nG('f') + ' donne' + (nG('') ? ' · ' + nG('') + ' incerti' : '') : '');
     $('nomi-pubblico').hidden = !conG;
+    mostraTutti();
     $('lista-nomi').innerHTML = righe.length ? righe.map((x) => {
       const info = [x.eta !== null && x.eta !== undefined ? x.eta + ' anni' : '', x.ora ? 'entrato ' + x.ora : '',
         tipoNomi === 'genere' || /,/.test($('nomi-titolo').dataset.stati || '') ? x.stato : '', x.pagato ? '✓ pagato' : ''].filter(Boolean).join(' · ');
@@ -308,6 +309,29 @@
     }
     disegnaNomi();
   });
+  // "da invitare": un tasto solo per invitarli tutti (poi a ognuno il suo SMS)
+  let tuttiStato = '', timerTutti = 0;                    // '' | 'chiedi' | 'attesa'
+  const daInvitare = () => nomi.filter((x) => x.id && x.stato === 'da invitare' && !fattiLista.has(x.id));
+  const mostraTutti = () => {
+    const b = $('invita-tutti'), n = daInvitare().length;
+    const qui = tipoNomi === 'lista' && $('nomi-titolo').dataset.stati === 'da invitare';
+    b.hidden = !(qui && (n > 0 || tuttiStato === 'attesa'));
+    b.disabled = tuttiStato === 'attesa';
+    b.className = 'spunta ' + (tuttiStato ? 'chiedi' : 'conferma');
+    b.textContent = tuttiStato === 'attesa' ? 'invito tutti…' : tuttiStato === 'chiedi' ? 'inviti tutti e ' + n + '? ok' : 'invita tutti (' + n + ')';
+  };
+  $('invita-tutti').addEventListener('click', async () => {
+    if (tuttiStato === 'attesa') return;
+    if (tuttiStato !== 'chiedi') { tuttiStato = 'chiedi'; mostraTutti(); clearTimeout(timerTutti); timerTutti = setTimeout(() => { if (tuttiStato === 'chiedi') { tuttiStato = ''; mostraTutti(); } }, 5000); return; }
+    clearTimeout(timerTutti); tuttiStato = 'attesa'; mostraTutti();
+    const r = await api({ op: 'invitatutti' });
+    tuttiStato = '';
+    if (r.ok && r.tutti) {
+      (r.invitati || []).forEach((p) => { if (p.id) fattiLista.set(p.id, { sms: p.sms, invito: true, mandato: !!(p.sms && p.sms.mandato) }); });
+      vecchio('invii'); vecchiaLista();
+    } else alert(r.ok ? 'serve il codice del foglio nuovo (tg-13).' : 'non riuscito: nessuna connessione. controlla nel foglio prima di riprovare.');
+    disegnaNomi();
+  });
   const unisciBk = (n, b, i, stati) => {
     const chiave = (s) => String(s || '').toLowerCase().trim();
     const extra = new Map(n.persone.map((p) => [chiave(p.nome), p]));
@@ -370,7 +394,7 @@
     $('mano').hidden = !(tipoNomi === 'staff' && el.dataset.stati === 'entrato');
     if (!$('mano').hidden) { const d = mem.leggi('zc-regia-dati'); mano = (d && d.staff && d.staff.aMano) || 0; mostraMano(); }
     metti('nomi-titolo', el.dataset.titolo); $('nomi-titolo').dataset.stati = el.dataset.stati || '';
-    $('q-nomi').value = ''; nomi = []; $('lista-nomi').innerHTML = '<li>carico…</li>'; metti('nomi-conto', ''); $('nomi-pubblico').hidden = true;
+    $('q-nomi').value = ''; nomi = []; $('lista-nomi').innerHTML = '<li>carico…</li>'; metti('nomi-conto', ''); $('nomi-pubblico').hidden = true; tuttiStato = ''; $('invita-tutti').hidden = true;
     $('pannello').hidden = true; $('vista-nomi').hidden = false; window.scrollTo(0, 0);
     if (tipoNomi === 'backstage') {
       mostrati = null; chiediNome = '';
