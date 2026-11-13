@@ -205,7 +205,9 @@
   const disegnaNomi = () => {
     const q = $('q-nomi').value.trim().toLowerCase();
     const righe = nomi.filter((x) => !q || x.nome.toLowerCase().includes(q));
-    metti('nomi-conto', righe.length + (q ? ' su ' + nomi.length : ''));
+    const anni = nomi.map((x) => x.eta).filter((e) => typeof e === 'number' && e >= 0 && e < 100);
+    const media = anni.length ? ' · età media ' + (Math.round(anni.reduce((a, b) => a + b, 0) / anni.length * 10) / 10).toString().replace('.', ',') : '';
+    metti('nomi-conto', righe.length + (q ? ' su ' + nomi.length : '') + media);
     $('lista-nomi').innerHTML = righe.length ? righe.map((x) => {
       const info = [x.eta !== null && x.eta !== undefined ? x.eta + ' anni' : '', x.ora ? 'entrato ' + x.ora : '',
         tipoNomi === 'genere' || /,/.test($('nomi-titolo').dataset.stati || '') ? x.stato : '', x.pagato ? '✓ pagato' : ''].filter(Boolean).join(' · ');
