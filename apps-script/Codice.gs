@@ -118,7 +118,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'tg-5';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'tg-6';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -1430,7 +1430,7 @@ function confermaDaRegia_(r) {
   const i = String(r.id || '').trim() ? righe.findIndex((x) => String(x[C.id]) === String(r.id)) : -1;
   if (i < 0) return { ok: false, errore: 'persona' };
   const x = righe[i], t = { sh, n: i + 2, riga: x };
-  if (x[C.stato] === 'invitato' || x[C.stato] === 'scaduto') {
+  if (x[C.stato] === 'da invitare' || x[C.stato] === 'invitato' || x[C.stato] === 'scaduto') {   // "da invitare": confermato senza passare dall'invito
     const confermati = righe.filter((y) => y[C.stato] === 'confermato' || y[C.stato] === 'entrato').length;
     if (confermati >= SERATA.confermeMax) return { ok: false, errore: 'pieno' };
     const campi = { stato: 'confermato', risposto_il: new Date() };

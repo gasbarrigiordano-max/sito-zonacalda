@@ -237,7 +237,7 @@
       if (f.mandato) return '<span class="sms fatto">✓ SMS mandato</span>';
       return f.sms && f.sms.tel ? `<a class="sms az-li" data-id="${esc(x.id)}" data-az="sms" href="${esc(linkSms(f.sms.tel, f.sms.testo))}">manda SMS</a>` : '<span class="sms fatto">✓ confermato</span>';
     }
-    if (x.stato !== 'invitato' && x.stato !== 'scaduto') return '';
+    if (x.stato !== 'da invitare' && x.stato !== 'invitato' && x.stato !== 'scaduto') return '';
     return chiediNome === x.id ? `<button class="spunta chiedi az-li" data-id="${esc(x.id)}" data-az="conferma" data-ok="1">confermi? ok</button>`
       : `<button class="spunta conferma az-li" data-id="${esc(x.id)}" data-az="conferma">conferma</button>`;
   };
@@ -255,7 +255,7 @@
       try { Object.keys(localStorage).filter((k) => k.indexOf('zc-regia-c-nomi-lista-') === 0).forEach((k) => vecchio(k.slice('zc-regia-c-'.length))); } catch (err) { /* niente */ }
     } else {
       fattiLista.delete(id);
-      alert(r.ok ? 'serve il codice del foglio nuovo (tg-5).' : r.errore === 'pieno' ? 'non confermato: la lista dei confermati è piena.'
+      alert(r.ok ? 'serve il codice del foglio nuovo (tg-6).' : r.errore === 'pieno' ? 'non confermato: la lista dei confermati è piena.'
         : r.errore === 'stato' || r.errore === 'persona' ? 'non confermato: nel foglio questa persona non è più tra gli invitati. ricarica l\'elenco.'
         : 'non salvato: nessuna connessione. riprova.');
     }
