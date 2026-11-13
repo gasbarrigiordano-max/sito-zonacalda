@@ -238,7 +238,7 @@
   // pista: chi ha l'invito ma non ha confermato (o l'ha fatto scadere) si conferma da qui, poi parte l'SMS con il suo ingresso
   const fattiLista = new Map();                           // id → { attesa, sms, mandato }: resta anche se l'elenco si ricarica
   const vecchiaLista = () => { try { Object.keys(localStorage).filter((k) => k.indexOf('zc-regia-c-nomi-lista-') === 0).forEach((k) => vecchio(k.slice('zc-regia-c-'.length))); } catch (err) { /* niente */ } };
-  const azioneLista = (x) => {
+  const azioneLista0 = (x) => {
     if (!x.id) return '';
     const f = fattiLista.get(x.id);
     if (f) {
@@ -261,6 +261,39 @@
     return chiediNome === x.id ? `<button class="spunta chiedi az-li" data-id="${esc(x.id)}" data-az="conferma" data-ok="1">confermi? ok</button>`
       : `<button class="spunta conferma az-li" data-id="${esc(x.id)}" data-az="conferma">conferma</button>`;
   };
+  // elimina dalla pista (per esempio chi si è iscritto anche al backstage): due tocchi, e subito dopo si può annullare
+  const eliminati = new Map();                            // id → 'attesa' | 'fatto'
+  let chiediElimina = '', timerElimina = 0;
+  const SI_ELIMINA = ['in lista', 'invitato', 'confermato'];
+  const azioneLista = (x) => {
+    if (!x.id) return '';
+    const e = eliminati.get(x.id);
+    if (e === 'attesa') return '<button class="spunta chiedi" disabled>salvo…</button>';
+    if (e === 'fatto') return `<span class="due"><span class="sms tolto">✕ eliminato</span><button class="spunta az-el" data-id="${esc(x.id)}" data-az="annulla">annulla</button></span>`;
+    const principale = azioneLista0(x);
+    if (fattiLista.has(x.id) || SI_ELIMINA.indexOf(x.stato) < 0) return principale;
+    const el = chiediElimina === x.id ? `<button class="spunta elimina chiedi az-el" data-id="${esc(x.id)}" data-az="elimina" data-ok="1">elimini? ok</button>`
+      : `<button class="spunta elimina az-el" data-id="${esc(x.id)}" data-az="elimina">elimina</button>`;
+    return `<span class="due">${el}${principale}</span>`;
+  };
+  $('lista-nomi').addEventListener('click', async (e) => {
+    const b = e.target.closest('.az-el');
+    if (!b) return;
+    const id = b.dataset.id, annulla = b.dataset.az === 'annulla';
+    if (!annulla && !b.dataset.ok) { chiediElimina = id; disegnaNomi(); clearTimeout(timerElimina); timerElimina = setTimeout(() => { chiediElimina = ''; disegnaNomi(); }, 5000); return; }
+    clearTimeout(timerElimina); chiediElimina = '';
+    eliminati.set(id, 'attesa'); disegnaNomi();
+    const r = await api({ op: 'escludilista', id, annulla });
+    if (r.ok && typeof r.eliminato === 'boolean') {
+      if (r.eliminato) eliminati.set(id, 'fatto'); else eliminati.delete(id);
+      vecchio('invii'); vecchiaLista();
+    } else {
+      if (annulla) eliminati.set(id, 'fatto'); else eliminati.delete(id);
+      alert(r.ok ? 'serve il codice del foglio nuovo (tg-14).' : r.errore === 'pieno' ? 'non rimesso: la lista dei confermati è piena.'
+        : r.errore === 'stato' || r.errore === 'persona' ? 'non fatto: nel foglio questa persona ha cambiato stato. ricarica l\'elenco.' : 'non salvato: nessuna connessione. riprova.');
+    }
+    disegnaNomi();
+  });
   $('lista-nomi').addEventListener('click', async (e) => {
     const b = e.target.closest('.az-li');
     if (!b) return;
@@ -408,7 +441,7 @@
     if (r.ok) {
       if (tipoNomi === el.dataset.tipo && $('nomi-titolo').dataset.stati === (el.dataset.stati || '')) {
         const stati = (el.dataset.stati || '').split(',');
-        const tenuti = nomi.filter((x) => x.id && (fattiLista.has(x.id) || !stati.includes(x.stato)) && !r.persone.some((y) => y.id === x.id));   // chi hai appena confermato resta finché non esci
+        const tenuti = nomi.filter((x) => x.id && (fattiLista.has(x.id) || eliminati.has(x.id) || !stati.includes(x.stato)) && !r.persone.some((y) => y.id === x.id));   // chi hai appena confermato resta finché non esci
         nomi = r.persone.concat(tenuti).sort((a, z) => String(a.nome).localeCompare(String(z.nome), 'it')); disegnaNomi();
       }
     } else if (!g) $('lista-nomi').innerHTML = '<li>nessuna connessione. riprova.</li>';
@@ -418,7 +451,7 @@
     el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); apriNomi(el); } });
   });
   $('q-nomi').addEventListener('input', disegnaNomi);
-  $('chiudi-nomi').addEventListener('click', () => { fattiLista.clear(); $('vista-nomi').hidden = true; $('pannello').hidden = false; aggiorna(); });
+  $('chiudi-nomi').addEventListener('click', () => { fattiLista.clear(); eliminati.clear(); $('vista-nomi').hidden = true; $('pannello').hidden = false; aggiorna(); });
 
   const entra = async () => {
     const r = await aggiorna();

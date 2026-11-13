@@ -88,7 +88,10 @@
   .nomi li { flex-wrap: wrap; align-items: center; }
   .nomi li .spunta, .nomi li .sms { margin-left: auto; height: 40px; min-width: 120px; font-size: .85rem; }
   .nomi li .due { margin-left: auto; display: inline-flex; gap: .5rem; }
-  .nomi li .due .sms { margin-left: 0; min-width: 104px; }
+  .nomi li .due .sms, .nomi li .due .spunta { margin-left: 0; min-width: 104px; }
+  .nomi li .spunta.elimina { min-width: 84px; background: transparent; border-color: #5a2226; color: #ff8088; font-weight: 400; }
+  .nomi li .spunta.elimina.chiedi { min-width: 104px; background: #3a0d11; border-color: #ff2634; color: #fff; font-weight: 700; }
+  .nomi li .sms.tolto { background: #2a1012; color: #ff8088; border: 1px solid #5a2226; }
   .nomi li a.sms { color: #fff; font-size: .85rem; }
   .nomi li a.sms.qr { background: #161414; color: #ffd77a; border: 1px solid #e2b84a; }
   .stato { text-align: center; color: var(--tenue); font-size: .8rem; margin-top: 1rem; }
@@ -121,7 +124,7 @@
   }
 </style>
 <script src="../js/api.js?v=20261112" defer></script>
-<script src="regia.js?v=20261113i" defer></script>
+<script src="regia.js?v=20261113j" defer></script>
 </head>
 <body>
 <main class="regia">

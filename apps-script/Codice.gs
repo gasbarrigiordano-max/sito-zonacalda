@@ -138,7 +138,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'tg-13';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'tg-14';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -1378,6 +1378,7 @@ function regiaLavoro_(r, props) {
   if (r.op === 'passlista') return passDaRegia_(r);
   if (r.op === 'invitalista') return invitaDaRegia_(r);
   if (r.op === 'invitatutti') return invitaTuttiDaRegia_();
+  if (r.op === 'escludilista') return escludiDaRegia_(r);
   if (r.op === 'sceglilista') return scegliDaRegia_(r);
   if (r.op === 'conferma') {                        // richiesta → confermato (o indietro), dalla regia
     const sh = foglioBk_();
@@ -1425,7 +1426,7 @@ function regiaLavoro_(r, props) {
     etaUomini: media(gruppi.uomini), etaDonne: media(gruppi.donne), etaTutti: media(gruppi.uomini.concat(gruppi.donne, gruppi.incerti)) };
   return {
     ok: true, aggiornato: ora(new Date()), capienza: SERATA.capienza, dentro,
-    lista: Object.assign(lista, { totale: ospiti.length }),
+    lista: Object.assign(lista, { totale: ospiti.filter((x) => x[C.stato] !== 'escluso').length }),   // chi è stato eliminato non conta
     backstage: Object.assign(back, { totale: bk.length, posti: POSTI_BACKSTAGE,
       pagati: bk.filter((x) => x[CB.pagato] && x[CB.stato] !== 'annullato').length,
       daPagare: bk.filter((x) => !x[CB.pagato] && (x[CB.stato] === 'confermato' || x[CB.stato] === 'entrato')).length }),
@@ -1534,6 +1535,31 @@ function confermaDaRegia_(r) {
   } else if (x[C.stato] !== 'confermato' && x[C.stato] !== 'entrato') return { ok: false, errore: 'stato', stato: x[C.stato] };
   return { ok: true, stato: x[C.stato], id: String(x[C.id]),
     sms: { tel: normalizzaTelefono_(String(x[C.telefono] || '').replace(/^'/, '')), testo: testoSms_('confermato', x) } };
+}
+
+// la regia toglie una persona dalla pista (per esempio chi si è iscritto anche al backstage): la riga resta nel foglio con stato "escluso"
+// e la nota dice com'era, così "annulla" (o tu a mano dal foglio) la rimette a posto. chi è già entrato non si tocca.
+const NOTA_ELIMINATO = 'eliminato dalla regia, era: ';
+function escludiDaRegia_(r) {
+  const sh = foglio_(), righe = dati_(sh);
+  const i = String(r.id || '').trim() ? righe.findIndex((x) => String(x[C.id]) === String(r.id)) : -1;
+  if (i < 0) return { ok: false, errore: 'persona' };
+  const x = righe[i], t = { sh, n: i + 2, riga: x };
+  const note = String(x[C.note] || '').split(' · ').filter((s) => s);
+  const segno = note.find((s) => s.indexOf(NOTA_ELIMINATO) === 0);
+  const senza = note.filter((s) => s.indexOf(NOTA_ELIMINATO) !== 0).join(' · ');
+  if (r.annulla) {
+    const era = segno ? segno.slice(NOTA_ELIMINATO.length) : '';
+    if (x[C.stato] !== 'escluso' || STATI.indexOf(era) < 0 || era === 'escluso') return { ok: false, errore: 'stato', stato: x[C.stato] };
+    if (era === 'confermato' && righe.filter((y) => y[C.stato] === 'confermato' || y[C.stato] === 'entrato').length >= SERATA.confermeMax) return { ok: false, errore: 'pieno' };
+    scrivi_(t, { stato: era, note: senza });
+    return { ok: true, eliminato: false, stato: era, id: String(x[C.id]) };
+  }
+  if (x[C.stato] === 'escluso') return { ok: true, eliminato: true, stato: 'escluso', id: String(x[C.id]) };
+  if (['in lista', 'da invitare', 'invitato', 'confermato'].indexOf(x[C.stato]) < 0) return { ok: false, errore: 'stato', stato: x[C.stato] };
+  const era = x[C.stato];
+  scrivi_(t, { stato: 'escluso', note: aggiungiNota_(senza, NOTA_ELIMINATO + era) });
+  return { ok: true, eliminato: true, stato: 'escluso', era, id: String(x[C.id]) };
 }
 
 // la regia rivede il pass (QR) di chi ha già confermato, per rimandarglielo. solo lettura: non cambia niente nel foglio
