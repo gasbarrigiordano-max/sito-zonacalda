@@ -96,7 +96,7 @@ function doPost(e) {
     try { return out_(novitaPorta_(req)); } catch (err) { console.error(err); return out_({ ok: false, errore: 'interno' }); }
   }
   // la regia che legge soltanto (numeri, nomi, elenchi) non aspetta il lucchetto: non resta in coda dietro a chi sta confermando
-  if (req.azione === 'regia' && (!req.op || ['nomi', 'invii', 'backstage'].indexOf(req.op) >= 0)) {
+  if (req.azione === 'regia' && (!req.op || ['nomi', 'invii', 'backstage', 'passlista'].indexOf(req.op) >= 0)) {
     try {
       SOLO_LETTURA_ = true; DA_COMPLETARE_ = false;
       const letto = regia_(req);
@@ -138,7 +138,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'tg-11';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'tg-12';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -1361,6 +1361,7 @@ function regiaLavoro_(r, props) {
   }
   if (r.op === 'segna') return segnaInvio_(r);
   if (r.op === 'confermalista') return confermaDaRegia_(r);
+  if (r.op === 'passlista') return passDaRegia_(r);
   if (r.op === 'invitalista') return invitaDaRegia_(r);
   if (r.op === 'sceglilista') return scegliDaRegia_(r);
   if (r.op === 'conferma') {                        // richiesta → confermato (o indietro), dalla regia
@@ -1517,6 +1518,15 @@ function confermaDaRegia_(r) {
     }
   } else if (x[C.stato] !== 'confermato' && x[C.stato] !== 'entrato') return { ok: false, errore: 'stato', stato: x[C.stato] };
   return { ok: true, stato: x[C.stato], id: String(x[C.id]),
+    sms: { tel: normalizzaTelefono_(String(x[C.telefono] || '').replace(/^'/, '')), testo: testoSms_('confermato', x) } };
+}
+
+// la regia rivede il pass (QR) di chi ha già confermato, per rimandarglielo. solo lettura: non cambia niente nel foglio
+function passDaRegia_(r) {
+  const x = String(r.id || '').trim() ? dati_(foglio_()).find((y) => String(y[C.id]) === String(r.id)) : null;
+  if (!x) return { ok: false, errore: 'persona' };
+  if ((x[C.stato] !== 'confermato' && x[C.stato] !== 'entrato') || !String(x[C.token]).trim()) return { ok: false, errore: 'stato', stato: x[C.stato] };
+  return { ok: true, stato: x[C.stato], id: String(x[C.id]), pass: SERATA.sito + 'invito/?t=' + x[C.token],
     sms: { tel: normalizzaTelefono_(String(x[C.telefono] || '').replace(/^'/, '')), testo: testoSms_('confermato', x) } };
 }
 

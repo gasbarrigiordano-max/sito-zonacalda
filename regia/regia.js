@@ -241,10 +241,16 @@
     if (!x.id) return '';
     const f = fattiLista.get(x.id);
     if (f) {
-      if (f.attesa) return '<button class="spunta chiedi" disabled>salvo…</button>';
+      if (f.attesa) return `<button class="spunta chiedi" disabled>${f.leggo ? 'carico…' : 'salvo…'}</button>`;
+      if (f.pass) {                                       // pass di chi ha già confermato: si guarda il QR e, se serve, si rimanda
+        const s = f.mandato ? '<span class="sms fatto">✓ SMS mandato</span>'
+          : f.sms && f.sms.tel ? `<a class="sms az-li" data-id="${esc(x.id)}" data-az="sms" href="${esc(linkSms(f.sms.tel, f.sms.testo))}">manda SMS</a>` : '';
+        return `<span class="due"><a class="sms qr" href="${esc(f.pass)}" target="_blank" rel="noopener">vedi QR</a>${s}</span>`;
+      }
       if (f.mandato) return '<span class="sms fatto">✓ SMS mandato</span>';
       return f.sms && f.sms.tel ? `<a class="sms az-li" data-id="${esc(x.id)}" data-az="sms" href="${esc(linkSms(f.sms.tel, f.sms.testo))}">manda SMS</a>` : '<span class="sms fatto">✓ confermato</span>';
     }
+    if (x.stato === 'confermato' && $('nomi-titolo').dataset.stati === 'confermato') return `<button class="spunta az-li" data-id="${esc(x.id)}" data-az="pass" data-ok="1">QR / pass</button>`;
     if (x.stato === 'in lista') return `<button class="spunta az-li" data-id="${esc(x.id)}" data-az="scegli" data-ok="1">da invitare</button>`;   // come cambiare lo stato nel foglio
     if (x.stato === 'da invitare') {                      // manda l'invito: la conferma resta all'invitato
       return chiediNome === x.id ? `<button class="spunta chiedi az-li" data-id="${esc(x.id)}" data-az="invita" data-ok="1">inviti? ok</button>`
@@ -268,7 +274,17 @@
     }
     if (!b.dataset.ok) { chiediNome = id; disegnaNomi(); clearTimeout(timerNome); timerNome = setTimeout(() => { chiediNome = ''; disegnaNomi(); }, 5000); return; }
     clearTimeout(timerNome); chiediNome = '';
-    fattiLista.set(id, { attesa: true }); disegnaNomi();
+    fattiLista.set(id, { attesa: true, leggo: b.dataset.az === 'pass' }); disegnaNomi();
+    if (b.dataset.az === 'pass') {
+      const r = await api({ op: 'passlista', id });
+      if (r.ok && r.pass) fattiLista.set(id, { pass: r.pass, sms: r.sms });
+      else {
+        fattiLista.delete(id);
+        alert(r.ok ? 'serve il codice del foglio nuovo (tg-12).' : r.errore === 'stato' || r.errore === 'persona' ? 'nel foglio questa persona non risulta più confermata. ricarica l\'elenco.' : 'nessuna connessione. riprova.');
+      }
+      disegnaNomi();
+      return;
+    }
     if (b.dataset.az === 'scegli') {
       const r = await api({ op: 'sceglilista', id });
       fattiLista.delete(id);
