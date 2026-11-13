@@ -237,7 +237,11 @@
       if (f.mandato) return '<span class="sms fatto">✓ SMS mandato</span>';
       return f.sms && f.sms.tel ? `<a class="sms az-li" data-id="${esc(x.id)}" data-az="sms" href="${esc(linkSms(f.sms.tel, f.sms.testo))}">manda SMS</a>` : '<span class="sms fatto">✓ confermato</span>';
     }
-    if (x.stato !== 'da invitare' && x.stato !== 'invitato' && x.stato !== 'scaduto') return '';
+    if (x.stato === 'da invitare') {                      // manda l'invito: la conferma resta all'invitato
+      return chiediNome === x.id ? `<button class="spunta chiedi az-li" data-id="${esc(x.id)}" data-az="invita" data-ok="1">inviti? ok</button>`
+        : `<button class="spunta conferma az-li" data-id="${esc(x.id)}" data-az="invita">invita</button>`;
+    }
+    if (x.stato !== 'invitato' && x.stato !== 'scaduto') return '';
     return chiediNome === x.id ? `<button class="spunta chiedi az-li" data-id="${esc(x.id)}" data-az="conferma" data-ok="1">confermi? ok</button>`
       : `<button class="spunta conferma az-li" data-id="${esc(x.id)}" data-az="conferma">conferma</button>`;
   };
@@ -245,18 +249,27 @@
     const b = e.target.closest('.az-li');
     if (!b) return;
     const id = b.dataset.id;
-    if (b.dataset.az === 'sms') { setTimeout(() => { const f = fattiLista.get(id); if (f) f.mandato = true; disegnaNomi(); }, 400); return; }
+    if (b.dataset.az === 'sms') {
+      setTimeout(async () => {
+        const f = fattiLista.get(id); if (!f) return;
+        f.mandato = true; disegnaNomi();
+        if (f.invito) { ricordaSegnato('invito', id, true); await api({ op: 'segna', tipo: 'invito', id, si: true }); vecchio('invii'); }   // come dal pannello SMS
+      }, 400);
+      return;
+    }
     if (!b.dataset.ok) { chiediNome = id; disegnaNomi(); clearTimeout(timerNome); timerNome = setTimeout(() => { chiediNome = ''; disegnaNomi(); }, 5000); return; }
     clearTimeout(timerNome); chiediNome = '';
     fattiLista.set(id, { attesa: true }); disegnaNomi();
-    const r = await api({ op: 'confermalista', id });
-    if (r.ok && r.stato) {
-      fattiLista.set(id, { sms: r.sms });
+    const invita = b.dataset.az === 'invita';
+    const r = await api({ op: invita ? 'invitalista' : 'confermalista', id });
+    if (r.ok && r.stato && !!r.invito === invita) {
+      fattiLista.set(id, { sms: r.sms, invito: invita, mandato: !!(r.sms && r.sms.mandato) });
+      vecchio('invii');
       try { Object.keys(localStorage).filter((k) => k.indexOf('zc-regia-c-nomi-lista-') === 0).forEach((k) => vecchio(k.slice('zc-regia-c-'.length))); } catch (err) { /* niente */ }
     } else {
       fattiLista.delete(id);
-      alert(r.ok ? 'serve il codice del foglio nuovo (tg-6).' : r.errore === 'pieno' ? 'non confermato: la lista dei confermati è piena.'
-        : r.errore === 'stato' || r.errore === 'persona' ? 'non confermato: nel foglio questa persona non è più tra gli invitati. ricarica l\'elenco.'
+      alert(r.ok ? 'serve il codice del foglio nuovo (tg-7).' : r.errore === 'pieno' ? 'non confermato: la lista dei confermati è piena.'
+        : r.errore === 'stato' || r.errore === 'persona' ? 'non fatto: nel foglio questa persona ha cambiato stato. ricarica l\'elenco.'
         : 'non salvato: nessuna connessione. riprova.');
     }
     disegnaNomi();

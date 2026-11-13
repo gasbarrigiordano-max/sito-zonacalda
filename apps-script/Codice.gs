@@ -118,7 +118,7 @@ function doPost(e) {
   }
 }
 
-const VERSIONE = 'tg-6';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'tg-7';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -548,6 +548,43 @@ function spostaScadenza() {
 
 function inviaRiserva() { invia_(new Date(Date.now() + 30 * 60000), true); }
 
+// una persona "da invitare" → "invitato": codice, scadenza, mail (se si può) e link WhatsApp. restituisce true se la mail è partita
+function invitaRiga_(t, scade, riserva, conMail) {
+  const x = t.riga;
+  const token = x[C.token] || nuovoToken_();
+  const link = SERATA.sito + 'invito/?t=' + token;
+  const scadenza = quando_(scade);
+  const m = componiMail_(riserva ? MAIL.riserva : MAIL.invito, { nome: x[C.nome], scadenza }, link);
+  const wa = 'https://wa.me/' + normalizzaTelefono_(x[C.telefono]).replace(/\D/g, '') + '?text=' + encodeURIComponent(m.testo);
+  let inviata = false;
+  if (conMail) {
+    try {
+      manda_(x[C.email], m);
+      inviata = true;
+    } catch (err) { console.error(err); }
+  }
+  const campi = { stato: 'invitato', token, invitato_il: new Date(), scade_il: scade, whatsapp: wa };
+  if (!String(x[C.id]).trim()) campi.id = Utilities.getUuid().slice(0, 8);   // riga scritta a mano: senza codice la porta non la farebbe entrare
+  if (!x[C.creato]) campi.creato = new Date();
+  scrivi_(t, campi);
+  return inviata;
+}
+
+// dalla regia: manda l'invito a una sola persona "da invitare" (come "Invia inviti" del foglio). la conferma resta all'invitato
+function invitaDaRegia_(r) {
+  const sh = foglio_(), righe = dati_(sh);
+  const i = String(r.id || '').trim() ? righe.findIndex((x) => String(x[C.id]) === String(r.id)) : -1;
+  if (i < 0) return { ok: false, errore: 'persona' };
+  const x = righe[i];
+  if (x[C.stato] === 'da invitare') {
+    let quota = 0;
+    try { quota = MailApp.getRemainingDailyQuota(); } catch (err) { console.error(err); }
+    invitaRiga_({ sh, n: i + 2, riga: x }, scadenzaInvitiOra_(), false, quota > 0 && !!String(x[C.email]).trim());
+  } else if (x[C.stato] !== 'invitato') return { ok: false, errore: 'stato', stato: x[C.stato] };
+  return { ok: true, stato: x[C.stato], id: String(x[C.id]), invito: true,
+    sms: { tel: normalizzaTelefono_(String(x[C.telefono] || '').replace(/^'/, '')), testo: testoSms_('invito', x), mandato: !!x[C.wa_inviato] } };
+}
+
 function invia_(scade, riserva) {
   const sh = foglio_();
   const righe = dati_(sh);
@@ -555,24 +592,7 @@ function invia_(scade, riserva) {
   const quota = MailApp.getRemainingDailyQuota();
   righe.forEach((x, i) => {
     if (x[C.stato] !== 'da invitare') return;
-    const t = { sh, n: i + 2, riga: x };
-    const token = x[C.token] || nuovoToken_();
-    const link = SERATA.sito + 'invito/?t=' + token;
-    const scadenza = quando_(scade);
-    const m = componiMail_(riserva ? MAIL.riserva : MAIL.invito, { nome: x[C.nome], scadenza }, link);
-    const wa = 'https://wa.me/' + normalizzaTelefono_(x[C.telefono]).replace(/\D/g, '') + '?text=' + encodeURIComponent(m.testo);
-    let inviata = false;
-    if (email < quota) {
-      try {
-        manda_(x[C.email], m);
-        inviata = true; email++;
-      } catch (err) { console.error(err); }
-    }
-    if (!inviata) solo_whatsapp++;
-    const campi = { stato: 'invitato', token, invitato_il: new Date(), scade_il: scade, whatsapp: wa };
-    if (!String(x[C.id]).trim()) campi.id = Utilities.getUuid().slice(0, 8);   // riga scritta a mano: senza codice la porta non la farebbe entrare
-    if (!x[C.creato]) campi.creato = new Date();
-    scrivi_(t, campi);
+    if (invitaRiga_({ sh, n: i + 2, riga: x }, scade, riserva, email < quota)) email++; else solo_whatsapp++;
   });
   // avviso che non blocca lo script (una finestra "OK" lasciata aperta lo faceva andare in timeout)
   SpreadsheetApp.getActive().toast('email inviate: ' + email + (solo_whatsapp ? ' · solo WhatsApp: ' + solo_whatsapp : '') +
@@ -1291,6 +1311,7 @@ function regiaLavoro_(r, props) {
   }
   if (r.op === 'segna') return segnaInvio_(r);
   if (r.op === 'confermalista') return confermaDaRegia_(r);
+  if (r.op === 'invitalista') return invitaDaRegia_(r);
   if (r.op === 'conferma') {                        // richiesta → confermato (o indietro), dalla regia
     const sh = foglioBk_();
     const bk = datiBk_();
@@ -1430,7 +1451,7 @@ function confermaDaRegia_(r) {
   const i = String(r.id || '').trim() ? righe.findIndex((x) => String(x[C.id]) === String(r.id)) : -1;
   if (i < 0) return { ok: false, errore: 'persona' };
   const x = righe[i], t = { sh, n: i + 2, riga: x };
-  if (x[C.stato] === 'da invitare' || x[C.stato] === 'invitato' || x[C.stato] === 'scaduto') {   // "da invitare": confermato senza passare dall'invito
+  if (x[C.stato] === 'invitato' || x[C.stato] === 'scaduto') {
     const confermati = righe.filter((y) => y[C.stato] === 'confermato' || y[C.stato] === 'entrato').length;
     if (confermati >= SERATA.confermeMax) return { ok: false, errore: 'pieno' };
     const campi = { stato: 'confermato', risposto_il: new Date() };
