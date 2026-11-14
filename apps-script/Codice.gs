@@ -139,7 +139,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'tg-17';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'tg-18';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -427,7 +427,7 @@ function onOpen() {
     .addItem('Chiudi la lista', 'chiudiLista')
     .addSeparator()
     .addItem('Invia inviti a chi è "da invitare"', 'inviaInviti')
-    .addItem('Invia inviti anche per mail', 'inviaInvitiMail')
+    .addItem('Manda la mail di invito agli inviti ancora da mandare', 'mailInvitiAperti')
     .addItem('Invia inviti di riserva (30 minuti)', 'inviaRiserva')
     .addItem('Fai scadere gli inviti non confermati', 'scadiInviti')
     .addItem('Sposta la scadenza degli inviti già mandati', 'spostaScadenza')
@@ -552,9 +552,42 @@ function scadenzaInvitiOra_() {
 
 function inviaInviti() {
   // scadenza fissa uguale per tutti; se è già passata (o manca meno di un'ora), 12 ore da adesso
-  invia_(scadenzaInvitiOra_(), false, false);
+  invia_(scadenzaInvitiOra_(), false, true);            // con la mail di invito (finché ce ne sono di inviabili oggi)
 }
-function inviaInvitiMail() { invia_(scadenzaInvitiOra_(), false, true); }   // come sopra, e in più parte la mail di invito
+function inviaInvitiMail() { invia_(scadenzaInvitiOra_(), false, true); }
+
+// la mail di invito a una persona già "invitato", con la sua scadenza. true se è partita
+function mandaMailInvito_(x) {
+  if (!String(x[C.email]).trim() || !x[C.token]) return false;
+  try {
+    if (MailApp.getRemainingDailyQuota() < 1) return false;
+    const scade = x[C.scade_il] ? new Date(x[C.scade_il]) : scadenzaInvitiOra_();
+    manda_(x[C.email], componiMail_(MAIL.invito, { nome: x[C.nome], scadenza: quando_(scade) }, SERATA.sito + 'invito/?t=' + x[C.token]));
+    return true;
+  } catch (err) { console.error('mail invito', err); return false; }
+}
+
+// Dal menu: manda la mail di invito a tutti gli inviti aperti che risultano ancora "da mandare" (nessun SMS / WhatsApp segnato),
+// e li segna come mandati. Chi non ha la mail, o resta fuori perché le mail di oggi sono finite, rimane "da mandare".
+// Si può rilanciare: riparte da chi manca.
+function mailInvitiAperti() {
+  const sh = foglio_();
+  let mandate = 0, senza = 0, rimasti = 0, quota = MailApp.getRemainingDailyQuota();
+  const inizio = Date.now();
+  dati_(sh).forEach((x, i) => {
+    if (x[C.stato] !== 'invitato' || !x[C.token] || x[C.wa_inviato]) return;
+    if (!String(x[C.email]).trim()) { senza++; return; }
+    if (quota < 1 || Date.now() - inizio > 280000) { rimasti++; return; }   // mail finite, o quasi 5 minuti di lavoro: il resto al prossimo giro
+    if (mandaMailInvito_(x)) {
+      quota--; mandate++;
+      scrivi_({ sh, n: i + 2, riga: x }, { wa_inviato: new Date(), note: aggiungiNota_(togliNota_(x[C.note], 'invito per mail'), 'invito per mail') });
+    } else rimasti++;
+  });
+  SpreadsheetApp.getUi().alert('Mail di invito mandate: ' + mandate + '.' +
+    (rimasti ? '\nNon partite: ' + rimasti + ' (mail di oggi finite o errore). Restano tra i "da mandare": rilancia più tardi o usa gli SMS.' : '') +
+    (senza ? '\nSenza indirizzo mail: ' + senza + '. Restano tra i "da mandare": a loro serve l\'SMS.' : '') +
+    '\nMail ancora inviabili oggi: ' + MailApp.getRemainingDailyQuota() + '.');
+}
 // Porta alla scadenza fissa gli inviti già mandati con una scadenza più corta, e rifà il loro messaggio WhatsApp.
 // Tutti gli inviti ancora aperti passano alla scadenza finale (sabato alle 21:00), qualunque scadenza avessero.
 // Chi è già scaduto con una delle scadenze fisse (venerdì 21:00, sabato 12:00, 14:00 o 15:00) torna "invitato".
@@ -639,13 +672,14 @@ function invitaDaRegia_(r) {
   if (i < 0) return { ok: false, errore: 'persona' };
   const x = righe[i];
   if (x[C.stato] === 'da invitare') {
-    invitaRiga_({ sh, n: i + 2, riga: x }, scadenzaInvitiOra_(), false, false);   // niente mail: l'invito parte con l'SMS
+    invitaRiga_({ sh, n: i + 2, riga: x }, scadenzaInvitiOra_(), false, false);
+    dopo_(() => mandaMailInvito_(x));                    // la mail parte a lucchetto lasciato; l'SMS resta da mandare a mano
   } else if (x[C.stato] !== 'invitato') return { ok: false, errore: 'stato', stato: x[C.stato] };
   return { ok: true, stato: x[C.stato], id: String(x[C.id]), invito: true,
     sms: { tel: normalizzaTelefono_(String(x[C.telefono] || '').replace(/^'/, '')), testo: testoSms_('invito', x), mandato: !!x[C.wa_inviato] } };
 }
 
-// gli inviti si mandano per SMS / WhatsApp; la mail parte solo con "Invia inviti anche per mail"
+// "Invia inviti" manda anche la mail di invito; gli inviti di riserva no
 // dalla regia: invita in un colpo tutti i "da invitare" (come "Invia inviti" del foglio, senza mail). la conferma resta a ognuno
 function invitaTuttiDaRegia_() {
   const sh = foglio_(), righe = dati_(sh);
@@ -654,6 +688,7 @@ function invitaTuttiDaRegia_() {
   righe.forEach((x, i) => {
     if (x[C.stato] !== 'da invitare' || !(x[C.nome] || x[C.cognome])) return;
     invitaRiga_({ sh, n: i + 2, riga: x }, scade, false, false);
+    dopo_(() => mandaMailInvito_(x));
     invitati.push({ id: String(x[C.id]), nome: x[C.nome] + ' ' + x[C.cognome],
       sms: { tel: normalizzaTelefono_(String(x[C.telefono] || '').replace(/^'/, '')), testo: testoSms_('invito', x), mandato: !!x[C.wa_inviato] } });
   });
