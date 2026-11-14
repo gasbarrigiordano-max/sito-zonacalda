@@ -101,7 +101,9 @@ function doPost(e) {
     } catch (err) { SOLO_LETTURA_ = false; console.error(err); return out_({ ok: false, errore: 'interno' }); }
   }
   const lock = LockService.getScriptLock();
-  lock.waitLock(20000);
+  // troppe richieste insieme: invece della pagina d'errore di Google (che il sito leggeva come "nessuna connessione")
+  // risponde "occupato", senza aver fatto niente; il sito riprova da solo
+  try { lock.waitLock(25000); } catch (err) { return out_({ ok: false, errore: 'occupato' }); }
   DOPO_ = [];
   let ris;
   try {
@@ -134,7 +136,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'tg-21';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'tg-22';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });

@@ -51,7 +51,7 @@
     const r = await api({});
     if (r.ok) { falliti = 0; mostra(r); mem.scrivi('zc-regia-dati', r); $('stato').className = 'stato'; metti('stato', 'si aggiorna da sola ogni 15 secondi.'); }
     else if (r.errore === 'pin' || r.errore === 'bloccato') { esci(); }
-    else { falliti++; $('stato').className = 'stato male'; metti('stato', 'nessuna connessione: i numeri sono quelli delle ' + $('agg').textContent + '. riprovo…'); }
+    else { falliti++; $('stato').className = 'stato male'; metti('stato', 'il foglio non ha risposto: i numeri sono quelli delle ' + $('agg').textContent + '. riprovo…'); }
     return r;
   };
 
@@ -120,7 +120,7 @@
     const r = await scarica('backstage', { op: 'backstage' }, 15000);
     if (r.ok) {
       bk = r.persone.map((y) => (inCorso.has(y.id) ? bk.find((z) => z.id === y.id) || y : y)); disegnaBk();
-    } else if (!bk.length) $('lista-bk').innerHTML = '<li>nessuna connessione. riprova.</li>';
+    } else if (!bk.length) $('lista-bk').innerHTML = '<li>il foglio non ha risposto. riprova.</li>';
   };
   let timerChiedi = 0;
   $('lista-bk').addEventListener('click', async (e) => {
@@ -142,7 +142,7 @@
       const nuovi = new Map(r.persone.map((y) => [y.id, y]));
       bk = bk.map((y) => (inCorso.has(y.id) ? y : nuovi.get(y.id) || y));   // chi è ancora in salvataggio resta com'è
       disegnaBk(); aggiorna();
-    } else { disegnaBk(); alert('non salvato: nessuna connessione. riprova.'); }
+    } else { disegnaBk(); alert('non salvato: il foglio non ha risposto (o la rete è caduta). riprova.'); }
   });
   $('q-bk').addEventListener('input', disegnaBk);
   const apriBk = () => { $('pannello').hidden = true; $('vista-bk').hidden = false; window.scrollTo(0, 0); caricaBk(); };
@@ -177,13 +177,13 @@
     const g = giaVisto('invii');
     if (g && g.invii && !invii) { invii = sistemaInvii(g.invii); disegnaInvii(); }   // subito gli ultimi dati
     const r = await scarica('invii', { op: 'invii' }, 15000);
-    if (r.ok) { invii = sistemaInvii(r.invii); disegnaInvii(); } else if (!invii) $('lista-invii').innerHTML = '<li>nessuna connessione. riprova.</li>';
+    if (r.ok) { invii = sistemaInvii(r.invii); disegnaInvii(); } else if (!invii) $('lista-invii').innerHTML = '<li>il foglio non ha risposto. riprova.</li>';
   };
   const segna = async (x, si) => {
     x.mandato = si; ricordaSegnato(x.tipo, x.id, si); disegnaInvii();
     const r = await api({ op: 'segna', tipo: x.tipo, id: x.id, si });
     vecchio('invii');
-    if (!r.ok) { x.mandato = !si; ricordaSegnato(x.tipo, x.id, !si); disegnaInvii(); alert('non salvato: nessuna connessione. riprova.'); }
+    if (!r.ok) { x.mandato = !si; ricordaSegnato(x.tipo, x.id, !si); disegnaInvii(); alert('non salvato: il foglio non ha risposto (o la rete è caduta). riprova.'); }
   };
   $('lista-invii').addEventListener('click', (e) => {
     const b = e.target.closest('.sms');
@@ -294,7 +294,7 @@
     } else {
       if (annulla) eliminati.set(id, 'fatto'); else eliminati.delete(id);
       alert(r.ok ? 'serve il codice del foglio nuovo (tg-14).' : r.errore === 'pieno' ? 'non rimesso: la lista dei confermati è piena.'
-        : r.errore === 'stato' || r.errore === 'persona' ? 'non fatto: nel foglio questa persona ha cambiato stato. ricarica l\'elenco.' : 'non salvato: nessuna connessione. riprova.');
+        : r.errore === 'stato' || r.errore === 'persona' ? 'non fatto: nel foglio questa persona ha cambiato stato. ricarica l\'elenco.' : 'non salvato: il foglio non ha risposto (o la rete è caduta). riprova.');
     }
     disegnaNomi();
   });
@@ -318,7 +318,7 @@
       if (r.ok && r.pass) fattiLista.set(id, { pass: r.pass, sms: r.sms });
       else {
         fattiLista.delete(id);
-        alert(r.ok ? 'serve il codice del foglio nuovo (tg-12).' : r.errore === 'stato' || r.errore === 'persona' ? 'nel foglio questa persona non risulta più confermata. ricarica l\'elenco.' : 'nessuna connessione. riprova.');
+        alert(r.ok ? 'serve il codice del foglio nuovo (tg-12).' : r.errore === 'stato' || r.errore === 'persona' ? 'nel foglio questa persona non risulta più confermata. ricarica l\'elenco.' : 'il foglio non ha risposto. riprova.');
       }
       disegnaNomi();
       return;
@@ -328,7 +328,7 @@
       fattiLista.delete(id);
       const x = nomi.find((y) => y.id === id);
       if (r.ok && r.scelto) { if (x) x.stato = 'da invitare'; vecchiaLista(); }
-      else alert(r.ok ? 'serve il codice del foglio nuovo (tg-8).' : r.errore === 'stato' || r.errore === 'persona' ? 'non fatto: nel foglio questa persona ha cambiato stato. ricarica l\'elenco.' : 'non salvato: nessuna connessione. riprova.');
+      else alert(r.ok ? 'serve il codice del foglio nuovo (tg-8).' : r.errore === 'stato' || r.errore === 'persona' ? 'non fatto: nel foglio questa persona ha cambiato stato. ricarica l\'elenco.' : 'non salvato: il foglio non ha risposto (o la rete è caduta). riprova.');
       disegnaNomi();
       return;
     }
@@ -342,7 +342,7 @@
       fattiLista.delete(id);
       alert(r.ok ? 'serve il codice del foglio nuovo (tg-7).' : r.errore === 'pieno' ? 'non confermato: la lista dei confermati è piena.'
         : r.errore === 'stato' || r.errore === 'persona' ? 'non fatto: nel foglio questa persona ha cambiato stato. ricarica l\'elenco.'
-        : 'non salvato: nessuna connessione. riprova.');
+        : 'non salvato: il foglio non ha risposto (o la rete è caduta). riprova.');
     }
     disegnaNomi();
   });
@@ -366,7 +366,7 @@
     if (r.ok && r.tutti) {
       (r.invitati || []).forEach((p) => { if (p.id) fattiLista.set(p.id, { sms: p.sms, invito: true, mandato: !!(p.sms && p.sms.mandato) }); });
       vecchio('invii'); vecchiaLista();
-    } else alert(r.ok ? 'serve il codice del foglio nuovo (tg-13).' : 'non riuscito: nessuna connessione. controlla nel foglio prima di riprovare.');
+    } else alert(r.ok ? 'serve il codice del foglio nuovo (tg-13).' : 'non riuscito: il foglio non ha risposto. controlla nel foglio prima di riprovare.');
     disegnaNomi();
   });
   const unisciBk = (n, b, i, stati) => {
@@ -404,7 +404,7 @@
     clearTimeout(timerNome); chiediNome = '';
     x.stato = 'confermato'; x.attesa = true; disegnaNomi();      // subito a schermo, il foglio si aggiorna dietro
     const r = await api({ op: 'conferma', id, si: true });
-    if (!r.ok) { x.stato = 'richiesta'; x.attesa = false; disegnaNomi(); return alert('non salvato: nessuna connessione. riprova.'); }
+    if (!r.ok) { x.stato = 'richiesta'; x.attesa = false; disegnaNomi(); return alert('non salvato: il foglio non ha risposto (o la rete è caduta). riprova.'); }
     vecchio('nomi-bk', 'backstage');
     const i = inVolo.invii ? await inVolo.invii.then(() => scarica('invii', { op: 'invii' })) : await scarica('invii', { op: 'invii' });   // solo il testo dell'SMS con il pass
     x.sms = i.ok && i.invii ? (sistemaInvii(i.invii).backstage || []).find((y) => y.id === id) : null;
@@ -421,7 +421,7 @@
     manoInVolo--;
     if (r.ok && typeof r.aMano === 'number') { if (!manoInVolo) { mano = r.aMano; mostraMano(); } aggiorna(); }
     else if (r.ok) { mano -= d; mostraMano(); alert('serve il codice del foglio nuovo (nomi-5).'); }
-    else { mano -= d; mostraMano(); alert('non salvato: nessuna connessione. riprova.'); }
+    else { mano -= d; mostraMano(); alert('non salvato: il foglio non ha risposto (o la rete è caduta). riprova.'); }
   };
   $('mano-piu').addEventListener('click', () => cambiaMano(1));
   $('mano-meno').addEventListener('click', () => cambiaMano(-1));
@@ -435,7 +435,7 @@
     $('pannello').hidden = true; $('vista-nomi').hidden = false; window.scrollTo(0, 0);
     if (tipoNomi === 'backstage') {
       mostrati = null; chiediNome = '';
-      if (!(await caricaBkNomi((el.dataset.stati || '').split(',')))) $('lista-nomi').innerHTML = '<li>nessuna connessione. riprova.</li>';
+      if (!(await caricaBkNomi((el.dataset.stati || '').split(',')))) $('lista-nomi').innerHTML = '<li>il foglio non ha risposto. riprova.</li>';
       return;
     }
     const ch = 'nomi-' + tipoNomi + '-' + (el.dataset.stati || el.dataset.g || '');
@@ -448,7 +448,7 @@
         const tenuti = nomi.filter((x) => x.id && (fattiLista.has(x.id) || eliminati.has(x.id) || !stati.includes(x.stato)) && !r.persone.some((y) => y.id === x.id));   // chi hai appena confermato resta finché non esci
         nomi = r.persone.concat(tenuti).sort((a, z) => String(a.nome).localeCompare(String(z.nome), 'it')); disegnaNomi();
       }
-    } else if (!g) $('lista-nomi').innerHTML = '<li>nessuna connessione. riprova.</li>';
+    } else if (!g) $('lista-nomi').innerHTML = '<li>il foglio non ha risposto. riprova.</li>';
   };
   document.querySelectorAll('.n.apre').forEach((el) => {
     el.addEventListener('click', (e) => { e.stopPropagation(); apriNomi(el); });   // dentro il blocco backstage non apre l'elenco pagamenti
@@ -461,7 +461,7 @@
     const r = await aggiorna();
     if (!r.ok) {
       metti('err-pin', r.errore === 'bloccato' ? 'troppi tentativi. riprova tra 10 minuti.'
-        : r.errore === 'pin' ? 'PIN sbagliato.' : r.errore === 'non_attivo' ? 'sistema non ancora collegato.' : 'nessuna connessione. riprova.');
+        : r.errore === 'pin' ? 'PIN sbagliato.' : r.errore === 'non_attivo' ? 'sistema non ancora collegato.' : 'il foglio non ha risposto. riprova.');
       return;
     }
     mem.scrivi('zc-regia-accesso', { pin, s: sessione, scade: Date.now() + ORE_ACCESSO * 3600e3 });
