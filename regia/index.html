@@ -87,7 +87,10 @@
   .nomi li a { color: var(--tenue); font-size: .8rem; text-decoration: none; }
   .nomi li { flex-wrap: wrap; align-items: center; }
   .nomi li .spunta, .nomi li .sms { margin-left: auto; height: 40px; min-width: 120px; font-size: .85rem; }
-  .nomi li .due { margin-left: auto; display: inline-flex; gap: .5rem; }
+  .nomi li .due { margin-left: auto; display: inline-flex; gap: .5rem; flex-wrap: wrap; justify-content: flex-end; }
+  .due { display: inline-flex; gap: .5rem; flex: none; }
+  .due .sms { min-width: 92px; }
+  .sms.wa, .nomi li a.sms.wa { background: #128c4a; color: #fff; }
   .nomi li .due .sms, .nomi li .due .spunta { margin-left: 0; min-width: 104px; }
   .nomi li .spunta.elimina { min-width: 84px; background: transparent; border-color: #5a2226; color: #ff8088; font-weight: 400; }
   .nomi li .spunta.elimina.chiedi { min-width: 104px; background: #3a0d11; border-color: #ff2634; color: #fff; font-weight: 700; }
@@ -124,7 +127,7 @@
   }
 </style>
 <script src="../js/api.js?v=20261112" defer></script>
-<script src="regia.js?v=20261113j" defer></script>
+<script src="regia.js?v=20261114" defer></script>
 </head>
 <body>
 <main class="regia">
@@ -147,7 +150,7 @@
       <small>aggiornato alle <span id="agg">--:--</span><br><a href="#" id="esci">esci</a></small>
     </div>
 
-    <a class="bottone a-sms" id="apri-invii" href="#" style="margin:.25rem 0 .5rem">📱 invii SMS</a>
+    <a class="bottone a-sms" id="apri-invii" href="#" style="margin:.25rem 0 .5rem">📱 invii WhatsApp e SMS</a>
 
     <div class="tot a-tot" aria-live="polite">
       <b id="dentro">0</b> <span>/ <span id="capienza">0</span> dentro</span>
@@ -225,7 +228,7 @@
   <section id="vista-invii" hidden>
     <button class="indietro" id="chiudi-invii">← riepilogo</button>
     <div class="blocco" style="margin-top:.25rem">
-      <h2>invii SMS <small id="inv-conto"></small></h2>
+      <h2>invii <small id="inv-conto"></small></h2>
       <div class="schede-invii" role="group">
         <button data-tipo="inviti" aria-pressed="true">inviti</button>
         <button data-tipo="backstage" aria-pressed="false">backstage</button>
@@ -233,7 +236,7 @@
       </div>
       <label class="spunta" style="font-size:.85rem;margin:0 0 .5rem"><input type="checkbox" id="inv-tutti"> <span>mostra anche quelli già mandati</span></label>
       <ul class="inv" id="lista-invii"><li>carico…</li></ul>
-      <p class="piccoli">tocca "manda SMS": si apre Messaggi con numero e testo pronti, premi invia e torna qui. la persona viene segnata come fatta (e la riga del foglio diventa rossa). per toglierla, tocca "✓ mandato" e conferma.</p>
+      <p class="piccoli">tocca "WhatsApp" o "SMS": si apre l'app con numero e testo pronti, premi invia e torna qui. la persona viene segnata come fatta (e la riga del foglio diventa rossa). per toglierla, tocca "✓ mandato" e conferma.</p>
     </div>
   </section>
 

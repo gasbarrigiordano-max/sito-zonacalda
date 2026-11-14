@@ -154,6 +154,10 @@
   let invii = null, scheda = 'inviti', chiediInv = '', timerInv = 0;
   const iPhone = /iPhone|iPad|iPod/.test(navigator.userAgent);
   const linkSms = (tel, testo) => 'sms:' + tel.replace(/[^\d+]/g, '') + (iPhone ? '&' : '?') + 'body=' + encodeURIComponent(testo);
+  // ogni invio ha due tasti: WhatsApp e SMS, stesso testo. toccare l'uno o l'altro segna la persona come fatta
+  const linkWa = (tel, testo) => { let n = String(tel).replace(/\D/g, ''); if (n.length <= 10 && n[0] === '3') n = '39' + n; return 'https://wa.me/' + n + '?text=' + encodeURIComponent(testo); };
+  const dueInvii = (cls, attr, tel, testo) => `<a class="sms wa ${cls}" ${attr} href="${esc(linkWa(tel, testo))}" target="_blank" rel="noopener">WhatsApp</a>` +
+    `<a class="sms ${cls}" ${attr} href="${esc(linkSms(tel, testo))}">SMS</a>`;
   const disegnaInvii = () => {
     if (!invii) return;
     const tutti = $('inv-tutti').checked;
@@ -165,7 +169,7 @@
       const k = x.tipo + ':' + x.id;
       const b = chiediInv === k ? `<button class="sms chiedi" data-k="${esc(k)}" data-ok="1">togliere? ok</button>`
         : x.mandato ? `<button class="sms fatto" data-k="${esc(k)}">✓ mandato</button>`
-        : x.tel ? `<a class="sms" data-k="${esc(k)}" href="${esc(linkSms(x.tel, x.testo))}">manda SMS</a>` : '<span class="piccoli">manca il numero</span>';
+        : x.tel ? `<span class="due">${dueInvii('', `data-k="${esc(k)}"`, x.tel, x.testo)}</span>` : '<span class="piccoli">manca il numero</span>';
       return `<li class="${x.mandato ? 'fatto' : ''}"><div class="chi"><b>${esc(maiuscole(x.nome))}</b><small>${esc(x.tel || '')}</small></div>${b}</li>`;
     }).join('') : '<li>' + (elenco.length ? 'tutti mandati. ✓' : 'nessuno.') + '</li>';
   };
@@ -230,10 +234,10 @@
         : `<button class="spunta conferma az-bk" data-id="${esc(x.id)}" data-az="conferma">conferma</button>`;
     }
     if (x.stato !== 'confermato' && x.stato !== 'entrato') return '';
-    if (x.attesa) return '<span class="sms chiedi">preparo SMS…</span>';
+    if (x.attesa) return '<span class="sms chiedi">preparo…</span>';
     if (!x.sms) return '';
-    if (x.sms.mandato) return '<span class="sms fatto">✓ SMS mandato</span>';
-    return x.sms.tel ? `<a class="sms az-bk" data-id="${esc(x.id)}" data-az="sms" href="${esc(linkSms(x.sms.tel, x.sms.testo))}">manda SMS</a>` : '';
+    if (x.sms.mandato) return '<span class="sms fatto">✓ mandato</span>';
+    return x.sms.tel ? `<span class="due">${dueInvii('az-bk', `data-id="${esc(x.id)}" data-az="sms"`, x.sms.tel, x.sms.testo)}</span>` : '';
   };
   // pista: chi ha l'invito ma non ha confermato (o l'ha fatto scadere) si conferma da qui, poi parte l'SMS con il suo ingresso
   const fattiLista = new Map();                           // id → { attesa, sms, mandato }: resta anche se l'elenco si ricarica
@@ -244,12 +248,12 @@
     if (f) {
       if (f.attesa) return `<button class="spunta chiedi" disabled>${f.leggo ? 'carico…' : 'salvo…'}</button>`;
       if (f.pass) {                                       // pass di chi ha già confermato: si guarda il QR e, se serve, si rimanda
-        const s = f.mandato ? '<span class="sms fatto">✓ SMS mandato</span>'
-          : f.sms && f.sms.tel ? `<a class="sms az-li" data-id="${esc(x.id)}" data-az="sms" href="${esc(linkSms(f.sms.tel, f.sms.testo))}">manda SMS</a>` : '';
+        const s = f.mandato ? '<span class="sms fatto">✓ mandato</span>'
+          : f.sms && f.sms.tel ? dueInvii('az-li', `data-id="${esc(x.id)}" data-az="sms"`, f.sms.tel, f.sms.testo) : '';
         return `<span class="due"><a class="sms qr" href="${esc(f.pass)}" target="_blank" rel="noopener">vedi QR</a>${s}</span>`;
       }
-      if (f.mandato) return '<span class="sms fatto">✓ SMS mandato</span>';
-      return f.sms && f.sms.tel ? `<a class="sms az-li" data-id="${esc(x.id)}" data-az="sms" href="${esc(linkSms(f.sms.tel, f.sms.testo))}">manda SMS</a>` : '<span class="sms fatto">✓ confermato</span>';
+      if (f.mandato) return '<span class="sms fatto">✓ mandato</span>';
+      return f.sms && f.sms.tel ? `<span class="due">${dueInvii('az-li', `data-id="${esc(x.id)}" data-az="sms"`, f.sms.tel, f.sms.testo)}</span>` : '<span class="sms fatto">✓ confermato</span>';
     }
     if (x.stato === 'confermato' && $('nomi-titolo').dataset.stati === 'confermato') return `<button class="spunta az-li" data-id="${esc(x.id)}" data-az="pass" data-ok="1">QR / pass</button>`;
     if (x.stato === 'in lista') return `<button class="spunta az-li" data-id="${esc(x.id)}" data-az="scegli" data-ok="1">da invitare</button>`;   // come cambiare lo stato nel foglio
