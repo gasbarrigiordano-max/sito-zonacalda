@@ -158,6 +158,9 @@
   const linkWa = (tel, testo) => { let n = String(tel).replace(/\D/g, ''); if (n.length <= 10 && n[0] === '3') n = '39' + n; return 'https://wa.me/' + n + '?text=' + encodeURIComponent(testo); };
   const dueInvii = (cls, attr, tel, testo) => `<a class="sms wa ${cls}" ${attr} href="${esc(linkWa(tel, testo))}" target="_blank" rel="noopener">WhatsApp</a>` +
     `<a class="sms ${cls}" ${attr} href="${esc(linkSms(tel, testo))}">SMS</a>`;
+  // il link del pass (backstage o staff) è già dentro il testo del messaggio: da lì si apre il QR, senza chiedere niente al foglio
+  const linkPass = (testo) => { const m = String(testo || '').match(/https?:\/\/\S+\/(?:backstage|staff)\/\?t=[A-Za-z0-9]+/); return m ? m[0] : ''; };
+  const tastoQr = (testo) => { const u = linkPass(testo); return u ? `<a class="sms qr" href="${esc(u)}" target="_blank" rel="noopener">QR</a>` : ''; };
   const disegnaInvii = () => {
     if (!invii) return;
     const tutti = $('inv-tutti').checked;
@@ -167,9 +170,10 @@
     const righe = elenco.filter((x) => tutti || !x.mandato || chiediInv === x.id);
     $('lista-invii').innerHTML = righe.length ? righe.map((x) => {
       const k = x.tipo + ':' + x.id;
-      const b = chiediInv === k ? `<button class="sms chiedi" data-k="${esc(k)}" data-ok="1">togliere? ok</button>`
+      const b0 = chiediInv === k ? `<button class="sms chiedi" data-k="${esc(k)}" data-ok="1">togliere? ok</button>`
         : x.mandato ? `<button class="sms fatto" data-k="${esc(k)}">✓ mandato</button>`
-        : x.tel ? `<span class="due">${dueInvii('', `data-k="${esc(k)}"`, x.tel, x.testo)}</span>` : '<span class="piccoli">manca il numero</span>';
+        : x.tel ? dueInvii('', `data-k="${esc(k)}"`, x.tel, x.testo) : '<span class="piccoli">manca il numero</span>';
+      const b = `<span class="due">${tastoQr(x.testo)}${b0}</span>`;
       return `<li class="${x.mandato ? 'fatto' : ''}"><div class="chi"><b>${esc(maiuscole(x.nome))}</b><small>${esc(x.tel || '')}</small></div>${b}</li>`;
     }).join('') : '<li>' + (elenco.length ? 'tutti mandati. ✓' : 'nessuno.') + '</li>';
   };
@@ -222,7 +226,7 @@
       const info = [x.eta !== null && x.eta !== undefined ? x.eta + ' anni' : '', x.ora ? 'entrato ' + x.ora : '',
         tipoNomi === 'genere' || /,/.test($('nomi-titolo').dataset.stati || '') ? x.stato : '', x.pagato ? '✓ pagato' : ''].filter(Boolean).join(' · ');
       const t = x.tel ? ` <a href="tel:${esc(x.tel.replace(/[^\d+]/g, ''))}">${esc(x.tel)}</a>` : '';
-      return `<li><b>${esc(maiuscole(x.nome))}</b><small>${esc(info)}</small>${t}${tipoNomi === 'backstage' ? azioneBk(x) : tipoNomi === 'lista' ? azioneLista(x) : ''}</li>`;
+      return `<li><b>${esc(maiuscole(x.nome))}</b><small>${esc(info)}</small>${t}${tipoNomi === 'backstage' ? azioneBk(x) : tipoNomi === 'lista' ? azioneLista(x) : tipoNomi === 'staff' ? azioneStaff(x) : ''}</li>`;
     }).join('') : '<li>nessuno.</li>';
   };
   // backstage: dall'elenco si conferma e poi si manda l'SMS con il pass d'oro
@@ -236,8 +240,18 @@
     if (x.stato !== 'confermato' && x.stato !== 'entrato') return '';
     if (x.attesa) return '<span class="sms chiedi">preparo…</span>';
     if (!x.sms) return '';
-    if (x.sms.mandato) return '<span class="sms fatto">✓ mandato</span>';
-    return x.sms.tel ? `<span class="due">${dueInvii('az-bk', `data-id="${esc(x.id)}" data-az="sms"`, x.sms.tel, x.sms.testo)}</span>` : '';
+    const qr = tastoQr(x.sms.testo);
+    if (x.sms.mandato) return `<span class="due">${qr}<span class="sms fatto">✓ mandato</span></span>`;
+    return `<span class="due">${qr}${x.sms.tel ? dueInvii('az-bk', `data-id="${esc(x.id)}" data-az="sms"`, x.sms.tel, x.sms.testo) : ''}</span>`;
+  };
+  // staff: il QR del pass di chi si è registrato (il link viene dall'elenco invii)
+  let inviiStaff = new Map();
+  const chiaveNome = (s) => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const azioneStaff = (x) => { const s = inviiStaff.get(chiaveNome(x.nome)); return s ? `<span class="due">${tastoQr(s.testo)}</span>` : ''; };
+  const caricaInviiStaff = async () => {
+    const usa = (r) => { if (r && r.ok && r.invii) { inviiStaff = new Map((r.invii.staff || []).map((s) => [chiaveNome(s.nome), s])); return true; } return false; };
+    const g = giaVisto('invii'); if (usa(g) && tipoNomi === 'staff') disegnaNomi();
+    if (usa(await scarica('invii', { op: 'invii' }, 15000)) && tipoNomi === 'staff') disegnaNomi();
   };
   // pista: chi ha l'invito ma non ha confermato (o l'ha fatto scadere) si conferma da qui, poi parte l'SMS con il suo ingresso
   const fattiLista = new Map();                           // id → { attesa, sms, mandato }: resta anche se l'elenco si ricarica
@@ -438,6 +452,7 @@
       if (!(await caricaBkNomi((el.dataset.stati || '').split(',')))) $('lista-nomi').innerHTML = '<li>il foglio non ha risposto. riprova.</li>';
       return;
     }
+    if (tipoNomi === 'staff') caricaInviiStaff();
     const ch = 'nomi-' + tipoNomi + '-' + (el.dataset.stati || el.dataset.g || '');
     const g = giaVisto(ch);
     if (g && g.persone) { nomi = g.persone; disegnaNomi(); }
