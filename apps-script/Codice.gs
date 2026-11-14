@@ -139,7 +139,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'tg-16';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'tg-17';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -431,6 +431,7 @@ function onOpen() {
     .addItem('Invia inviti di riserva (30 minuti)', 'inviaRiserva')
     .addItem('Fai scadere gli inviti non confermati', 'scadiInviti')
     .addItem('Sposta la scadenza degli inviti già mandati', 'spostaScadenza')
+    .addItem('Rimanda gli inviti aperti (li rimette tra i "da mandare")', 'rimandaInviti')
     .addItem('Manda le mail di conferma non partite', 'rimandaConferme')
     .addItem('Avvisa chi non è stato invitato', 'avvisaNonInvitati')
     .addSeparator()
@@ -572,12 +573,28 @@ function spostaScadenza() {
     const link = SERATA.sito + 'invito/?t=' + x[C.token];
     const m = componiMail_(MAIL.invito, { nome: x[C.nome], scadenza: quando_(fissa) }, link);
     const wa = 'https://wa.me/' + normalizzaTelefono_(x[C.telefono]).replace(/\D/g, '') + '?text=' + encodeURIComponent(m.testo);
-    const campi = { scade_il: fissa, whatsapp: wa };
+    const campi = { scade_il: fissa, whatsapp: wa, wa_inviato: '' };   // senza il segno "mandato": tornano tra i "da mandare", con la data nuova nel testo
     if (riapri) { campi.stato = 'invitato'; riaperti++; }
     scrivi_({ sh, n: i + 2, riga: x }, campi);
     n++;
   });
-  SpreadsheetApp.getUi().alert('Inviti spostati alla nuova scadenza (' + quando_(fissa) + '): ' + n + (riaperti ? ', di cui ' + riaperti + ' già scaduti e riaperti' : '') + '.');
+  SpreadsheetApp.getUi().alert('Inviti spostati alla nuova scadenza (' + quando_(fissa) + '): ' + n + (riaperti ? ', di cui ' + riaperti + ' già scaduti e riaperti' : '') +
+    '.\nSono di nuovo tra i "da mandare" nel pannello invii (regia o foglio), con la data nuova nel messaggio.');
+}
+
+// Per rimandare gli inviti: toglie il segno "mandato" a tutti gli inviti ancora aperti, così ricompaiono tra i "da mandare".
+// Non cambia stato né scadenza. Chi ha confermato, rifiutato o è scaduto non viene toccato.
+function rimandaInviti() {
+  const sh = foglio_();
+  let n = 0, aperti = 0;
+  dati_(sh).forEach((x, i) => {
+    if (x[C.stato] !== 'invitato' || !x[C.token]) return;
+    aperti++;
+    if (!x[C.wa_inviato]) return;
+    scrivi_({ sh, n: i + 2, riga: x }, { wa_inviato: '' });
+    n++;
+  });
+  SpreadsheetApp.getUi().alert('Inviti rimessi tra i "da mandare": ' + n + ' (inviti aperti in tutto: ' + aperti + ').\nOra li trovi nel pannello invii della regia, tutti da rimandare.');
 }
 
 function inviaRiserva() { invia_(new Date(Date.now() + 30 * 60000), true, false); }

@@ -89,7 +89,7 @@
     ['inviti', 'backstage', 'staff'].forEach((g) => (inv[g] || []).forEach((x) => {
       const k = x.tipo + ':' + x.id, o = segnati[k];
       if (!o) return;
-      if (!!x.mandato === o.v || Date.now() - o.t > 30 * 60e3) { delete segnati[k]; cambiato = true; }   // il foglio è d'accordo (o è passato troppo)
+      if (!!x.mandato === o.v || Date.now() - o.t > 3 * 60e3) { delete segnati[k]; cambiato = true; }   // il foglio è d'accordo, o sono passati 3 minuti (dal foglio si possono rimettere "da mandare")
       else x.mandato = o.v;
     }));
     if (cambiato) mem.scrivi('zc-regia-segnati', segnati);
