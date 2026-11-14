@@ -136,7 +136,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'tg-22';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'tg-23';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -1177,7 +1177,23 @@ function foglio_() {
 
 function dati_(sh) {
   const n = sh.getLastRow() - 1;
-  return n > 0 ? sh.getRange(2, 1, n, COL.length).getValues() : [];
+  const righe = n > 0 ? sh.getRange(2, 1, n, COL.length).getValues() : [];
+  completaIscritti_(sh, righe);
+  return righe;
+}
+
+// Righe scritte a mano (o con stato cambiato a mano) senza codice: senza "id" la regia non mostra i tasti e la porta
+// non le fa entrare; senza "token" chi è invitato o confermato non ha il link. Si completano da sole, come nel backstage.
+function completaIscritti_(sh, righe) {
+  righe.forEach((x, i) => {
+    if (!String(x[C.nome]).trim() && !String(x[C.cognome]).trim()) return;
+    const campi = {};
+    if (!String(x[C.id]).trim()) campi.id = 'm' + Utilities.getUuid().replace(/-/g, '').slice(0, 7);
+    if (!String(x[C.token]).trim() && ['invitato', 'confermato', 'entrato'].indexOf(x[C.stato]) >= 0) campi.token = nuovoToken_();
+    if (!Object.keys(campi).length) return;
+    if (SOLO_LETTURA_) { DA_COMPLETARE_ = true; return; }   // chi legge soltanto non scrive: lo rifà la richiesta con il lucchetto
+    try { scrivi_({ sh, n: i + 2, riga: x }, campi); } catch (err) { console.error('completa iscritti', err); }
+  });
 }
 
 function trova_(token) {
