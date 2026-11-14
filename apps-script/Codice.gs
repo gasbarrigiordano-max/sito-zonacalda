@@ -139,7 +139,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'tg-18';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'tg-19';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -547,7 +547,9 @@ function impostaLuogo() {
 function scadenzaInvitiOra_() {
   const ora = Date.now();
   const fissa = new Date(ora < new Date(SERATA.cambioScadenza).getTime() ? SERATA.scadenzaInviti : SERATA.scadenzaFinale);
-  return fissa.getTime() - ora > 3600000 ? fissa : new Date(ora + SERATA.oreConferma * 3600000);
+  if (fissa.getTime() > ora) return fissa;               // finché non è passata, la scadenza è quella fissa: mai una data diversa
+  // invito mandato dopo la scadenza fissa (sabato dopo le 21): vale fino a quando l'ingresso è garantito, mai oltre
+  return new Date(Math.min(ora + SERATA.oreConferma * 3600000, new Date(SERATA.garantitoFino).getTime()));
 }
 
 function inviaInviti() {
@@ -595,6 +597,7 @@ function mailInvitiAperti() {
 function spostaScadenza() {
   const fisse = [SERATA.scadenzaInviti, SERATA.scadenzaInviti2, SERATA.scadenzaSpostata, '2026-11-14T15:00:00+01:00'].map((d) => new Date(d).getTime());   // le 15:00 erano la scadenza di tg-15
   const fissa = new Date(SERATA.scadenzaFinale);
+  if (fissa.getTime() <= Date.now()) { SpreadsheetApp.getUi().alert('La scadenza (' + quando_(fissa) + ') è già passata: non ho spostato niente.'); return; }
   const sh = foglio_();
   let n = 0, riaperti = 0;
   dati_(sh).forEach((x, i) => {
@@ -602,7 +605,7 @@ function spostaScadenza() {
     const scade = x[C.scade_il] ? new Date(x[C.scade_il]).getTime() : 0;
     const riapri = x[C.stato] === 'scaduto' && fisse.indexOf(scade) >= 0;
     if (x[C.stato] !== 'invitato' && !riapri) return;
-    if (scade >= fissa.getTime()) return;
+    if (scade === fissa.getTime()) return;                 // già giusta. chi ha una scadenza diversa, prima O DOPO (per esempio domenica notte), torna a quella fissa
     const link = SERATA.sito + 'invito/?t=' + x[C.token];
     const m = componiMail_(MAIL.invito, { nome: x[C.nome], scadenza: quando_(fissa) }, link);
     const wa = 'https://wa.me/' + normalizzaTelefono_(x[C.telefono]).replace(/\D/g, '') + '?text=' + encodeURIComponent(m.testo);
