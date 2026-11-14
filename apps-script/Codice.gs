@@ -15,18 +15,13 @@ const SERATA = {
   capienza: 300,                     // totale, staff compreso
   staffPrevisto: 20,
   confermeMax: 315,                  // oltre questo numero: "posti finiti."
-  scadenzaInviti: '2026-11-13T21:00:00+01:00',   // inviti mandati fino a venerdì mattina: si accettano entro venerdì 13.11 alle 21:00
-  cambioScadenza: '2026-11-13T06:00:00+01:00',   // da venerdì alle 6 i nuovi inviti hanno la seconda scadenza
-  scadenzaInviti2: '2026-11-14T12:00:00+01:00',  // inviti mandati da venerdì 13.11: si accettano entro sabato 14.11 alle 12:00
-  scadenzaSpostata: '2026-11-14T14:00:00+01:00', // "Sposta la scadenza": gli inviti che scadevano venerdì alle 21:00 (o prima) passano a sabato 14.11 alle 14:00
-  scadenzaFinale: '2026-11-14T21:00:00+01:00',   // da sabato mattina: TUTTI gli inviti (già mandati e nuovi) si accettano entro sabato 14.11 alle 21:00
-  oreConferma: 12,                   // solo se si invita dopo quella scadenza: tempo per confermare
+  // gli inviti NON scadono: si possono accettare fino alla serata. niente date di scadenza, né nel foglio né nei messaggi.
   garantitoFino: '2026-11-15T00:30:00+01:00',
   sito: 'https://zonacaldaclubuse.it/',
 };
 
 // ---------------------------------------------------------------- testi delle mail
-// Potete cambiarli qui. {nome} = nome della persona, {scadenza} = giorno e ora entro cui accettare (es. "mercoledì 11 novembre alle 19:00").
+// Potete cambiarli qui. {nome} = nome della persona.
 const MAIL = {
   mittente: 'Zonacalda',
   rispondiA: 'info@zonacaldaclubuse.it',
@@ -34,14 +29,14 @@ const MAIL = {
   invito: {
     oggetto: 'sei dentro. 😈',
     titolo: '{nome}, sei dentro.',
-    righe: ['sat 14.11 · 23:30', 'accetta entro {scadenza}. dopo, il posto passa a qualcun altro.'],
+    righe: ['sat 14.11 · 23:30'],
     tasto: 'ci sono.',
     sotto: 'invito personale: vale solo per te. porta un documento. 23+.',
   },
   riserva: {
     oggetto: 'si è liberato un posto. 😈',
     titolo: '{nome}, si è liberato un posto.',
-    righe: ['stasera.', 'hai 30 minuti per confermare.'],
+    righe: ['stasera.'],
     tasto: 'ci sono.',
     sotto: 'invito personale: vale solo per te. porta un documento. 23+.',
   },
@@ -139,7 +134,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'tg-19';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'tg-20';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -212,7 +207,7 @@ function leggiInvito_(token) {
     ok: true,
     stato: x[C.stato],
     nome: x[C.nome],
-    scade: x[C.scade_il] ? new Date(x[C.scade_il]).toISOString() : null,
+    scade: null,                                       // gli inviti non scadono
     garantitoFino: SERATA.garantitoFino,
   };
   if (x[C.stato] === 'confermato') {
@@ -250,11 +245,10 @@ function rispondi_(token, si) {
   return leggiInvito_(token);
 }
 
+// Gli inviti non scadono più. Chi nel foglio risulta ancora "scaduto" torna "invitato" appena apre il suo link.
 function scadiSeServe_(t) {
   const x = t.riga;
-  if (x[C.stato] === 'invitato' && x[C.scade_il] && new Date(x[C.scade_il]) < new Date()) {
-    scrivi_(t, { stato: 'scaduto' });
-  }
+  if (x[C.stato] === 'scaduto' && x[C.token]) scrivi_(t, { stato: 'invitato', scade_il: '' });
 }
 
 // ---------------------------------------------------------------- porta
@@ -428,9 +422,8 @@ function onOpen() {
     .addSeparator()
     .addItem('Invia inviti a chi è "da invitare"', 'inviaInviti')
     .addItem('Manda la mail di invito agli inviti ancora da mandare', 'mailInvitiAperti')
-    .addItem('Invia inviti di riserva (30 minuti)', 'inviaRiserva')
-    .addItem('Fai scadere gli inviti non confermati', 'scadiInviti')
-    .addItem('Sposta la scadenza degli inviti già mandati', 'spostaScadenza')
+    .addItem('Invia inviti di riserva', 'inviaRiserva')
+    .addItem('Riapri gli inviti scaduti (non scadono più)', 'riapriInviti')
     .addItem('Rimanda gli inviti aperti (li rimette tra i "da mandare")', 'rimandaInviti')
     .addItem('Manda le mail di conferma non partite', 'rimandaConferme')
     .addItem('Avvisa chi non è stato invitato', 'avvisaNonInvitati')
@@ -542,29 +535,15 @@ function impostaLuogo() {
   ui.alert('Luogo salvato.');
 }
 
-// scadenza per un invito mandato adesso: prima di venerdì mattina venerdì 21:00, dopo sabato 12:00;
-// se manca meno di un'ora, 12 ore da adesso
-function scadenzaInvitiOra_() {
-  const ora = Date.now();
-  const fissa = new Date(ora < new Date(SERATA.cambioScadenza).getTime() ? SERATA.scadenzaInviti : SERATA.scadenzaFinale);
-  if (fissa.getTime() > ora) return fissa;               // finché non è passata, la scadenza è quella fissa: mai una data diversa
-  // invito mandato dopo la scadenza fissa (sabato dopo le 21): vale fino a quando l'ingresso è garantito, mai oltre
-  return new Date(Math.min(ora + SERATA.oreConferma * 3600000, new Date(SERATA.garantitoFino).getTime()));
-}
-
-function inviaInviti() {
-  // scadenza fissa uguale per tutti; se è già passata (o manca meno di un'ora), 12 ore da adesso
-  invia_(scadenzaInvitiOra_(), false, true);            // con la mail di invito (finché ce ne sono di inviabili oggi)
-}
-function inviaInvitiMail() { invia_(scadenzaInvitiOra_(), false, true); }
+function inviaInviti() { invia_(null, false, true); }       // con la mail di invito (finché ce ne sono di inviabili oggi)
+function inviaInvitiMail() { invia_(null, false, true); }
 
 // la mail di invito a una persona già "invitato", con la sua scadenza. true se è partita
 function mandaMailInvito_(x) {
   if (!String(x[C.email]).trim() || !x[C.token]) return false;
   try {
     if (MailApp.getRemainingDailyQuota() < 1) return false;
-    const scade = x[C.scade_il] ? new Date(x[C.scade_il]) : scadenzaInvitiOra_();
-    manda_(x[C.email], componiMail_(MAIL.invito, { nome: x[C.nome], scadenza: quando_(scade) }, SERATA.sito + 'invito/?t=' + x[C.token]));
+    manda_(x[C.email], componiMail_(MAIL.invito, { nome: x[C.nome] }, SERATA.sito + 'invito/?t=' + x[C.token]));
     return true;
   } catch (err) { console.error('mail invito', err); return false; }
 }
@@ -590,36 +569,8 @@ function mailInvitiAperti() {
     (senza ? '\nSenza indirizzo mail: ' + senza + '. Restano tra i "da mandare": a loro serve l\'SMS.' : '') +
     '\nMail ancora inviabili oggi: ' + MailApp.getRemainingDailyQuota() + '.');
 }
-// Porta alla scadenza fissa gli inviti già mandati con una scadenza più corta, e rifà il loro messaggio WhatsApp.
-// Tutti gli inviti ancora aperti passano alla scadenza finale (sabato alle 21:00), qualunque scadenza avessero.
-// Chi è già scaduto con una delle scadenze fisse (venerdì 21:00, sabato 12:00, 14:00 o 15:00) torna "invitato".
-// Non si toccano: chi ha rifiutato, chi è scaduto prima o con un invito di riserva, chi ha già confermato.
-function spostaScadenza() {
-  const fisse = [SERATA.scadenzaInviti, SERATA.scadenzaInviti2, SERATA.scadenzaSpostata, '2026-11-14T15:00:00+01:00'].map((d) => new Date(d).getTime());   // le 15:00 erano la scadenza di tg-15
-  const fissa = new Date(SERATA.scadenzaFinale);
-  if (fissa.getTime() <= Date.now()) { SpreadsheetApp.getUi().alert('La scadenza (' + quando_(fissa) + ') è già passata: non ho spostato niente.'); return; }
-  const sh = foglio_();
-  let n = 0, riaperti = 0;
-  dati_(sh).forEach((x, i) => {
-    if (!x[C.token]) return;
-    const scade = x[C.scade_il] ? new Date(x[C.scade_il]).getTime() : 0;
-    const riapri = x[C.stato] === 'scaduto' && fisse.indexOf(scade) >= 0;
-    if (x[C.stato] !== 'invitato' && !riapri) return;
-    if (scade === fissa.getTime()) return;                 // già giusta. chi ha una scadenza diversa, prima O DOPO (per esempio domenica notte), torna a quella fissa
-    const link = SERATA.sito + 'invito/?t=' + x[C.token];
-    const m = componiMail_(MAIL.invito, { nome: x[C.nome], scadenza: quando_(fissa) }, link);
-    const wa = 'https://wa.me/' + normalizzaTelefono_(x[C.telefono]).replace(/\D/g, '') + '?text=' + encodeURIComponent(m.testo);
-    const campi = { scade_il: fissa, whatsapp: wa, wa_inviato: '' };   // senza il segno "mandato": tornano tra i "da mandare", con la data nuova nel testo
-    if (riapri) { campi.stato = 'invitato'; riaperti++; }
-    scrivi_({ sh, n: i + 2, riga: x }, campi);
-    n++;
-  });
-  SpreadsheetApp.getUi().alert('Inviti spostati alla nuova scadenza (' + quando_(fissa) + '): ' + n + (riaperti ? ', di cui ' + riaperti + ' già scaduti e riaperti' : '') +
-    '.\nSono di nuovo tra i "da mandare" nel pannello invii (regia o foglio), con la data nuova nel messaggio.');
-}
-
 // Per rimandare gli inviti: toglie il segno "mandato" a tutti gli inviti ancora aperti, così ricompaiono tra i "da mandare".
-// Non cambia stato né scadenza. Chi ha confermato, rifiutato o è scaduto non viene toccato.
+// Non cambia lo stato. Chi ha confermato o rifiutato non viene toccato.
 function rimandaInviti() {
   const sh = foglio_();
   let n = 0, aperti = 0;
@@ -633,15 +584,14 @@ function rimandaInviti() {
   SpreadsheetApp.getUi().alert('Inviti rimessi tra i "da mandare": ' + n + ' (inviti aperti in tutto: ' + aperti + ').\nOra li trovi nel pannello invii della regia, tutti da rimandare.');
 }
 
-function inviaRiserva() { invia_(new Date(Date.now() + 30 * 60000), true, false); }
+function inviaRiserva() { invia_(null, true, false); }      // stesso invito, con il testo "si è liberato un posto"
 
 // una persona "da invitare" → "invitato": codice, scadenza, mail (se si può) e link WhatsApp. restituisce true se la mail è partita
 function invitaRiga_(t, scade, riserva, conMail) {
   const x = t.riga;
   const token = x[C.token] || nuovoToken_();
   const link = SERATA.sito + 'invito/?t=' + token;
-  const scadenza = quando_(scade);
-  const m = componiMail_(riserva ? MAIL.riserva : MAIL.invito, { nome: x[C.nome], scadenza }, link);
+  const m = componiMail_(riserva ? MAIL.riserva : MAIL.invito, { nome: x[C.nome] }, link);
   const wa = 'https://wa.me/' + normalizzaTelefono_(x[C.telefono]).replace(/\D/g, '') + '?text=' + encodeURIComponent(m.testo);
   let inviata = false;
   if (conMail) {
@@ -650,7 +600,7 @@ function invitaRiga_(t, scade, riserva, conMail) {
       inviata = true;
     } catch (err) { console.error(err); }
   }
-  const campi = { stato: 'invitato', token, invitato_il: new Date(), scade_il: scade, whatsapp: wa };
+  const campi = { stato: 'invitato', token, invitato_il: new Date(), scade_il: '', whatsapp: wa };   // nessuna scadenza
   if (!String(x[C.id]).trim()) campi.id = Utilities.getUuid().slice(0, 8);   // riga scritta a mano: senza codice la porta non la farebbe entrare
   if (!x[C.creato]) campi.creato = new Date();
   scrivi_(t, campi);
@@ -675,7 +625,7 @@ function invitaDaRegia_(r) {
   if (i < 0) return { ok: false, errore: 'persona' };
   const x = righe[i];
   if (x[C.stato] === 'da invitare') {
-    invitaRiga_({ sh, n: i + 2, riga: x }, scadenzaInvitiOra_(), false, false);
+    invitaRiga_({ sh, n: i + 2, riga: x }, null, false, false);
     dopo_(() => mandaMailInvito_(x));                    // la mail parte a lucchetto lasciato; l'SMS resta da mandare a mano
   } else if (x[C.stato] !== 'invitato') return { ok: false, errore: 'stato', stato: x[C.stato] };
   return { ok: true, stato: x[C.stato], id: String(x[C.id]), invito: true,
@@ -686,7 +636,7 @@ function invitaDaRegia_(r) {
 // dalla regia: invita in un colpo tutti i "da invitare" (come "Invia inviti" del foglio, senza mail). la conferma resta a ognuno
 function invitaTuttiDaRegia_() {
   const sh = foglio_(), righe = dati_(sh);
-  const scade = scadenzaInvitiOra_();
+  const scade = null;
   const invitati = [];
   righe.forEach((x, i) => {
     if (x[C.stato] !== 'da invitare' || !(x[C.nome] || x[C.cognome])) return;
@@ -855,10 +805,31 @@ $('prossimo').onclick = () => { const p = elenco.find((x) => !x.inviato); if (p)
 google.script.run.withSuccessHandler((e) => { elenco = e; disegna(); }).__ELENCO__();
 </script></body></html>`;
 
-function scadiInviti() {
+// Girava ogni 15 minuti per far scadere gli inviti. Ora fa il contrario: se trova inviti "scaduti" li riapre, e toglie le vecchie date di scadenza.
+function scadiInviti() { riapriScaduti_(); }
+
+// Tutti gli "scaduto" tornano "invitato" e ricompaiono tra i "da mandare"; a tutti gli inviti aperti si toglie la data di scadenza
+// e si rifà il messaggio WhatsApp senza la riga "accetta entro". Chi ha confermato, rifiutato o è stato eliminato non si tocca.
+function riapriScaduti_() {
   const sh = foglio_();
-  dati_(sh).forEach((x, i) => scadiSeServe_({ sh, n: i + 2, riga: x }));
+  let riaperti = 0, ripuliti = 0;
+  dati_(sh).forEach((x, i) => {
+    const scaduto = x[C.stato] === 'scaduto';
+    if (!x[C.token] || (!scaduto && !(x[C.stato] === 'invitato' && x[C.scade_il]))) return;
+    const m = componiMail_(MAIL.invito, { nome: x[C.nome] }, SERATA.sito + 'invito/?t=' + x[C.token]);
+    const campi = { scade_il: '', whatsapp: 'https://wa.me/' + normalizzaTelefono_(x[C.telefono]).replace(/\D/g, '') + '?text=' + encodeURIComponent(m.testo) };
+    if (scaduto) { campi.stato = 'invitato'; campi.wa_inviato = ''; riaperti++; } else ripuliti++;
+    scrivi_({ sh, n: i + 2, riga: x }, campi);
+  });
+  return { riaperti, ripuliti };
 }
+
+// Dal menu: lo stesso, subito, e dice quanti.
+function riapriInviti() {
+  const r = riapriScaduti_();
+  SpreadsheetApp.getUi().alert('Gli inviti non scadono più.\nInviti scaduti riaperti: ' + r.riaperti + ' (ora sono tra i "da mandare").\nInviti aperti a cui ho tolto la data di scadenza: ' + r.ripuliti + '.');
+}
+function spostaScadenza() { riapriInviti(); }               // vecchio nome del comando
 
 function avvisaNonInvitati() {
   const ui = SpreadsheetApp.getUi();
@@ -1520,8 +1491,7 @@ function elencoBkRegia_() {
 // Testi brevi e senza caratteri speciali: entrano in 1-2 SMS.
 function testoSms_(tipo, x) {
   if (tipo === 'invito') {
-    const scade = x[C.scade_il] ? quando_(new Date(x[C.scade_il])) : quando_(scadenzaInvitiOra_());
-    return String(x[C.nome]).toLowerCase() + ', sei dentro.\nzonacalda - sat 14.11 - 23:30.\n\naccetta entro ' + scade + '\n\n' +
+    return String(x[C.nome]).toLowerCase() + ', sei dentro.\nzonacalda - sat 14.11 - 23:30.\n\nconferma qui:\n\n' +
       SERATA.sito + 'invito/?t=' + x[C.token] + '\n\ninvito personale, porta un documento. 23+.';
   }
   if (tipo === 'confermato') {
