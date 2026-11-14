@@ -19,7 +19,7 @@ const SERATA = {
   cambioScadenza: '2026-11-13T06:00:00+01:00',   // da venerdì alle 6 i nuovi inviti hanno la seconda scadenza
   scadenzaInviti2: '2026-11-14T12:00:00+01:00',  // inviti mandati da venerdì 13.11: si accettano entro sabato 14.11 alle 12:00
   scadenzaSpostata: '2026-11-14T14:00:00+01:00', // "Sposta la scadenza": gli inviti che scadevano venerdì alle 21:00 (o prima) passano a sabato 14.11 alle 14:00
-  scadenzaFinale: '2026-11-14T15:00:00+01:00',   // da sabato mattina: TUTTI gli inviti (già mandati e nuovi) si accettano entro sabato 14.11 alle 15:00
+  scadenzaFinale: '2026-11-14T21:00:00+01:00',   // da sabato mattina: TUTTI gli inviti (già mandati e nuovi) si accettano entro sabato 14.11 alle 21:00
   oreConferma: 12,                   // solo se si invita dopo quella scadenza: tempo per confermare
   garantitoFino: '2026-11-15T00:30:00+01:00',
   sito: 'https://zonacaldaclubuse.it/',
@@ -139,7 +139,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'tg-15';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'tg-16';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -555,11 +555,11 @@ function inviaInviti() {
 }
 function inviaInvitiMail() { invia_(scadenzaInvitiOra_(), false, true); }   // come sopra, e in più parte la mail di invito
 // Porta alla scadenza fissa gli inviti già mandati con una scadenza più corta, e rifà il loro messaggio WhatsApp.
-// Tutti gli inviti ancora aperti passano alla scadenza finale (sabato alle 15:00), qualunque scadenza avessero.
-// Chi è già scaduto con una delle scadenze fisse (venerdì 21:00, sabato 12:00, sabato 14:00) torna "invitato".
+// Tutti gli inviti ancora aperti passano alla scadenza finale (sabato alle 21:00), qualunque scadenza avessero.
+// Chi è già scaduto con una delle scadenze fisse (venerdì 21:00, sabato 12:00, 14:00 o 15:00) torna "invitato".
 // Non si toccano: chi ha rifiutato, chi è scaduto prima o con un invito di riserva, chi ha già confermato.
 function spostaScadenza() {
-  const fisse = [SERATA.scadenzaInviti, SERATA.scadenzaInviti2, SERATA.scadenzaSpostata].map((d) => new Date(d).getTime());
+  const fisse = [SERATA.scadenzaInviti, SERATA.scadenzaInviti2, SERATA.scadenzaSpostata, '2026-11-14T15:00:00+01:00'].map((d) => new Date(d).getTime());   // le 15:00 erano la scadenza di tg-15
   const fissa = new Date(SERATA.scadenzaFinale);
   const sh = foglio_();
   let n = 0, riaperti = 0;
