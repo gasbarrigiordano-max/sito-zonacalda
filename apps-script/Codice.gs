@@ -134,7 +134,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'tg-20';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'tg-21';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -750,9 +750,10 @@ function segnaStaffWhatsApp(id, si) {
 
 function elencoWhatsApp() {
   return dati_(foglio_())
-    .filter((x) => x[C.stato] === 'invitato' && x[C.whatsapp])
+    .filter((x) => x[C.stato] === 'invitato' && x[C.token])
     .map((x) => ({ id: String(x[C.id]), nome: String(x[C.nome]) + ' ' + String(x[C.cognome]), tel: String(x[C.telefono]).replace(/^'/, ''),
-                   link: String(x[C.whatsapp]), inviato: !!x[C.wa_inviato] }));
+                   // il messaggio si rifà sempre dal testo di adesso (senza scadenza), non da quello salvato nel foglio
+                   link: 'https://wa.me/' + normalizzaTelefono_(x[C.telefono]).replace(/\D/g, '') + '?text=' + encodeURIComponent(testoSms_('invito', x)), inviato: !!x[C.wa_inviato] }));
 }
 
 function segnaWhatsApp(id, si) {
