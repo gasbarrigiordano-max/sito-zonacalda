@@ -136,7 +136,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'tg-23';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'fine-1';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -443,6 +443,7 @@ function onOpen() {
     .addItem('Pannello invii WhatsApp', 'pannelloWhatsApp')
     .addSeparator()
     .addItem('Riepilogo', 'riepilogo')
+    .addItem('FINE SERATA: riepilogo e cancella tutti i dati', 'fineSerata')
     .addItem('Notifiche iscrizioni: accendi', 'notificheAccese')
     .addItem('Manda subito i riepiloghi in attesa', 'mandaRiepiloghiOra')
     .addItem('Collega Telegram', 'collegaTelegram')
@@ -846,6 +847,86 @@ function avvisaNonInvitati() {
     n++;
   });
   ui.alert('Messaggi inviati: ' + n + (n >= quota ? '\nQuota email giornaliera finita: riprova domani per gli altri.' : ''));
+}
+
+// ---------------------------------------------------------------- fine serata
+// 1) scrive il riepilogo della serata (solo numeri, nessun nome) nella scheda "riepilogo serata" e lo manda su Telegram;
+// 2) dopo una conferma scritta, svuota iscritti, backstage e staff (restano solo le intestazioni) e azzera notifiche e contatori.
+const FOGLIO_RIEPILOGO = 'riepilogo serata';
+function numeriSerata_() {
+  const ospiti = dati_(foglio_()).filter((x) => x[C.nome] || x[C.cognome]);
+  const bk = datiBk_().filter((x) => x[CB.nome]);
+  const staff = datiStaff_().filter((x) => x[CS.nome]);
+  const props = PropertiesService.getScriptProperties();
+  const aMano = Number(props.getProperty('STAFF_DENTRO') || 0);
+  const conta = (righe, col, st) => righe.filter((x) => x[col] === st).length;
+  const eta = (n) => { const e = eta_(dataISO_(n), SERATA.dataISO); return e >= 0 && e < 100 ? e : null; };
+  const media = (v) => { v = v.filter((e) => e !== null); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length * 10) / 10 : '–'; };
+  const entrati = ospiti.filter((x) => x[C.stato] === 'entrato').map((x) => ({ nome: x[C.nome], nascita: x[C.nascita], ora: x[C.entrato_il] }))
+    .concat(bk.filter((x) => x[CB.stato] === 'entrato').map((x) => ({ nome: x[CB.nome], nascita: x[CB.nascita], ora: x[CB.entrato_il] })));
+  const gen = (g) => entrati.filter((p) => genere_(p.nome) === g);
+  const fasce = {};                                            // ingressi ogni mezz'ora (pista + backstage + staff col pass)
+  entrati.map((p) => p.ora).concat(staff.filter((x) => x[CS.entrato_il]).map((x) => x[CS.entrato_il])).filter(Boolean).forEach((d) => {
+    const t = new Date(d); const m = Math.floor(t.getMinutes() / 30) * 30;
+    const k = Utilities.formatDate(t, 'Europe/Rome', 'HH:mm').slice(0, 3) + (m ? '30' : '00'); fasce[k] = (fasce[k] || 0) + 1;
+  });
+  const fonti = {};
+  ospiti.forEach((x) => { const f = String(x[C.fonte] || '').trim() || 'non detto'; fonti[f] = (fonti[f] || 0) + 1; });
+  const righe = [
+    ['ZONACALDA · riepilogo serata', Utilities.formatDate(new Date(), 'Europe/Rome', 'dd/MM HH:mm')],
+    [], ['DENTRO', ''],
+    ['entrati in tutto (pista + backstage + staff)', conta(ospiti, C.stato, 'entrato') + conta(bk, CB.stato, 'entrato') + conta(staff, CS.stato, 'entrato') + aMano],
+    ['pista', conta(ospiti, C.stato, 'entrato')], ['backstage', conta(bk, CB.stato, 'entrato')],
+    ['staff col pass', conta(staff, CS.stato, 'entrato')], ['staff contati a mano', aMano],
+    [], ['CHI È ENTRATO (pista + backstage, stimati dal nome)', ''],
+    ['donne', gen('f').length], ['uomini', gen('m').length], ['incerti', gen('').length],
+    ['età media donne', media(gen('f').map((p) => eta(p.nascita)))], ['età media uomini', media(gen('m').map((p) => eta(p.nascita)))],
+    ['età media di tutti', media(entrati.map((p) => eta(p.nascita)))],
+    [], ['LISTA (pista)', ''], ['iscritti in tutto', ospiti.length]]
+    .concat(STATI.map((s) => [s, conta(ospiti, C.stato, s)]))
+    .concat([['volevano essere avvisati delle prossime serate', ospiti.filter((x) => String(x[C.prossime_serate]).toLowerCase() === 'sì').length],
+      ['età media degli iscritti', media(ospiti.map((x) => eta(x[C.nascita])))],
+      [], ['BACKSTAGE', ''], ['prenotazioni', bk.length]])
+    .concat(STATI_BK.map((s) => [s, conta(bk, CB.stato, s)]))
+    .concat([['pagati', bk.filter((x) => x[CB.pagato]).length], [], ['STAFF', ''], ['in lista', staff.length]])
+    .concat(STATI_STAFF.map((s) => [s, conta(staff, CS.stato, s)]))
+    .concat([[], ['INGRESSI OGNI MEZZ\'ORA', '']]).concat(Object.keys(fasce).sort((a, b) => ((a < '12' ? '2' : '1') + a).localeCompare((b < '12' ? '2' : '1') + b)).map((k) => ['dalle ' + k, fasce[k]]))
+    .concat([[], ['COME CI HANNO CONOSCIUTO', '']]).concat(Object.keys(fonti).sort((a, b) => fonti[b] - fonti[a]).map((k) => [k, fonti[k]]));
+  return righe.map((r) => (r.length ? [r[0], r.length > 1 ? r[1] : ''] : ['', '']));
+}
+
+function fineSerata() {
+  const ui = SpreadsheetApp.getUi(), ss = SpreadsheetApp.getActive();
+  const numeri = numeriSerata_();
+  const sh = ss.getSheetByName(FOGLIO_RIEPILOGO) || ss.insertSheet(FOGLIO_RIEPILOGO);
+  sh.clear();
+  sh.getRange(1, 1, numeri.length, 2).setValues(numeri);
+  sh.getRange(1, 1).setFontWeight('bold');
+  numeri.forEach((r, i) => { if (r[0] && r[1] === '' && i) sh.getRange(i + 1, 1).setFontWeight('bold'); });
+  try { sh.autoResizeColumn(1); } catch (err) { /* niente */ }
+  const testo = numeri.filter((r) => r[0]).map((r) => (r[1] === '' ? '\n' + r[0] : r[0] + ': ' + r[1])).join('\n');
+  if (telegramAttivo_()) tg_('😈 ' + testo);
+  const r = ui.prompt('Riepilogo salvato nella scheda "' + FOGLIO_RIEPILOGO + '"' + (telegramAttivo_() ? ' e mandato su Telegram' : '') + '.',
+    'Ora cancello TUTTI i dati delle persone: schede iscritti, backstage e staff (restano solo le intestazioni), compreso chi voleva le prossime serate.\n' +
+    'Non si può annullare (resta solo la cronologia versioni del foglio).\n\nPer confermare scrivi CANCELLA:', ui.ButtonSet.OK_CANCEL);
+  if (r.getSelectedButton() !== ui.Button.OK || String(r.getResponseText()).trim().toUpperCase() !== 'CANCELLA') {
+    ui.alert('Niente cancellato. Il riepilogo è nella scheda "' + FOGLIO_RIEPILOGO + '".'); return;
+  }
+  const lock = LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    let n = 0;
+    [foglio_(), foglioBk_(), foglioStaff_()].forEach((f) => {
+      if (!f) return;
+      const righe = f.getLastRow() - 1;
+      if (righe > 0) { f.getRange(2, 1, righe, f.getMaxColumns()).clearContent(); n += righe; }
+    });
+    const props = PropertiesService.getScriptProperties();
+    props.setProperty('LISTA', 'chiusa'); props.setProperty('STAFF_DENTRO', '0');
+    props.getKeys().filter((k) => k.indexOf('NOTIF_') === 0).forEach((k) => props.deleteProperty(k));
+    try { CacheService.getScriptCache().remove('porta_novita'); } catch (err) { /* niente */ }
+    ui.alert('Fatto: cancellate ' + n + ' righe (iscritti, backstage e staff). Lista chiusa, contatori azzerati.\n\n' +
+      'Nota: la cronologia versioni di questo foglio conserva ancora le versioni vecchie.');
+  } finally { lock.releaseLock(); }
 }
 
 function riepilogo() {

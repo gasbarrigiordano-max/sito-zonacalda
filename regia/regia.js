@@ -491,7 +491,7 @@
   const esci = () => {
     clearInterval(giro);
     mem.togli('zc-regia-accesso'); mem.togli('zc-regia-dati');
-    try { Object.keys(localStorage).filter((k) => k.startsWith('zc-regia-c-')).forEach((k) => localStorage.removeItem(k)); } catch (e) { /* niente */ }
+    try { Object.keys(localStorage).filter((k) => k.startsWith('zc-regia-')).forEach((k) => localStorage.removeItem(k)); } catch (e) { /* niente */ }   // anche nomi e numeri salvati sul telefono
     clearInterval(apri.p);
     document.documentElement.classList.remove('dentro');
     sessione = '';
