@@ -136,7 +136,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'brevo-2';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'brevo-3';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -1587,9 +1587,14 @@ function regiaLavoro_(r, props) {
   if (r.op === 'invii') return { ok: true, invii: elencoInvii_() };
   if (r.op === 'nomi') return { ok: true, persone: nomiRegia_(r) };
   if (r.op === 'azzerastaff') {                       // staff: tutti gli ingressi a zero (chi era entrato col pass torna "registrato", i contati a mano a 0)
-    const sh = foglioStaff_(), st = datiStaff_();
+    const sh = foglioStaff_(), st = datiStaff_();      // e si toglie il segno "pass mandato": le righe tornano bianche, i pass da rimandare
     let n = 0;
-    st.forEach((x, i) => { if (x[CS.stato] === 'entrato') { scriviStaff_(sh, i, { stato: 'registrato', entrato_il: '' }, x); n++; } });
+    st.forEach((x, i) => {
+      const campi = {};
+      if (x[CS.stato] === 'entrato') { campi.stato = 'registrato'; campi.entrato_il = ''; n++; }
+      if (x[CS.wa_inviato]) campi.wa_inviato = '';
+      if (Object.keys(campi).length) scriviStaff_(sh, i, campi, x);
+    });
     props.setProperty('STAFF_DENTRO', '0');
     try {                                                 // i telefoni della porta non devono rivederli come entrati
       const cache = CacheService.getScriptCache();

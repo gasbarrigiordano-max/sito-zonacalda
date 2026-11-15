@@ -455,8 +455,8 @@
     if (r.ok && typeof r.azzerati === 'number') {
       mano = 0; mostraMano(); nomi = []; disegnaNomi();
       vecchio('nomi-staff-entrato', 'nomi-staff-registrato', 'invii'); aggiorna();
-      alert('fatto: ingressi dello staff a 0 (' + r.azzerati + ' col pass, contati a mano azzerati).');
-    } else alert(r.ok ? 'serve il codice del foglio nuovo (brevo-2).' : 'non riuscito: il foglio non ha risposto. riprova.');
+      alert('fatto: ingressi dello staff a 0 (' + r.azzerati + ' col pass, contati a mano azzerati). righe del foglio di nuovo bianche: i pass risultano da mandare.');
+    } else alert(r.ok ? 'serve il codice del foglio nuovo (brevo-3).' : 'non riuscito: il foglio non ha risposto. riprova.');
   });
   $('mano-piu').addEventListener('click', () => cambiaMano(1));
   $('mano-meno').addEventListener('click', () => cambiaMano(-1));
