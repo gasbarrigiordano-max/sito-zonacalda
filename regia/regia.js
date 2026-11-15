@@ -437,12 +437,34 @@
     else if (r.ok) { mano -= d; mostraMano(); alert('serve il codice del foglio nuovo (nomi-5).'); }
     else { mano -= d; mostraMano(); alert('non salvato: il foglio non ha risposto (o la rete è caduta). riprova.'); }
   };
+  // staff · entrati: tutti gli ingressi dello staff a zero (col pass e contati a mano), con doppia conferma
+  let azzeraStato = '', timerAzzera = 0;
+  const mostraAzzera = () => {
+    const b = $('azzera-staff');
+    b.disabled = azzeraStato === 'attesa';
+    b.style.background = azzeraStato === 'chiedi' ? '#3a0d11' : 'transparent';
+    b.style.color = azzeraStato === 'chiedi' ? '#fff' : '#ff8088';
+    b.textContent = azzeraStato === 'attesa' ? 'azzero…' : azzeraStato === 'chiedi' ? 'sicuro? tutti gli ingressi staff a 0: ok' : 'azzera gli ingressi dello staff';
+  };
+  $('azzera-staff').addEventListener('click', async () => {
+    if (azzeraStato === 'attesa') return;
+    if (azzeraStato !== 'chiedi') { azzeraStato = 'chiedi'; mostraAzzera(); clearTimeout(timerAzzera); timerAzzera = setTimeout(() => { if (azzeraStato === 'chiedi') { azzeraStato = ''; mostraAzzera(); } }, 5000); return; }
+    clearTimeout(timerAzzera); azzeraStato = 'attesa'; mostraAzzera();
+    const r = await api({ op: 'azzerastaff' });
+    azzeraStato = ''; mostraAzzera();
+    if (r.ok && typeof r.azzerati === 'number') {
+      mano = 0; mostraMano(); nomi = []; disegnaNomi();
+      vecchio('nomi-staff-entrato', 'nomi-staff-registrato', 'invii'); aggiorna();
+      alert('fatto: ingressi dello staff a 0 (' + r.azzerati + ' col pass, contati a mano azzerati).');
+    } else alert(r.ok ? 'serve il codice del foglio nuovo (brevo-2).' : 'non riuscito: il foglio non ha risposto. riprova.');
+  });
   $('mano-piu').addEventListener('click', () => cambiaMano(1));
   $('mano-meno').addEventListener('click', () => cambiaMano(-1));
 
   const apriNomi = async (el) => {
     tipoNomi = el.dataset.tipo;
     $('mano').hidden = !(tipoNomi === 'staff' && el.dataset.stati === 'entrato');
+    $('azzera-staff').hidden = $('mano').hidden; azzeraStato = ''; mostraAzzera();
     if (!$('mano').hidden) { const d = mem.leggi('zc-regia-dati'); mano = (d && d.staff && d.staff.aMano) || 0; mostraMano(); }
     metti('nomi-titolo', el.dataset.titolo); $('nomi-titolo').dataset.stati = el.dataset.stati || '';
     $('q-nomi').value = ''; nomi = []; $('lista-nomi').innerHTML = '<li>carico…</li>'; metti('nomi-conto', ''); $('nomi-pubblico').hidden = true; tuttiStato = ''; $('invita-tutti').hidden = true;

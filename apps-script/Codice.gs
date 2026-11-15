@@ -136,7 +136,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'brevo-1';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'brevo-2';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -1586,6 +1586,18 @@ function regiaLavoro_(r, props) {
   if (r.op === 'backstage') return { ok: true, persone: elencoBkRegia_() };
   if (r.op === 'invii') return { ok: true, invii: elencoInvii_() };
   if (r.op === 'nomi') return { ok: true, persone: nomiRegia_(r) };
+  if (r.op === 'azzerastaff') {                       // staff: tutti gli ingressi a zero (chi era entrato col pass torna "registrato", i contati a mano a 0)
+    const sh = foglioStaff_(), st = datiStaff_();
+    let n = 0;
+    st.forEach((x, i) => { if (x[CS.stato] === 'entrato') { scriviStaff_(sh, i, { stato: 'registrato', entrato_il: '' }, x); n++; } });
+    props.setProperty('STAFF_DENTRO', '0');
+    try {                                                 // i telefoni della porta non devono rivederli come entrati
+      const cache = CacheService.getScriptCache();
+      const v = JSON.parse(cache.get('porta_novita') || '[]');
+      cache.put('porta_novita', JSON.stringify(v.filter((e) => !/^s/.test(String(e[0])))), 21600);
+    } catch (err) { console.error(err); }
+    return { ok: true, azzerati: n, aMano: 0 };
+  }
   if (r.op === 'staffmano') {                         // staff contato a mano (dj, organizzatori…): + o − dalla regia
     const n = Math.max(0, Number(props.getProperty('STAFF_DENTRO') || 0) + (Number(r.delta) > 0 ? 1 : -1));
     props.setProperty('STAFF_DENTRO', String(n));
