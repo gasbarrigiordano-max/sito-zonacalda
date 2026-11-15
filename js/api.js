@@ -1,6 +1,6 @@
 // Collegamento al Foglio Google (app web di Apps Script).
 // Dopo aver pubblicato lo script, incolla qui il suo indirizzo (finisce con /exec).
-window.ZC_API = 'https://script.google.com/macros/s/AKfycbyakWB6E706wOyMkoUBbZ63Xl1SCep-R2ZdfEgkdQ_fqHFBSaYokAaiQbnr9MHy0duT/exec';
+window.ZC_API = 'https://script.google.com/macros/s/AKfycby59JV6xirxIIgeMn4MHfsGIbKczXxQe_R61EpbzASnOB6AwcjqIfxoY9aL6YDahMe-/exec';   // foglio sull'account zonacalda
 
 // Google ogni tanto risponde con una pagina d'errore invece dei dati (foglio occupato da troppe richieste insieme,
 // o un suo problema passeggero): in quel caso la richiesta NON è stata eseguita, quindi si riprova da soli, fino a 3 volte.
