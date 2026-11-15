@@ -99,3 +99,26 @@ Quando il controllo DNS diventa verde (da pochi minuti a qualche ora), spunta **
 5. Per togliere qualcuno: stato **escluso**.
 
 I nomi dello staff stanno solo nel Foglio Google, non nel sito.
+
+## 5. Spostare il foglio su un altro account Google
+
+Le mail di Gmail (e il limite di circa 100 al giorno) sono quelle dell'account **proprietario del foglio**: spostandolo, partono dal nuovo account.
+
+1. Dal vecchio account, nel foglio: **Condividi** → aggiungi il nuovo account come **Editor**.
+2. Entra con il **nuovo account** e apri il foglio → **File → Crea una copia**. La copia è del nuovo account e contiene anche lo script (`Codice.gs` e `qrcode`).
+3. Nella copia: ricarica, menu **😈 Zonacalda → 1. Prepara il foglio** e accetta le autorizzazioni.
+4. Le impostazioni **non** si copiano: rifai **Imposta PIN della porta**, **Imposta PIN della regia**, **Imposta il luogo**, **Collega Telegram** e (se lo usi) **Collega Brevo**.
+5. **Estensioni → Apps Script → Esegui il deployment → Nuovo deployment → App web** (Esegui come: Me · Chi ha accesso: Chiunque) e manda a Claude il nuovo URL `/exec`: va messo in `js/api.js`.
+6. Quando il sito usa il nuovo indirizzo, nel vecchio foglio: **Esegui il deployment → Gestisci deployment → Archivia**, così nessuno scrive più lì.
+
+## 6. Mail con Brevo (più di 100 al giorno)
+
+Con Brevo collegato inviti e conferme partono da Brevo (gratis fino a 300 al giorno); se Brevo rifiuta o il limite del giorno è finito, partono da Gmail come prima.
+
+1. Crea un account su **brevo.com** (piano gratuito).
+2. **Mittente col vostro dominio** (arriva meno nello spam): su Brevo **Mittenti, domini e IP → Domini → Aggiungi un dominio** → `zonacaldaclubuse.it`. Brevo ti dà dei record (TXT e CNAME): aggiungili nella gestione DNS di **Aruba**, come per il punto 4, poi su Brevo premi **Verifica**. Poi aggiungi il mittente, per esempio `inviti@zonacaldaclubuse.it`.
+3. Su Brevo: **SMTP e API → Chiavi API → Genera una nuova chiave** e copiala (inizia con `xkeysib-`). Non mandarla in chat.
+4. Nel foglio: **😈 Zonacalda → Collega Brevo (mail)**, incolla la chiave e poi l'indirizzo mittente.
+5. **😈 Zonacalda → Brevo: manda una mail di prova**: ti arriva una mail. Se finisce nello spam, il dominio non è ancora verificato (punto 2).
+
+Nella mail di conferma con Brevo il QR è **in allegato**, e al suo posto nella mail c'è un riquadro che apre il pass.

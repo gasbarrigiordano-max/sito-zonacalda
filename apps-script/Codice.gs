@@ -136,7 +136,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'fine-1';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'brevo-1';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -446,6 +446,9 @@ function onOpen() {
     .addItem('FINE SERATA: riepilogo e cancella tutti i dati', 'fineSerata')
     .addItem('Notifiche iscrizioni: accendi', 'notificheAccese')
     .addItem('Manda subito i riepiloghi in attesa', 'mandaRiepiloghiOra')
+    .addItem('Collega Brevo (mail)', 'collegaBrevo')
+    .addItem('Brevo: manda una mail di prova', 'provaBrevo')
+    .addItem('Scollega Brevo (torna a Gmail)', 'scollegaBrevo')
     .addItem('Collega Telegram', 'collegaTelegram')
     .addItem('Telegram: manda una prova', 'provaTelegram')
     .addItem('Scollega Telegram', 'scollegaTelegram')
@@ -545,7 +548,7 @@ function inviaInvitiMail() { invia_(null, false, true); }
 function mandaMailInvito_(x) {
   if (!String(x[C.email]).trim() || !x[C.token]) return false;
   try {
-    if (MailApp.getRemainingDailyQuota() < 1) return false;
+    if (quotaMail_() < 1) return false;
     manda_(x[C.email], componiMail_(MAIL.invito, { nome: x[C.nome] }, SERATA.sito + 'invito/?t=' + x[C.token]));
     return true;
   } catch (err) { console.error('mail invito', err); return false; }
@@ -556,7 +559,7 @@ function mandaMailInvito_(x) {
 // Si può rilanciare: riparte da chi manca.
 function mailInvitiAperti() {
   const sh = foglio_();
-  let mandate = 0, senza = 0, rimasti = 0, quota = MailApp.getRemainingDailyQuota();
+  let mandate = 0, senza = 0, rimasti = 0, quota = quotaMail_();
   const inizio = Date.now();
   dati_(sh).forEach((x, i) => {
     if (x[C.stato] !== 'invitato' || !x[C.token] || x[C.wa_inviato]) return;
@@ -570,7 +573,7 @@ function mailInvitiAperti() {
   SpreadsheetApp.getUi().alert('Mail di invito mandate: ' + mandate + '.' +
     (rimasti ? '\nNon partite: ' + rimasti + ' (mail di oggi finite o errore). Restano tra i "da mandare": rilancia più tardi o usa gli SMS.' : '') +
     (senza ? '\nSenza indirizzo mail: ' + senza + '. Restano tra i "da mandare": a loro serve l\'SMS.' : '') +
-    '\nMail ancora inviabili oggi: ' + MailApp.getRemainingDailyQuota() + '.');
+    '\nMail ancora inviabili oggi: ' + quotaMail_() + '.');
 }
 // Per rimandare gli inviti: toglie il segno "mandato" a tutti gli inviti ancora aperti, così ricompaiono tra i "da mandare".
 // Non cambia lo stato. Chi ha confermato o rifiutato non viene toccato.
@@ -655,7 +658,7 @@ function invia_(scade, riserva, conMail) {
   const sh = foglio_();
   const righe = dati_(sh);
   let email = 0, solo_whatsapp = 0;
-  const quota = conMail ? MailApp.getRemainingDailyQuota() : 0;
+  const quota = conMail ? quotaMail_() : 0;
   righe.forEach((x, i) => {
     if (x[C.stato] !== 'da invitare') return;
     if (invitaRiga_({ sh, n: i + 2, riga: x }, scade, riserva, !!conMail && email < quota)) email++; else solo_whatsapp++;
@@ -840,7 +843,7 @@ function avvisaNonInvitati() {
   if (ui.alert('Mando il messaggio a tutti quelli ancora "in lista"?', ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
   const sh = foglio_();
   let n = 0;
-  const quota = MailApp.getRemainingDailyQuota();
+  const quota = quotaMail_();
   dati_(sh).forEach((x) => {
     if (x[C.stato] !== 'in lista' || n >= quota) return;
     manda_(x[C.email], componiMail_(x[C.prossime_serate] === 'sì' ? MAIL.nonInvitatiProssime : MAIL.nonInvitati, { nome: x[C.nome] }));
@@ -934,7 +937,7 @@ function riepilogo() {
   const staff = Number(PropertiesService.getScriptProperties().getProperty('STAFF_DENTRO') || 0);
   const txt = STATI.map((s) => s + ': ' + righe.filter((x) => x[C.stato] === s).length).join('\n');
   SpreadsheetApp.getUi().alert('Totale iscritti: ' + righe.length + '\n\n' + txt + '\n\nstaff dentro: ' + staff +
-    '\nlista: ' + (listaAperta_() ? 'aperta' : 'chiusa') + '\nemail ancora inviabili oggi: ' + MailApp.getRemainingDailyQuota());
+    '\nlista: ' + (listaAperta_() ? 'aperta' : 'chiusa') + '\nemail ancora inviabili oggi: ' + quotaMail_());
 }
 
 // ---------------------------------------------------------------- mail
@@ -995,7 +998,7 @@ function mandaConferma_(t) {
       opz.inlineImages = { qr: qr };
       opz.attachments = [qr.copyBlob().setName('zonacalda-ingresso.gif')];
     }
-    MailApp.sendEmail(opz);
+    posta_(opz);
     scrivi_(t, { note: togliNota_(x[C.note], 'conferma da inviare') });
   } catch (err) {
     console.error(err);                                     // quota finita o altro: si rimanda dal menu
@@ -1012,7 +1015,7 @@ function rimandaConferme() {
     mandaConferma_(t);
     if (!String(t.riga[C.note]).includes('conferma da inviare')) n++;
   });
-  SpreadsheetApp.getUi().alert('Mail di conferma inviate: ' + n + '\nEmail ancora inviabili oggi: ' + MailApp.getRemainingDailyQuota());
+  SpreadsheetApp.getUi().alert('Mail di conferma inviate: ' + n + '\nEmail ancora inviabili oggi: ' + quotaMail_());
 }
 
 // QR come immagine GIF, generato qui (serve il file "qrcode" nel progetto: vedi ISTRUZIONI.md)
@@ -1034,7 +1037,7 @@ function togliNota_(nota, testo) {
 function notifica_(oggetto, testo) {                     // true se è partita
   try {
     if (PropertiesService.getScriptProperties().getProperty('NOTIFICHE') === 'no') return false;
-    if (MailApp.getRemainingDailyQuota() < 20) return false;     // lascia le ultime mail agli inviti
+    if (MailApp.getRemainingDailyQuota() < 20) return false;     // notifiche a te: sempre da Gmail, e lasciano le ultime agli inviti
     const a = Session.getEffectiveUser().getEmail();
     if (!a) return false;
     MailApp.sendEmail({ to: a, subject: 'zonacalda · ' + oggetto, body: testo, name: 'zonacalda' });
@@ -1138,7 +1141,95 @@ function notificheSpente() {
 }
 
 function manda_(a, m) {
-  MailApp.sendEmail({ to: a, subject: m.oggetto, body: m.testo, htmlBody: m.html, name: MAIL.mittente, replyTo: MAIL.rispondiA });
+  posta_({ to: a, subject: m.oggetto, body: m.testo, htmlBody: m.html, name: MAIL.mittente, replyTo: MAIL.rispondiA });
+}
+
+// ---------------------------------------------------------------- mail: Brevo (se collegato), altrimenti Gmail
+// Brevo: gratis fino a 300 mail al giorno (BREVO_LIMITE per cambiarlo), mittente col vostro dominio.
+// Se Brevo non risponde o rifiuta (per esempio limite del giorno finito), la mail parte da Gmail come prima.
+function brevoAttivo_() {
+  const p = PropertiesService.getScriptProperties();
+  return !!(p.getProperty('BREVO_KEY') && p.getProperty('BREVO_MITTENTE'));
+}
+function oggi_() { return Utilities.formatDate(new Date(), 'Europe/Rome', 'yyyy-MM-dd'); }
+function brevoUsate_() {
+  const p = PropertiesService.getScriptProperties();
+  const v = JSON.parse(p.getProperty('BREVO_CONTO') || '{}');
+  return v.giorno === oggi_() ? Number(v.n || 0) : 0;
+}
+function quotaMail_() {
+  let gmail = 0;
+  try { gmail = MailApp.getRemainingDailyQuota(); } catch (err) { console.error(err); }
+  if (!brevoAttivo_()) return gmail;
+  const limite = Number(PropertiesService.getScriptProperties().getProperty('BREVO_LIMITE') || 300);
+  return Math.max(0, limite - brevoUsate_()) + gmail;
+}
+// opz come MailApp.sendEmail: to, subject, body, htmlBody, name, replyTo, inlineImages { qr }, attachments [blob]
+function posta_(opz) {
+  if (brevoAttivo_()) {
+    try { brevo_(opz); return 'brevo'; } catch (err) { console.error('brevo, provo con gmail', err); }
+  }
+  MailApp.sendEmail(opz);
+  return 'gmail';
+}
+function brevo_(opz) {
+  const p = PropertiesService.getScriptProperties();
+  const limite = Number(p.getProperty('BREVO_LIMITE') || 300);
+  if (brevoUsate_() >= limite) throw new Error('brevo: limite di oggi raggiunto');
+  let html = opz.htmlBody || '';
+  const allegati = (opz.attachments || []).map((b) => ({ name: b.getName(), content: Utilities.base64Encode(b.getBytes()) }));
+  if (opz.inlineImages && opz.inlineImages.qr) {
+    // Brevo non mette immagini dentro la mail: il QR va in allegato, e al suo posto un riquadro che apre il pass
+    html = html.replace(/<img src="cid:qr"[^>]*>/, '<a href="' + (String(opz.body).match(/https?:\/\/\S+/) || [''])[0] +
+      '" style="display:block;width:240px;padding:40px 0;color:#050505;font-size:18px;font-weight:700;text-align:center;text-decoration:none;">il tuo QR:<br>tocca qui<br>(è anche in allegato)</a>');
+    if (!allegati.length) allegati.push({ name: 'zonacalda-ingresso.gif', content: Utilities.base64Encode(opz.inlineImages.qr.getBytes()) });
+  }
+  const corpo = {
+    sender: { name: opz.name || MAIL.mittente, email: p.getProperty('BREVO_MITTENTE') },
+    to: [{ email: String(opz.to).trim() }],
+    subject: opz.subject, textContent: opz.body || '',
+  };
+  if (html) corpo.htmlContent = html;
+  if (opz.replyTo) corpo.replyTo = { email: opz.replyTo };
+  if (allegati.length) corpo.attachment = allegati;
+  const r = UrlFetchApp.fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+    headers: { 'api-key': p.getProperty('BREVO_KEY'), accept: 'application/json' },
+    payload: JSON.stringify(corpo),
+  });
+  const codice = r.getResponseCode();
+  if (codice < 200 || codice >= 300) throw new Error('brevo ' + codice + ': ' + String(r.getContentText()).slice(0, 300));
+  p.setProperty('BREVO_CONTO', JSON.stringify({ giorno: oggi_(), n: brevoUsate_() + 1 }));
+}
+
+function collegaBrevo() {
+  const ui = SpreadsheetApp.getUi(), p = PropertiesService.getScriptProperties();
+  const k = ui.prompt('Collega Brevo (1/2)', 'Incolla la chiave API di Brevo (Brevo → SMTP e API → Chiavi API → Genera una nuova chiave; inizia con xkeysib-).\nLa chiave resta solo qui nello script.', ui.ButtonSet.OK_CANCEL);
+  if (k.getSelectedButton() !== ui.Button.OK) return;
+  const chiave = k.getResponseText().trim();
+  if (!/^xkeysib-[A-Za-z0-9-]{20,}$/.test(chiave)) return ui.alert('Questa non sembra una chiave API di Brevo (deve iniziare con xkeysib-). Copiala di nuovo.');
+  const prova = UrlFetchApp.fetch('https://api.brevo.com/v3/account', { muteHttpExceptions: true, headers: { 'api-key': chiave, accept: 'application/json' } });
+  if (prova.getResponseCode() !== 200) return ui.alert('Brevo non riconosce questa chiave (risposta ' + prova.getResponseCode() + '). Controllala e riprova.');
+  const m = ui.prompt('Collega Brevo (2/2)', 'Indirizzo da cui partono le mail (deve essere verificato su Brevo, meglio con il vostro dominio, es. inviti@zonacaldaclubuse.it):', ui.ButtonSet.OK_CANCEL);
+  if (m.getSelectedButton() !== ui.Button.OK) return;
+  const mittente = m.getResponseText().trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/.test(mittente)) return ui.alert('Indirizzo non valido.');
+  p.setProperty('BREVO_KEY', chiave); p.setProperty('BREVO_MITTENTE', mittente);
+  ui.alert('Brevo collegato: le mail partiranno da ' + mittente + '.\nOra fai "Brevo: manda una mail di prova".');
+}
+function provaBrevo() {
+  const ui = SpreadsheetApp.getUi();
+  if (!brevoAttivo_()) return ui.alert('Brevo non è collegato: usa "Collega Brevo (mail)".');
+  const a = Session.getEffectiveUser().getEmail();
+  try {
+    brevo_({ to: a, subject: 'zonacalda · prova brevo', body: 'se leggi questa mail, brevo funziona. 😈', name: MAIL.mittente, replyTo: MAIL.rispondiA });
+    ui.alert('Mail di prova mandata a ' + a + ' da Brevo. Controlla che sia arrivata (guarda anche nello spam).\nMail Brevo usate oggi: ' + brevoUsate_() + '.');
+  } catch (err) { ui.alert('Brevo non ha mandato la mail:\n' + err.message); }
+}
+function scollegaBrevo() {
+  const p = PropertiesService.getScriptProperties();
+  p.deleteProperty('BREVO_KEY'); p.deleteProperty('BREVO_MITTENTE');
+  SpreadsheetApp.getUi().alert('Brevo scollegato: le mail tornano a partire da Gmail.');
 }
 
 // ---------------------------------------------------------------- staff
