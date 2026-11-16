@@ -155,3 +155,16 @@ footer p { margin: 0; }
 
 .ig-piede { display: inline-block; min-height: 0; margin: 0 0 .9rem; padding: .3rem 0 .1rem; font-size: .95rem; }
 .frase { line-height: 1.2; }
+
+/* ---------- prossima serata: data segreta ---------- */
+.prossima { font-size: 1.15rem; color: var(--testo); }
+.prossima .indizio { color: var(--tenue); font-size: .9rem; font-style: italic; }
+.segreto { font-weight: 700; color: var(--rosso); letter-spacing: .08em; text-shadow: 0 0 10px rgba(255, 20, 36, .8), 0 0 24px rgba(255, 20, 36, .45); }
+@media (prefers-reduced-motion: no-preference) {
+  .segreto { animation: segreto 4.2s steps(1, end) infinite; }
+}
+@keyframes segreto {
+  0%, 62% { opacity: 1; } 64% { opacity: .15; } 66% { opacity: .9; } 68% { opacity: .05; } 72%, 100% { opacity: 1; }
+}
+.invito.spento { background: transparent; color: var(--testo); border: 1px solid var(--rosso); box-shadow: 0 0 14px rgba(255, 20, 36, .25); font-weight: 600; }
+.invito.spento:hover, .invito.spento:focus-visible { background: rgba(255, 20, 36, .12); }
