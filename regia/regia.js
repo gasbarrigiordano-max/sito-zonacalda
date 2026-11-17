@@ -276,6 +276,8 @@
   };
   // pista: chi ha l'invito ma non ha confermato (o l'ha fatto scadere) si conferma da qui, poi parte l'SMS con il suo ingresso
   const fattiLista = new Map();                           // id → { attesa, sms, mandato }: resta anche se l'elenco si ricarica
+  // perché il foglio ha detto di no: persona non trovata (con il suo codice) oppure lo stato che ha adesso
+  const spiega = (r, id) => (r.errore === 'persona' ? 'non trovo questa persona nel foglio (codice ' + id + ')' : 'nel foglio risulta «' + (r.stato || '?') + '»');
   const vecchiaLista = () => { try { Object.keys(localStorage).filter((k) => k.indexOf('zc-regia-c-nomi-lista-') === 0).forEach((k) => vecchio(k.slice('zc-regia-c-'.length))); } catch (err) { /* niente */ } };
   const azioneLista0 = (x) => {
     if (!x.id) return '';
@@ -329,7 +331,7 @@
     } else {
       if (annulla) eliminati.set(id, 'fatto'); else eliminati.delete(id);
       alert(r.ok ? 'serve il codice del foglio nuovo (tg-14).' : r.errore === 'pieno' ? 'non rimesso: la lista dei confermati è piena.'
-        : r.errore === 'stato' || r.errore === 'persona' ? 'non fatto: nel foglio questa persona ha cambiato stato. ricarica l\'elenco.' : 'non salvato: il foglio non ha risposto (o la rete è caduta). riprova.');
+        : r.errore === 'stato' || r.errore === 'persona' ? 'non fatto: ' + spiega(r, id) + '. ricarica l\'elenco.' : 'non salvato: il foglio non ha risposto (o la rete è caduta). riprova.');
     }
     disegnaNomi();
   });
@@ -363,7 +365,7 @@
       fattiLista.delete(id);
       const x = nomi.find((y) => y.id === id);
       if (r.ok && r.scelto) { if (x) x.stato = 'da invitare'; vecchiaLista(); }
-      else alert(r.ok ? 'serve il codice del foglio nuovo (tg-8).' : r.errore === 'stato' || r.errore === 'persona' ? 'non fatto: nel foglio questa persona ha cambiato stato. ricarica l\'elenco.' : 'non salvato: il foglio non ha risposto (o la rete è caduta). riprova.');
+      else alert(r.ok ? 'serve il codice del foglio nuovo (tg-8).' : r.errore === 'stato' || r.errore === 'persona' ? 'non fatto: ' + spiega(r, id) + '. ricarica l\'elenco.' : 'non salvato: il foglio non ha risposto (o la rete è caduta). riprova.');
       disegnaNomi();
       return;
     }
@@ -376,7 +378,7 @@
     } else {
       fattiLista.delete(id);
       alert(r.ok ? 'serve il codice del foglio nuovo (tg-7).' : r.errore === 'pieno' ? 'non confermato: la lista dei confermati è piena.'
-        : r.errore === 'stato' || r.errore === 'persona' ? 'non fatto: nel foglio questa persona ha cambiato stato. ricarica l\'elenco.'
+        : r.errore === 'stato' || r.errore === 'persona' ? 'non fatto: ' + spiega(r, id) + '. ricarica l\'elenco.'
         : 'non salvato: il foglio non ha risposto (o la rete è caduta). riprova.');
     }
     disegnaNomi();
