@@ -45,11 +45,15 @@
     $('ultimi').innerHTML = r.ultimi.length
       ? r.ultimi.map((u) => `<li><time>${esc(u.ora)}</time><span>${esc(maiuscole(u.chi))}</span><em class="${esc(u.tipo)}">${esc(u.tipo)}</em></li>`).join('')
       : '<li>nessuno, per ora.</li>';
-    $('ultimi-piu').hidden = r.ultimi.length <= 4;
+    $('ultimi-piu').hidden = r.ultimi.length <= 5;
+    if (!$('ultimi').classList.contains('aperto')) metti('ultimi-piu', 'mostra tutti (' + r.ultimi.length + ')');
   };
-  $('ultimi-piu').addEventListener('click', () => {
+  // telefono: si tocca il riquadro "ultimi ingressi" (o la scritta sotto) per aprire tutti, e di nuovo per richiudere
+  $('blocco-ultimi').addEventListener('click', () => {
+    if (!matchMedia('(max-width: 819px)').matches || $('ultimi-piu').hidden) return;
     const aperto = $('ultimi').classList.toggle('aperto');
-    metti('ultimi-piu', aperto ? 'mostra meno' : 'mostra tutti');
+    $('blocco-ultimi').classList.toggle('aperto', aperto);
+    metti('ultimi-piu', aperto ? 'mostra meno' : 'mostra tutti (' + $('ultimi').children.length + ')');
   });
 
   const aggiorna = async () => {

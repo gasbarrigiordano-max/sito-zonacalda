@@ -46,11 +46,14 @@
   .ultimi em { margin-left: auto; font-style: normal; font-size: .75rem; color: var(--tenue); }
   .ultimi em.backstage { color: #f0c860; } .ultimi em.staff { color: #ff6b73; }
   .ultimi-piu { display: none; }
-  /* telefono: gli ultimi ingressi stanno subito sotto il totale, con gli ultimi 4; "mostra tutti" apre il resto */
+  /* telefono: gli ultimi ingressi stanno subito sotto il totale, con gli ultimi 5; si tocca il riquadro per aprire tutti */
   @media (max-width: 819px) {
     .a-ultimi { padding: .8rem 1rem; }
     .a-ultimi h2 { margin-bottom: .3rem; font-size: .85rem; }
-    .ultimi:not(.aperto) li:nth-child(n+5) { display: none; }
+    .ultimi:not(.aperto) li:nth-child(n+6) { display: none; }
+    .a-ultimi { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    .a-ultimi h2::after { content: '▾'; margin-left: auto; color: var(--tenue); font-size: .9rem; }
+    .a-ultimi.aperto h2::after { content: '▴'; }
     .ultimi-piu { display: block; margin: .4rem auto 0; background: none; border: 0; color: var(--tenue); font: inherit; font-size: .8rem; text-decoration: underline; cursor: pointer; }
     .ultimi-piu[hidden] { display: none; }
   }
@@ -148,7 +151,7 @@
   }
 </style>
 <script src="../js/api.js?v=20261115" defer></script>
-<script src="regia.js?v=20261117" defer></script>
+<script src="regia.js?v=20261117b" defer></script>
 </head>
 <body>
 <main class="regia">
@@ -179,7 +182,7 @@
       <div class="barretta"><i id="riempi"></i></div>
     </div>
 
-    <div class="blocco a-ultimi">
+    <div class="blocco a-ultimi" id="blocco-ultimi">
       <h2>ultimi ingressi</h2>
       <ul class="ultimi" id="ultimi"><li>nessuno, per ora.</li></ul>
       <button type="button" class="ultimi-piu" id="ultimi-piu" hidden>mostra tutti</button>
