@@ -45,7 +45,12 @@
     $('ultimi').innerHTML = r.ultimi.length
       ? r.ultimi.map((u) => `<li><time>${esc(u.ora)}</time><span>${esc(maiuscole(u.chi))}</span><em class="${esc(u.tipo)}">${esc(u.tipo)}</em></li>`).join('')
       : '<li>nessuno, per ora.</li>';
+    $('ultimi-piu').hidden = r.ultimi.length <= 4;
   };
+  $('ultimi-piu').addEventListener('click', () => {
+    const aperto = $('ultimi').classList.toggle('aperto');
+    metti('ultimi-piu', aperto ? 'mostra meno' : 'mostra tutti');
+  });
 
   const aggiorna = async () => {
     const r = await api({});
@@ -210,9 +215,20 @@
 
   // ------------------------------------------------ i nomi dietro a ogni numero
   let nomi = [], tipoNomi = '';
+  // ordine dell'elenco della pista: alfabetico, oppure cronologico (dal più vecchio: registrati, invitati o confermati per primi)
+  let ordine = mem.leggi('zc-regia-ordine') === 'cron' ? 'cron' : 'az';
+  let ultimoAggiunto = '';
+  const aggiunti = new Set();                              // persone aggiunte a mano da questa schermata: restano in elenco finché non esci
+  const impostaOrdine = () => document.querySelectorAll('.ordine button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.o === ordine)));
+  document.querySelectorAll('.ordine button').forEach((b) => b.addEventListener('click', () => {
+    ordine = b.dataset.o; mem.scrivi('zc-regia-ordine', ordine); impostaOrdine(); disegnaNomi();
+  }));
+  const ordina = (v) => (ordine === 'cron' && tipoNomi === 'lista'
+    ? v.slice().sort((a, z) => (a.t && z.t ? a.t - z.t : a.t ? -1 : z.t ? 1 : 0) || String(a.nome).localeCompare(String(z.nome), 'it'))
+    : v);
   const disegnaNomi = () => {
     const q = $('q-nomi').value.trim().toLowerCase();
-    const righe = nomi.filter((x) => !q || x.nome.toLowerCase().includes(q));
+    const righe = ordina(nomi).filter((x) => !q || x.nome.toLowerCase().includes(q));
     const anni = nomi.map((x) => x.eta).filter((e) => typeof e === 'number' && e >= 0 && e < 100);
     const media = anni.length ? ' · età media ' + (Math.round(anni.reduce((a, b) => a + b, 0) / anni.length * 10) / 10).toString().replace('.', ',') : '';
     metti('nomi-conto', righe.length + (q ? ' su ' + nomi.length : '') + media);
@@ -224,9 +240,10 @@
     mostraTutti();
     $('lista-nomi').innerHTML = righe.length ? righe.map((x) => {
       const info = [x.eta !== null && x.eta !== undefined ? x.eta + ' anni' : '', x.ora ? 'entrato ' + x.ora : '',
-        tipoNomi === 'genere' || /,/.test($('nomi-titolo').dataset.stati || '') ? x.stato : '', x.pagato ? '✓ pagato' : ''].filter(Boolean).join(' · ');
+        tipoNomi === 'genere' || /,/.test($('nomi-titolo').dataset.stati || '') ? x.stato : '', x.pagato ? '✓ pagato' : '',
+        ordine === 'cron' && tipoNomi === 'lista' ? x.quando : ''].filter(Boolean).join(' · ');
       const t = x.tel ? ` <a href="tel:${esc(x.tel.replace(/[^\d+]/g, ''))}">${esc(x.tel)}</a>` : '';
-      return `<li><b>${esc(maiuscole(x.nome))}</b><small>${esc(info)}</small>${t}${tipoNomi === 'backstage' ? azioneBk(x) : tipoNomi === 'lista' ? azioneLista(x) : tipoNomi === 'staff' ? azioneStaff(x) : ''}</li>`;
+      return `<li${x.id && x.id === ultimoAggiunto ? ' class="nuovo"' : ''}><b>${esc(maiuscole(x.nome))}</b><small>${esc(info)}</small>${t}${tipoNomi === 'backstage' ? azioneBk(x) : tipoNomi === 'lista' ? azioneLista(x) : tipoNomi === 'staff' ? azioneStaff(x) : ''}</li>`;
     }).join('') : '<li>nessuno.</li>';
   };
   // backstage: dall'elenco si conferma e poi si manda l'SMS con il pass d'oro
@@ -425,6 +442,36 @@
     x.attesa = false; disegnaNomi();
   });
 
+  // "+" in "invitati, non confermati": un amico che si aggiunge all'ultimo. nome e cognome bastano
+  $('piu-nomi').addEventListener('click', () => {
+    const f = $('f-piu'); f.hidden = !f.hidden; metti('err-piu', '');
+    if (!f.hidden) { f.scrollIntoView({ block: 'nearest' }); f.elements.nome.focus(); }
+  });
+  $('annulla-piu').addEventListener('click', () => { $('f-piu').hidden = true; $('f-piu').reset(); metti('err-piu', ''); });
+  const ERRORI_PIU = { campi: 'servono nome e cognome.', telefono: 'il numero non sembra giusto: controllalo o lascialo vuoto.', email: 'la mail non sembra giusta: controllala o lasciala vuota.', eta: 'l\'età deve essere un numero tra 14 e 99, o vuota.' };
+  let salvandoPiu = false;
+  $('f-piu').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (salvandoPiu) return;
+    const f = $('f-piu'), v = (k) => f.elements[k].value.trim();
+    if (!v('nome') || !v('cognome')) return metti('err-piu', ERRORI_PIU.campi);
+    metti('err-piu', ''); salvandoPiu = true; $('invia-piu').disabled = true; metti('invia-piu', 'aggiungo…');
+    const dati = { op: 'aggiungilista', nome: v('nome'), cognome: v('cognome'), telefono: v('telefono'), eta: v('eta'), email: v('email') };
+    let r = await api(dati);
+    if (r && r.errore === 'esiste' && confirm(r.nome + ' è già nel foglio (' + r.stato + '). lo aggiungo lo stesso?')) r = await api(Object.assign({ forza: true }, dati));
+    salvandoPiu = false; $('invia-piu').disabled = false; metti('invia-piu', 'aggiungi');
+    if (r && r.ok && r.aggiunto) {
+      const p = r.persona; nomi.push(p); aggiunti.add(p.id); ultimoAggiunto = p.id;
+      f.reset(); f.hidden = true; $('q-nomi').value = '';
+      vecchiaLista(); vecchio('invii'); aggiorna();
+      disegnaNomi();
+      const li = document.querySelector('#lista-nomi li.nuovo'); if (li) li.scrollIntoView({ block: 'center' });
+    } else if (r && r.errore === 'esiste') metti('err-piu', 'già nel foglio: non aggiunto.');
+    else if (r && ERRORI_PIU[r.errore]) metti('err-piu', ERRORI_PIU[r.errore]);
+    else if (r && r.ok) metti('err-piu', 'serve il codice del foglio nuovo (regia-3).');
+    else metti('err-piu', 'il foglio non ha risposto: controlla nel foglio prima di riprovare.');
+  });
+
   // staff contato a mano: si vede in "staff · entrati"
   let mano = 0, manoInVolo = 0;
   const mostraMano = () => { metti('mano-n', mano); };
@@ -465,6 +512,9 @@
     tipoNomi = el.dataset.tipo;
     $('mano').hidden = !(tipoNomi === 'staff' && el.dataset.stati === 'entrato');
     $('azzera-staff').hidden = $('mano').hidden; azzeraStato = ''; mostraAzzera();
+    $('barra-nomi').hidden = tipoNomi !== 'lista'; impostaOrdine();                       // pista: ordine a–z / cronologico
+    $('piu-nomi').hidden = !(tipoNomi === 'lista' && el.dataset.stati === 'invitato');     // "+" solo in "invitati, non confermati"
+    $('f-piu').hidden = true; $('f-piu').reset(); metti('err-piu', ''); ultimoAggiunto = '';
     if (!$('mano').hidden) { const d = mem.leggi('zc-regia-dati'); mano = (d && d.staff && d.staff.aMano) || 0; mostraMano(); }
     metti('nomi-titolo', el.dataset.titolo); $('nomi-titolo').dataset.stati = el.dataset.stati || '';
     $('q-nomi').value = ''; nomi = []; $('lista-nomi').innerHTML = '<li>carico…</li>'; metti('nomi-conto', ''); $('nomi-pubblico').hidden = true; tuttiStato = ''; $('invita-tutti').hidden = true;
@@ -482,7 +532,7 @@
     if (r.ok) {
       if (tipoNomi === el.dataset.tipo && $('nomi-titolo').dataset.stati === (el.dataset.stati || '')) {
         const stati = (el.dataset.stati || '').split(',');
-        const tenuti = nomi.filter((x) => x.id && (fattiLista.has(x.id) || eliminati.has(x.id) || !stati.includes(x.stato)) && !r.persone.some((y) => y.id === x.id));   // chi hai appena confermato resta finché non esci
+        const tenuti = nomi.filter((x) => x.id && (fattiLista.has(x.id) || eliminati.has(x.id) || aggiunti.has(x.id) || !stati.includes(x.stato)) && !r.persone.some((y) => y.id === x.id));   // chi hai appena confermato resta finché non esci
         nomi = r.persone.concat(tenuti).sort((a, z) => String(a.nome).localeCompare(String(z.nome), 'it')); disegnaNomi();
       }
     } else if (!g) $('lista-nomi').innerHTML = '<li>il foglio non ha risposto. riprova.</li>';
@@ -492,7 +542,7 @@
     el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); apriNomi(el); } });
   });
   $('q-nomi').addEventListener('input', disegnaNomi);
-  $('chiudi-nomi').addEventListener('click', () => { fattiLista.clear(); eliminati.clear(); $('vista-nomi').hidden = true; $('pannello').hidden = false; aggiorna(); });
+  $('chiudi-nomi').addEventListener('click', () => { fattiLista.clear(); eliminati.clear(); aggiunti.clear(); ultimoAggiunto = ''; $('vista-nomi').hidden = true; $('pannello').hidden = false; aggiorna(); });
 
   const entra = async () => {
     const r = await aggiorna();

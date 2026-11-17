@@ -45,10 +45,30 @@
   .ultimi time { color: var(--tenue); font-variant-numeric: tabular-nums; }
   .ultimi em { margin-left: auto; font-style: normal; font-size: .75rem; color: var(--tenue); }
   .ultimi em.backstage { color: #f0c860; } .ultimi em.staff { color: #ff6b73; }
+  .ultimi-piu { display: none; }
+  /* telefono: gli ultimi ingressi stanno subito sotto il totale, con gli ultimi 4; "mostra tutti" apre il resto */
+  @media (max-width: 819px) {
+    .a-ultimi { padding: .8rem 1rem; }
+    .a-ultimi h2 { margin-bottom: .3rem; font-size: .85rem; }
+    .ultimi:not(.aperto) li:nth-child(n+5) { display: none; }
+    .ultimi-piu { display: block; margin: .4rem auto 0; background: none; border: 0; color: var(--tenue); font: inherit; font-size: .8rem; text-decoration: underline; cursor: pointer; }
+    .ultimi-piu[hidden] { display: none; }
+  }
   .blocco.tocca { cursor: pointer; }
   .apri { display: block; text-align: right; color: #f0c860; font-size: .85rem; margin-top: .6rem; }
   .indietro { background: none; border: 0; color: var(--tenue); font: inherit; padding: .4rem 0; cursor: pointer; }
   .cerca-bk { width: 100%; margin: .5rem 0 .75rem; }
+  .barra-nomi { display: flex; gap: .5rem; align-items: center; margin: .25rem 0 .5rem; }
+  .barra-nomi[hidden], .f-piu[hidden], .barra-nomi .piu[hidden] { display: none; }
+  .ordine { display: flex; flex: 1; gap: .4rem; }
+  .ordine button { flex: 1; min-height: 42px; border-radius: 10px; border: 1px solid #3a3636; background: #161414; color: var(--testo); font: inherit; font-size: .85rem; cursor: pointer; }
+  .ordine button[aria-pressed="true"] { background: #ff2634; border-color: #ff2634; color: #fff; font-weight: 700; }
+  .barra-nomi .piu { flex: none; width: 52px; height: 42px; border-radius: 12px; border: 1px solid #e2b84a; background: #3a2a05; color: #ffd77a; font-size: 1.8rem; line-height: 1; cursor: pointer; padding: 0; }
+  .f-piu { display: grid; gap: .5rem; background: #161414; border: 1px solid #3a3636; border-radius: 12px; padding: .8rem; margin: 0 0 .75rem; }
+  .f-piu input { width: 100%; box-sizing: border-box; }
+  .f-piu .errore { margin: 0; min-height: 1.1em; }
+  .riga-piu { display: flex; gap: .5rem; } .riga-piu .spunta { flex: 1; min-width: 0; }
+  .nomi li.nuovo { background: rgba(226, 184, 74, .12); border-radius: 8px; }
   .bk { list-style: none; margin: 0; padding: 0; }
   .bk li { display: flex; align-items: center; gap: .6rem; padding: .7rem .2rem; border-top: 1px solid #1d1b1b; }
   .bk .num { color: var(--tenue); font-size: .8rem; min-width: 1.6rem; text-align: right; font-variant-numeric: tabular-nums; }
@@ -128,7 +148,7 @@
   }
 </style>
 <script src="../js/api.js?v=20261115" defer></script>
-<script src="regia.js?v=20261115c" defer></script>
+<script src="regia.js?v=20261117" defer></script>
 </head>
 <body>
 <main class="regia">
@@ -157,6 +177,12 @@
       <b id="dentro">0</b> <span>/ <span id="capienza">0</span> dentro</span>
       <div class="sotto-tot"><span id="tot-staff">(staff 0 / 0 · in tutto 0 / 0)</span></div>
       <div class="barretta"><i id="riempi"></i></div>
+    </div>
+
+    <div class="blocco a-ultimi">
+      <h2>ultimi ingressi</h2>
+      <ul class="ultimi" id="ultimi"><li>nessuno, per ora.</li></ul>
+      <button type="button" class="ultimi-piu" id="ultimi-piu" hidden>mostra tutti</button>
     </div>
 
     <div class="blocco a-pista">
@@ -203,11 +229,6 @@
       <p class="piccoli" id="p-incerti"></p>
     </div>
 
-    <div class="blocco a-ultimi">
-      <h2>ultimi ingressi</h2>
-      <ul class="ultimi" id="ultimi"><li>nessuno, per ora.</li></ul>
-    </div>
-
     <p class="stato a-stato" id="stato" aria-live="polite"></p>
   </section>
 
@@ -222,6 +243,23 @@
         <button id="mano-meno" aria-label="uno in meno">−</button><b id="mano-n">0</b><button id="mano-piu" aria-label="uno in più">+</button>
       </div>
       <button id="azzera-staff" class="spunta elimina" hidden style="width:100%;min-width:0;margin:0 0 .8rem;background:transparent;border-color:#5a2226;color:#ff8088">azzera gli ingressi dello staff</button>
+      <div class="barra-nomi" id="barra-nomi" hidden>
+        <div class="ordine" role="group" aria-label="ordine dell'elenco">
+          <button type="button" data-o="az" aria-pressed="true">a–z</button>
+          <button type="button" data-o="cron" aria-pressed="false">cronologico</button>
+        </div>
+        <button type="button" class="piu" id="piu-nomi" aria-label="aggiungi una persona" title="aggiungi una persona" hidden>+</button>
+      </div>
+      <form class="f-piu" id="f-piu" hidden autocomplete="off" novalidate>
+        <p class="piccoli" style="margin:0 0 .5rem">un amico che si aggiunge all'ultimo: bastano nome e cognome.</p>
+        <input type="text" name="nome" placeholder="nome" required maxlength="60" autocapitalize="words">
+        <input type="text" name="cognome" placeholder="cognome" required maxlength="60" autocapitalize="words">
+        <input name="telefono" type="tel" inputmode="tel" placeholder="numero (facoltativo)" maxlength="30">
+        <input type="text" name="eta" inputmode="numeric" pattern="[0-9]*" placeholder="età (facoltativa)" maxlength="2">
+        <input name="email" type="email" inputmode="email" placeholder="mail (facoltativa)" maxlength="120" autocapitalize="off">
+        <p class="errore" id="err-piu" role="alert"></p>
+        <div class="riga-piu"><button type="button" class="spunta" id="annulla-piu">annulla</button><button type="submit" class="spunta conferma" id="invia-piu">aggiungi</button></div>
+      </form>
       <input class="cerca-bk" id="q-nomi" type="search" placeholder="cerca un nome…" autocomplete="off">
       <ol class="nomi" id="lista-nomi"><li>carico…</li></ol>
     </div>

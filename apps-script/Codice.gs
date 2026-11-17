@@ -136,7 +136,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'brevo-3';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'regia-3';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -1361,6 +1361,7 @@ function completaIscritti_(sh, righe) {
     if (!String(x[C.nome]).trim() && !String(x[C.cognome]).trim()) return;
     const campi = {};
     if (!String(x[C.id]).trim()) campi.id = 'm' + Utilities.getUuid().replace(/-/g, '').slice(0, 7);
+    if (!x[C.creato]) campi.creato = new Date();                // riga a mano: da ora in poi ha una data, così l'ordine cronologico la mette al suo posto
     if (!String(x[C.token]).trim() && ['invitato', 'confermato', 'entrato'].indexOf(x[C.stato]) >= 0) campi.token = nuovoToken_();
     if (!Object.keys(campi).length) return;
     if (SOLO_LETTURA_) { DA_COMPLETARE_ = true; return; }   // chi legge soltanto non scrive: lo rifà la richiesta con il lucchetto
@@ -1615,6 +1616,7 @@ function regiaLavoro_(r, props) {
   if (r.op === 'invitatutti') return invitaTuttiDaRegia_();
   if (r.op === 'escludilista') return escludiDaRegia_(r);
   if (r.op === 'sceglilista') return scegliDaRegia_(r);
+  if (r.op === 'aggiungilista') return aggiungiDaRegia_(r);
   if (r.op === 'conferma') {                        // richiesta → confermato (o indietro), dalla regia
     const sh = foglioBk_();
     const bk = datiBk_();
@@ -1796,6 +1798,63 @@ function escludiDaRegia_(r) {
   return { ok: true, eliminato: true, stato: 'escluso', era, id: String(x[C.id]) };
 }
 
+// quando è successo l'ultimo passo della persona (per l'ordine cronologico in regia): registrata, invitata, confermata, entrata
+function tempoStato_(x) {
+  const ms = (d) => { const t = d ? new Date(d).getTime() : 0; return t > 0 ? t : 0; };
+  const st = x[C.stato];
+  const scelte = st === 'entrato' ? [['entrato', C.entrato_il], ['confermato', C.risposto_il], ['invitato', C.invitato_il], ['registrato', C.creato]]
+    : st === 'confermato' ? [['confermato', C.risposto_il], ['invitato', C.invitato_il], ['registrato', C.creato]]
+    : st === 'rifiutato' ? [['risposto', C.risposto_il], ['invitato', C.invitato_il], ['registrato', C.creato]]
+    : (st === 'invitato' || st === 'scaduto') ? [['invitato', C.invitato_il], ['registrato', C.creato]]
+    : [['registrato', C.creato]];
+  for (let i = 0; i < scelte.length; i++) {
+    const t = ms(x[scelte[i][1]]);
+    if (t) return { t, quando: scelte[i][0] + ' ' + Utilities.formatDate(new Date(t), 'Europe/Rome', 'dd/MM HH:mm') };
+  }
+  return { t: 0, quando: '' };
+}
+
+// dalla regia, "+" in "invitati, non confermati": un amico che si aggiunge all'ultimo. servono solo nome e cognome;
+// numero, età e mail sono facoltativi. entra come "invitato" (come chi riceve l'invito): poi si conferma dalla regia.
+function aggiungiDaRegia_(r) {
+  const nome = pulisci_(r.nome, 60), cognome = pulisci_(r.cognome, 60);
+  if (!nome || !cognome) return { ok: false, errore: 'campi' };
+  const telGrezzo = pulisci_(r.telefono, 30);
+  const telefono = telGrezzo ? normalizzaTelefono_(telGrezzo) : '';
+  if (telGrezzo && telefono.replace(/\D/g, '').length < 8) return { ok: false, errore: 'telefono' };
+  const email = pulisci_(r.email, 120).toLowerCase();
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, errore: 'email' };
+  const etaTxt = String(r.eta == null ? '' : r.eta).trim();
+  const eta = etaTxt === '' ? null : Number(etaTxt);
+  if (eta !== null && !(Number.isInteger(eta) && eta >= 14 && eta <= 99)) return { ok: false, errore: 'eta' };
+  const sh = foglio_(), righe = dati_(sh);
+  const n = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '');
+  const cifre = (v) => String(v || '').replace(/\D/g, '').replace(/^39(?=3\d{8,9}$)/, '');
+  if (!r.forza) {                                          // già in lista? meglio dirlo prima di fare un doppione
+    const gia = righe.find((x) => x[C.stato] !== 'escluso' && ((n(x[C.nome]) === n(nome) && n(x[C.cognome]) === n(cognome)) ||
+      (telefono && cifre(x[C.telefono]) && cifre(x[C.telefono]) === cifre(telefono)) || (email && String(x[C.email]).toLowerCase() === email)));
+    if (gia) return { ok: false, errore: 'esiste', nome: gia[C.nome] + ' ' + gia[C.cognome], stato: gia[C.stato] };
+  }
+  const token = nuovoToken_(), id = 'm' + Utilities.getUuid().replace(/-/g, '').slice(0, 7);
+  const m = componiMail_(MAIL.invito, { nome }, SERATA.sito + 'invito/?t=' + token);
+  const riga = new Array(COL.length).fill('');
+  riga[C.nome] = nome; riga[C.cognome] = cognome;
+  riga[C.nascita] = eta === null ? '' : "'" + (Number(SERATA.dataISO.slice(0, 4)) - eta) + '-01-01';   // anno di nascita ricavato dall'età: l'età alla serata torna uguale
+  riga[C.stato] = 'invitato';
+  riga[C.telefono] = telefono ? "'" + telefono : '';
+  riga[C.email] = email;
+  riga[C.note] = 'aggiunto a mano dalla regia' + (eta === null ? '' : ' (età indicata: ' + eta + ')');
+  riga[C.prossime_serate] = 'no'; riga[C.fonte] = 'regia';
+  riga[C.creato] = new Date(); riga[C.invitato_il] = new Date();
+  riga[C.whatsapp] = telefono ? 'https://wa.me/' + telefono.replace(/\D/g, '') + '?text=' + encodeURIComponent(m.testo) : '';
+  riga[C.id] = id; riga[C.token] = token;
+  sh.appendRow(riga);
+  const nuova = righe.concat([riga.slice()]);
+  nuova[nuova.length - 1][C.nascita] = eta === null ? '' : (Number(SERATA.dataISO.slice(0, 4)) - eta) + '-01-01';
+  const x = nuova[nuova.length - 1];
+  return { ok: true, aggiunto: true, persona: Object.assign({ id, nome: nome + ' ' + cognome, eta, tel: telefono, stato: 'invitato', ora: '', g: genere_(nome) }, tempoStato_(x)) };
+}
+
 // la regia rivede il pass (QR) di chi ha già confermato, per rimandarglielo. solo lettura: non cambia niente nel foglio
 function passDaRegia_(r) {
   const x = String(r.id || '').trim() ? dati_(foglio_()).find((y) => String(y[C.id]) === String(r.id)) : null;
@@ -1814,7 +1873,7 @@ function nomiRegia_(r) {
   let out = [];
   if (r.tipo === 'lista') {
     out = lista().filter((x) => stati.includes(x[C.stato]))
-      .map((x) => ({ id: String(x[C.id] || ''), nome: x[C.nome] + ' ' + x[C.cognome], eta: anni(x[C.nascita]), tel: tel(x[C.telefono]), stato: x[C.stato], ora: ora(x[C.entrato_il]), g: genere_(x[C.nome]) }));
+      .map((x) => Object.assign({ id: String(x[C.id] || ''), nome: x[C.nome] + ' ' + x[C.cognome], eta: anni(x[C.nascita]), tel: tel(x[C.telefono]), stato: x[C.stato], ora: ora(x[C.entrato_il]), g: genere_(x[C.nome]) }, tempoStato_(x)));
   } else if (r.tipo === 'backstage') {
     out = datiBk_().filter((x) => x[CB.nome] && stati.includes(x[CB.stato]))
       .map((x) => ({ nome: x[CB.nome] + ' ' + x[CB.cognome], eta: anni(x[CB.nascita]), tel: tel(x[CB.telefono]), stato: x[CB.stato], ora: ora(x[CB.entrato_il]), pagato: !!x[CB.pagato], g: genere_(x[CB.nome]) }));
