@@ -9,14 +9,14 @@
 
 // ---------------------------------------------------------------- impostazioni
 const SERATA = {
-  dataISO: '2026-11-14',             // giorno della serata (per calcolare l'età)
+  dataISO: '2026-11-28',             // giorno della serata (per calcolare l'età)
   etaMinima: 23,                     // per entrare alla serata
   etaIscrizione: 21,                 // per iscriversi alla lista
   capienza: 300,                     // totale, staff compreso
   staffPrevisto: 20,
   confermeMax: 315,                  // oltre questo numero: "posti finiti."
   // gli inviti NON scadono: si possono accettare fino alla serata. niente date di scadenza, né nel foglio né nei messaggi.
-  garantitoFino: '2026-11-15T00:30:00+01:00',
+  garantitoFino: '2026-11-29T00:30:00+01:00',
   sito: 'https://zonacaldaclubuse.it/',
 };
 
@@ -29,7 +29,7 @@ const MAIL = {
   invito: {
     oggetto: 'sei dentro. 😈',
     titolo: '{nome}, sei dentro.',
-    righe: ['sat 14.11 · 23:30'],
+    righe: ['sat 28.11 · 23:30'],
     tasto: 'ci sono.',
     sotto: 'invito personale: vale solo per te. porta un documento. 23+.',
   },
@@ -48,7 +48,7 @@ const MAIL = {
   conferma: {
     oggetto: 'ci vediamo. 😈',
     titolo: '{nome}, ci vediamo.',
-    righe: ['sat 14.11 · 23:30', 'ingresso garantito fino alle 00:30.'],
+    righe: ['sat 28.11 · 23:30', 'ingresso garantito fino alle 00:30.'],
     tasto: 'il tuo invito',
     sotto: 'mostra questo QR all\'ingresso con un documento. vale solo per te. 23+.',
   },
@@ -136,7 +136,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'staff-1';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'serata-28';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -740,7 +740,7 @@ function elencoStaffWhatsApp() {
     const tel = normalizzaTelefono_(x[CS.telefono]);
     // niente emoji: WhatsApp Web le rovina quando arrivano da un link
     const pass = SERATA.sito + 'staff/?t=' + x[CS.token];
-    const testo = String(x[CS.nome]).toLowerCase() + ', sei dello staff.\nsat 14.11 · palazzo podestà\n\nil tuo pass:\n' +
+    const testo = String(x[CS.nome]).toLowerCase() + ', sei dello staff.\nsat 28.11 · palazzo podestà\n\nil tuo pass:\n' +
       pass + '\n\nmostralo all\'ingresso. vale solo per te.';
     return { id: String(x[CS.id]), nome: String(x[CS.nome]) + ' ' + String(x[CS.cognome]), tel,
              link: 'https://wa.me/' + tel.replace(/\D/g, '') + '?text=' + encodeURIComponent(testo), foto: pass, inviato: !!x[CS.wa_inviato] };
@@ -1588,7 +1588,7 @@ function elencoBackstageWhatsApp() {
     const pass = SERATA.sito + 'backstage/?t=' + x[CB.token];
     // niente emoji: WhatsApp Web le rovina quando arrivano da un link
     const testo = String(x[CB.nome]).toLowerCase() + ', sei nel backstage.\ndietro la console, a un passo dalla musica.\n\n' +
-      'sat 14.11 · dalle 23:30 · palazzo podestà\n\nil tuo pass d\'oro:\n' + pass +
+      'sat 28.11 · dalle 23:30 · palazzo podestà\n\nil tuo pass d\'oro:\n' + pass +
       '\n\nmostralo all\'ingresso: entri senza invito. vale solo per te, porta un documento.';
     return { id: String(x[CB.id]), nome: String(x[CB.nome]) + ' ' + String(x[CB.cognome]), tel,
              link: 'https://wa.me/' + tel.replace(/\D/g, '') + '?text=' + encodeURIComponent(testo), foto: pass, inviato: !!x[CB.wa_inviato] };
@@ -1735,18 +1735,18 @@ function elencoBkRegia_() {
 // Testi brevi e senza caratteri speciali: entrano in 1-2 SMS.
 function testoSms_(tipo, x) {
   if (tipo === 'invito') {
-    return String(x[C.nome]).toLowerCase() + ', sei dentro.\nzonacalda - sat 14.11 - 23:30.\n\nconferma qui:\n\n' +
+    return String(x[C.nome]).toLowerCase() + ', sei dentro.\nzonacalda - sat 28.11 - 23:30.\n\nconferma qui:\n\n' +
       SERATA.sito + 'invito/?t=' + x[C.token] + '\n\ninvito personale, porta un documento. 23+.';
   }
   if (tipo === 'confermato') {
-    return String(x[C.nome]).toLowerCase() + ', sei in lista: confermato.\nzonacalda - sat 14.11 - 23:30.\n\nil tuo ingresso:\n\n' +
+    return String(x[C.nome]).toLowerCase() + ', sei in lista: confermato.\nzonacalda - sat 28.11 - 23:30.\n\nil tuo ingresso:\n\n' +
       SERATA.sito + 'invito/?t=' + x[C.token] + '\n\nmostralo alla porta. vale solo per te, porta un documento. 23+.';
   }
   if (tipo === 'backstage') {
-    return String(x[CB.nome]).toLowerCase() + ', sei nel backstage.\nzonacalda - sat 14.11 - dalle 23:30.\n\nil tuo pass d\'oro:\n\n' +
+    return String(x[CB.nome]).toLowerCase() + ', sei nel backstage.\nzonacalda - sat 28.11 - dalle 23:30.\n\nil tuo pass d\'oro:\n\n' +
       SERATA.sito + 'backstage/?t=' + x[CB.token] + '\n\nmostralo all\'ingresso: entri senza invito. vale solo per te, porta un documento.';
   }
-  return String(x[CS.nome]).toLowerCase() + ', sei dello staff.\nzonacalda - sat 14.11 - palazzo podestà.\n\nil tuo pass:\n\n' +
+  return String(x[CS.nome]).toLowerCase() + ', sei dello staff.\nzonacalda - sat 28.11 - palazzo podestà.\n\nil tuo pass:\n\n' +
     SERATA.sito + 'staff/?t=' + x[CS.token] + '\n\nmostralo all\'ingresso. vale solo per te.';
 }
 

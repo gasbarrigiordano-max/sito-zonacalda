@@ -5,7 +5,7 @@
 (() => {
   const ROSSO = '255,20,36';
   const TESTO_OSPITI = [
-    'ti aspettiamo *sabato 14 novembre* alle *23:30*',
+    'ti aspettiamo *sabato 28 novembre* alle *23:30*',
     'palazzo podestà · via dei prati 4, civitavecchia',
     '',
     'il tuo accesso è garantito fino alle *00:30*.',
@@ -16,14 +16,14 @@
     'porta un documento d\'identità. 23+.',
   ];
   const TESTO_STAFF = [
-    'ti aspettiamo *sabato 14 novembre* alle *23:30*',
+    'ti aspettiamo *sabato 28 novembre* alle *23:30*',
     'palazzo podestà · via dei prati 4, civitavecchia',
     '',
     'pass personale, valido per una persona.',
   ];
 
   const TESTO_BACKSTAGE = [
-    'sabato *14 novembre* · dalle *23:30*',
+    'sabato *28 novembre* · dalle *23:30*',
     'palazzo podestà · via dei prati 4, civitavecchia',
     '',
     'accesso al *backstage*, dietro la console.',
@@ -141,7 +141,7 @@
     neon(g, 'STAFF', W / 2 + 8, 486, '#fff4f4',
       [[140, `rgba(${ROSSO},.45)`], [90, `rgba(${ROSSO},.75)`], [46, '#ff1424'], [22, '#ff2634'], [10, '#ff4b55'], [4, '#fff']], 104 * 0.16);
     g.font = font(36);
-    neon(g, 'sab 14.11', 343, 570, '#ff4b55', [[10, `rgba(${ROSSO},.7)`]]);
+    neon(g, 'sab 28.11', 343, 570, '#ff4b55', [[10, `rgba(${ROSSO},.7)`]]);
     neon(g, '23:30', 771, 570, '#ff4b55', [[10, `rgba(${ROSSO},.7)`]]);
     g.save(); g.setLineDash([9, 9]); g.lineWidth = 3; g.strokeStyle = 'rgba(255,255,255,.25)';
     g.beginPath(); g.moveTo(72, 615.5); g.lineTo(1008, 615.5); g.stroke(); g.restore();

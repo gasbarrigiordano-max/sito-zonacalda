@@ -1,5 +1,5 @@
 (() => {
-  const SERATA = '2026-11-14';
+  const SERATA = '2026-11-28';
   const ETA_MINIMA = 21;
   const f = document.getElementById('modulo');
   const err = document.getElementById('errore');
