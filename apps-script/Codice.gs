@@ -136,7 +136,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'regia-3';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'regia-4';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -477,6 +477,7 @@ function prepara() {
 
 // Rimette ogni dato sotto la sua intestazione, nell'ordine di COL. Prima fa una copia del foglio.
 function riordina_(ss, sh) {
+  if (senzaIntestazione_(sh)) { sh.insertRowBefore(1); sh.getRange(1, 1, 1, COL.length).setValues([COL]).setFontWeight('bold'); formatiColonne_(sh); return null; }   // senza intestazione: non si scrive sopra la prima persona
   const n = sh.getLastRow(), m = Math.max(sh.getLastColumn(), COL.length);
   const testa = n ? sh.getRange(1, 1, 1, m).getValues()[0].map((h) => String(h).trim()) : [];
   const giaInOrdine = COL.every((k, i) => testa[i] === k);
@@ -1323,7 +1324,9 @@ function riordinaStaff_(sh) {
 }
 
 function foglioStaff_() {
-  return SpreadsheetApp.getActive().getSheetByName(FOGLIO_STAFF);
+  const sh = SpreadsheetApp.getActive().getSheetByName(FOGLIO_STAFF);
+  if (sh) assicuraIntestazione_(sh, COL_STAFF, FOGLIO_STAFF);
+  return sh;
 }
 
 function datiStaff_() {
@@ -1344,7 +1347,31 @@ function scriviStaff_(sh, i, campi, riga) {
 function foglio_() {
   const sh = SpreadsheetApp.getActive().getSheetByName(FOGLIO);
   if (!sh) throw new Error('Manca il foglio "' + FOGLIO + '": usa il menu 😈 Zonacalda → Prepara il foglio.');
+  assicuraIntestazione_(sh, COL, FOGLIO);
   return sh;
+}
+
+// La riga 1 dei fogli iscritti / backstage / staff deve essere l'intestazione (nome, cognome, …). Se qualcuno la cancella, una persona
+// aggiunta finisce in riga 1 e lo script, che legge dalla riga 2, non la vede più (né in regia, né alla porta). Qui si rimette a posto:
+// se il foglio è vuoto si scrive l'intestazione, se ci sono dati in riga 1 si inserisce sopra una riga per l'intestazione.
+// Una volta per esecuzione. Chi legge soltanto (regia senza lucchetto) non scrive: rimanda la richiesta al percorso con il lucchetto.
+let INTEST_ = {};
+function senzaIntestazione_(sh) {
+  if (sh.getLastRow() < 1) return false;                       // vuoto: niente da proteggere
+  if (String(sh.getRange(1, 1).getValue()).trim() === 'nome') return false;
+  const testa = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)).getValues()[0].map((h) => String(h).trim());
+  return !(testa.includes('nome') && testa.includes('cognome'));   // intestazioni di una versione vecchia: le sistema il riordino
+}
+function assicuraIntestazione_(sh, colonne, chiave) {
+  if (INTEST_[chiave]) return;
+  const vuoto = sh.getLastRow() < 1, senza = senzaIntestazione_(sh);
+  if (vuoto || senza) {
+    if (SOLO_LETTURA_) { DA_COMPLETARE_ = true; return; }
+    if (senza) sh.insertRowBefore(1);
+    sh.getRange(1, 1, 1, colonne.length).setValues([colonne]).setFontWeight('bold');
+    try { sh.setFrozenRows(1); } catch (err) { /* niente */ }
+  }
+  INTEST_[chiave] = true;
 }
 
 function dati_(sh) {
@@ -1463,6 +1490,7 @@ function prenotaBackstage_(r) {
 }
 
 function riordinaBk_(sh) {
+  if (senzaIntestazione_(sh)) { sh.insertRowBefore(1); sh.getRange(1, 1, 1, COL_BK.length).setValues([COL_BK]).setFontWeight('bold'); return; }
   const n = sh.getLastRow(), m = Math.max(sh.getLastColumn(), COL_BK.length);
   const testa = n ? sh.getRange(1, 1, 1, m).getValues()[0].map((h) => String(h).trim()) : [];
   if (n < 2 || COL_BK.every((k, i) => testa[i] === k)) { sh.getRange(1, 1, 1, COL_BK.length).setValues([COL_BK]).setFontWeight('bold'); return; }
@@ -1478,7 +1506,11 @@ function riordinaBk_(sh) {
   sh.getRange(2, 1, righe.length, COL_BK.length).setValues(righe);
 }
 
-function foglioBk_() { return SpreadsheetApp.getActive().getSheetByName(FOGLIO_BACKSTAGE); }
+function foglioBk_() {
+  const sh = SpreadsheetApp.getActive().getSheetByName(FOGLIO_BACKSTAGE);
+  if (sh) assicuraIntestazione_(sh, COL_BK, FOGLIO_BACKSTAGE);
+  return sh;
+}
 
 function datiBk_() {
   const sh = foglioBk_();
