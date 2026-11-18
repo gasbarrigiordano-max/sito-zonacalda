@@ -136,7 +136,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'regia-4';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'staff-1';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -326,7 +326,7 @@ function portaLavoro_(r) {
   if (r.op === 'elenco') {
     // tutti gli invitati, per cercarli sul telefono della porta senza aspettare il foglio
     const persone = righe.filter((x) => x[C.token]).map((x) => Object.assign(scheda_(x), { token: String(x[C.token]) }))
-      .concat(datiStaff_().filter((x) => x[CS.token]).map((x) => Object.assign(schedaStaff_(x), { token: String(x[CS.token]) })))
+      .concat(datiStaff_().filter((x) => x[CS.token] && x[CS.stato] !== 'abilitato').map((x) => Object.assign(schedaStaff_(x), { token: String(x[CS.token]) })))
       .concat(datiBk_().filter((x) => x[CB.token] && x[CB.stato] !== 'richiesta').map((x) => Object.assign(schedaBk_(x), { token: String(x[CB.token]) })));
     return { ok: true, persone, conteggi: conteggi_(righe, staff) };
   }
@@ -731,12 +731,12 @@ function pannelloStaff() {
   if (sh.getRange(1, CS.wa_inviato + 1).getValue() !== 'wa_inviato') sh.getRange(1, CS.wa_inviato + 1).setValue('wa_inviato').setFontWeight('bold');
   coloraInviati_(sh, CS.wa_inviato, COL_STAFF.length);
   SpreadsheetApp.getUi().showSidebar(HtmlService.createHtmlOutput(pannello_('pass staff WhatsApp', 'elencoStaffWhatsApp', 'segnaStaffWhatsApp')).setTitle('😈 pass staff'));
-  const mancano = datiStaff_().filter((x) => x[CS.nome] && !x[CS.token] && x[CS.stato] !== 'escluso').map((x) => x[CS.nome] + ' ' + x[CS.cognome]);
+  const mancano = datiStaff_().filter((x) => x[CS.nome] && (!x[CS.token] || x[CS.stato] === 'abilitato') && x[CS.stato] !== 'escluso').map((x) => x[CS.nome] + ' ' + x[CS.cognome]);
   if (mancano.length) SpreadsheetApp.getActive().toast(mancano.join(', '), 'non ancora registrati: ' + mancano.length, 20);
 }
 
 function elencoStaffWhatsApp() {
-  return datiStaff_().filter((x) => x[CS.token] && x[CS.stato] !== 'escluso').map((x) => {
+  return datiStaff_().filter((x) => x[CS.token] && x[CS.stato] !== 'escluso' && x[CS.stato] !== 'abilitato').map((x) => {
     const tel = normalizzaTelefono_(x[CS.telefono]);
     // niente emoji: WhatsApp Web le rovina quando arrivano da un link
     const pass = SERATA.sito + 'staff/?t=' + x[CS.token];
@@ -1257,12 +1257,14 @@ function registraStaff_(r) {
   if (i < 0) { cache.put('staff_errori', String(tentativi + 1), 600); return { ok: false, errore: 'non_abilitato' }; }
 
   const x = righe[i];
-  if (x[CS.token]) return { ok: true, gia: true };            // già registrato: il pass lo manda l'organizzatore su WhatsApp
+  // già registrato: il pass lo manda l'organizzatore su WhatsApp. se lo stato è stato rimesso su "abilitato" (nuova serata) il vecchio pass non vale più
+  // e ci si può registrare di nuovo: nuovo pass, e via le tracce di sabato (ingresso e "pass mandato")
+  if (x[CS.token] && x[CS.stato] !== 'abilitato') return { ok: true, gia: true };
   const token = 's' + (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 31);
   const id = 's' + Utilities.getUuid().replace(/-/g, '').slice(0, 7);
-  scriviStaff_(sh, i, { telefono: "'" + telefono, token, id, registrato_il: new Date(), stato: 'registrato' }, x);
+  scriviStaff_(sh, i, { telefono: "'" + telefono, token, id, registrato_il: new Date(), entrato_il: '', wa_inviato: '', stato: 'registrato' }, x);
   accoda_('staff', (x[CS.nome] + ' ' + x[CS.cognome]).toLowerCase(),
-    'staff registrati: ' + righe.filter((y) => y[CS.token]).length + ' su ' + righe.filter((y) => y[CS.cognome]).length);
+    'staff registrati: ' + righe.filter((y) => y[CS.token] && y[CS.stato] !== 'abilitato').length + ' su ' + righe.filter((y) => y[CS.cognome]).length);
   return { ok: true, nome: x[CS.nome] };
 }
 
@@ -1275,7 +1277,7 @@ function leggiPass_(token) {
   }
   if (!token || !/^s[a-f0-9]{20,40}$/.test(String(token))) return { ok: false, errore: 'pass' };
   const x = datiStaff_().find((y) => String(y[CS.token]) === String(token));
-  if (!x || x[CS.stato] === 'escluso') return { ok: false, errore: 'pass' };
+  if (!x || x[CS.stato] === 'escluso' || x[CS.stato] === 'abilitato') return { ok: false, errore: 'pass' };   // "abilitato" = si deve registrare di nuovo: il pass vecchio non vale
   return { ok: true, nome: x[CS.nome], cognome: x[CS.cognome], stato: x[CS.stato] };
 }
 
@@ -1756,7 +1758,7 @@ function elencoInvii_() {
     .map((x) => ({ tipo: 'invito', id: String(x[C.id]), nome: x[C.nome] + ' ' + x[C.cognome], tel: tel(x[C.telefono]), testo: testoSms_('invito', x), mandato: !!x[C.wa_inviato] }));
   const backstage = datiBk_().filter((x) => x[CB.token] && (x[CB.stato] === 'confermato' || x[CB.stato] === 'entrato'))
     .map((x) => ({ tipo: 'backstage', id: String(x[CB.id]), nome: x[CB.nome] + ' ' + x[CB.cognome], tel: tel(x[CB.telefono]), testo: testoSms_('backstage', x), mandato: !!x[CB.wa_inviato] }));
-  const staff = datiStaff_().filter((x) => x[CS.token] && x[CS.stato] !== 'escluso')
+  const staff = datiStaff_().filter((x) => x[CS.token] && x[CS.stato] !== 'escluso' && x[CS.stato] !== 'abilitato')
     .map((x) => ({ tipo: 'staff', id: String(x[CS.id]), nome: x[CS.nome] + ' ' + x[CS.cognome], tel: tel(x[CS.telefono]), testo: testoSms_('staff', x), mandato: !!x[CS.wa_inviato] }));
   return { inviti, backstage, staff };
 }
