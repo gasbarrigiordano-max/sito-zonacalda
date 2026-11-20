@@ -2,7 +2,8 @@
 import re, pathlib, sys
 A = pathlib.Path('/home/user/sito-zonacalda/assets')
 MODO = sys.argv[1] if len(sys.argv) > 1 else 'misto'
-L = 425.0   # lunghezza area stampabile
+L = 425.0
+VETT = len(sys.argv) > 2 and sys.argv[2] == 'vett'   # lunghezza area stampabile
 H = 20.0; B = 2.0                                          # larghezza e abbondanza
 DIAV_DAL_GANCIO = 10.0; GAP = 25.0; FINE = 10.0
 logo = (A/'zonacalda-logo-sito.svg').read_text()
@@ -17,6 +18,16 @@ diav = re.findall(r'<path d="[^"]+"/>', (A/'zonacalda-diavolo-linee.svg').read_t
 def neon(idp, gruppi, s):
     """gruppi: [(markup, stroke_width_in_unita)] ; s: spessore di riferimento (unita' locali)."""
     out = ''
+    if VETT:
+        # bagliore vettoriale: strati di tratto sempre piu' larghi e trasparenti (niente filtri)
+        N = 14
+        for k in range(N, 0, -1):
+            f = 1 + 3.0*k/N          # larghezza del tratto in multipli di s
+            op = 0.05 + 0.07*(1-k/N)
+            out += '<g stroke="#ff1420" opacity="%.3f" stroke-linejoin="round">%s</g>' % (op, ''.join('<g stroke-width="%g">%s</g>' % (w*f, m) for m, w in gruppi))
+        out += '<g stroke="#ff2634">%s</g>' % ''.join('<g stroke-width="%g">%s</g>' % (w, m) for m, w in gruppi)
+        out += '<g stroke="#ffc8cd">%s</g>' % ''.join('<g stroke-width="%g">%s</g>' % (w*.365, m) for m, w in gruppi)
+        return out
     for n, (bl, op, col) in enumerate([(4, .5, '#ff0f19'), (1.8, .6, '#ff141e'), (.74, .75, '#ff1923'), (.3, .8, '#ff2d37')]):
         out += '<g stroke="%s" filter="url(#%s%d)" opacity="%s">%s</g>' % (col, idp, n, op, ''.join('<g stroke-width="%g">%s</g>' % (w, m) for m, w in gruppi))
     out += '<g stroke="#ff2634">%s</g>' % ''.join('<g stroke-width="%g">%s</g>' % (w, m) for m, w in gruppi)
@@ -83,4 +94,4 @@ W = L + 2*B; Ht = H + 2*B
 defsx = ''.join(righe[k] for k in lettere+ventagli+['zs-u'])
 svg = ('<svg xmlns="http://www.w3.org/2000/svg" width="%gmm" height="%gmm" viewBox="0 0 %g %g"><defs>%s</defs>'
        '<rect width="%g" height="%g" fill="#070405"/>%s</svg>') % (W, Ht, W, Ht, defsx, W, Ht, ''.join(parti))
-pathlib.Path('lanyard-%s.svg' % MODO).write_text(svg)
+pathlib.Path('lanyard-%s%s.svg' % (MODO, '-vett' if VETT else '')).write_text(svg)
