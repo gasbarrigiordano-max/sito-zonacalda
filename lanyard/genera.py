@@ -1,7 +1,8 @@
 """Lanyard ANDA 20 mm: area stampabile 425 x 20 mm, abbondanza 2 mm. Unita' = mm."""
 import re, pathlib, sys
 A = pathlib.Path('/home/user/sito-zonacalda/assets')
-L = float(sys.argv[1]) if len(sys.argv) > 1 else 425.0   # lunghezza area stampabile
+MODO = sys.argv[1] if len(sys.argv) > 1 else 'misto'
+L = 425.0   # lunghezza area stampabile
 H = 20.0; B = 2.0                                          # larghezza e abbondanza
 DIAV_DAL_GANCIO = 10.0; GAP = 25.0; FINE = 10.0
 logo = (A/'zonacalda-logo-sito.svg').read_text()
@@ -41,30 +42,45 @@ dv_vb = (172, 154, 124, 150)
 dv_g = [(''.join(diav), 5.0)]
 
 ZC_H = 12.0; ZC_W = ZC_H*zc_vb[2]/zc_vb[3]
-CU_W = 40.0; CU_H = CU_W*cu_vb[3]/cu_vb[2]
 DV_H = 14.0; DV_W = DV_H*dv_vb[2]/dv_vb[3]
 cy = B + H/2
 parti = []
 x = B + DIAV_DAL_GANCIO
-# lo spessore s e' in unita' locali: serve a scalare il bagliore
-parti.append(istanza('dv', x, cy-DV_H/2, DV_W, DV_H, dv_vb, dv_g, 5.0))
-x += DV_W + DIAV_DAL_GANCIO
 fine = B + L - FINE
-seq = ['cu','zc','cu','zc','cu','zc']
-larg = {'cu': CU_W, 'zc': ZC_W}
-tot = sum(larg[t] for t in seq)
-gap = (fine - x - tot)/(len(seq)-1) if len(seq) > 1 else GAP
-n = 0
-for t in seq:
-    n += 1
+
+def diavolo(n, x):
+    # ruotato di 90 gradi in senso orario: a lanyard indossato (gancio in basso) sta dritto
+    ww, hh = DV_H, DV_W            # ingombro dopo la rotazione
+    inner = istanza('dv%d' % n, 0, 0, DV_W, DV_H, dv_vb, dv_g, 5.0)
+    return '<g transform="translate(%g %g) rotate(90) translate(%g %g)">%s</g>' % (x+ww/2, cy, -DV_W/2, -DV_H/2, inner), ww
+
+def testo(t, n, x, w):
     if t == 'zc':
-        parti.append(istanza('z%d' % n, x, cy-ZC_H/2, ZC_W, ZC_H, zc_vb, zc_g, SW_Z))
-    else:
-        parti.append(istanza('u%d' % n, x, cy-CU_H/2, CU_W, CU_H, cu_vb, cu_g, 13.23*1.2/4))
-    x += larg[t] + gap
+        h = w*zc_vb[3]/zc_vb[2]
+        return istanza('z%d' % n, x, cy-h/2, w, h, zc_vb, zc_g, SW_Z)
+    h = w*cu_vb[3]/cu_vb[2]
+    return istanza('u%d' % n, x, cy-h/2, w, h, cu_vb, cu_g, 13.23*1.2/4)
+
+if MODO == 'misto':
+    CU_W = 40.0
+    p, dw = diavolo(0, x); parti.append(p); x += dw + DIAV_DAL_GANCIO
+    seq = ['cu','zc','cu','zc','cu','zc']; larg = {'cu': CU_W, 'zc': ZC_W}
+    gap = (fine - x - sum(larg[t] for t in seq))/(len(seq)-1)
+    for n, t in enumerate(seq):
+        parti.append(testo(t, n, x, larg[t])); x += larg[t] + gap
+else:
+    # solo CLUB USE (o solo ZONA CALDA), diavoletto tra una scritta e l'altra, ~3 cm di spazio
+    tw = {'cu': 55.0, 'zc': ZC_W}[MODO]
+    seq = ['d','t','d','t','d','t','d']
+    gap = (fine - x - 4*DV_H - 3*tw)/6
+    for n, e in enumerate(seq):
+        if e == 'd':
+            p, dw = diavolo(n, x); parti.append(p); x += dw + gap
+        else:
+            parti.append(testo(MODO, n, x, tw)); x += tw + gap
+print(MODO, 'spazio %.1f mm' % gap)
 W = L + 2*B; Ht = H + 2*B
 defsx = ''.join(righe[k] for k in lettere+ventagli+['zs-u'])
 svg = ('<svg xmlns="http://www.w3.org/2000/svg" width="%gmm" height="%gmm" viewBox="0 0 %g %g"><defs>%s</defs>'
        '<rect width="%g" height="%g" fill="#070405"/>%s</svg>') % (W, Ht, W, Ht, defsx, W, Ht, ''.join(parti))
-pathlib.Path('lanyard.svg').write_text(svg)
-print('gap tra scritte: %.1f mm; DV %.1f x %.1f, ZC %.1f x %.1f, CU %.1f x %.1f' % (gap, DV_W, DV_H, ZC_W, ZC_H, CU_W, CU_H))
+pathlib.Path('lanyard-%s.svg' % MODO).write_text(svg)
