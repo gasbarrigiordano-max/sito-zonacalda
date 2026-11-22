@@ -640,7 +640,8 @@ function invitaDaRegia_(r) {
 }
 
 // "Invia inviti" manda anche la mail di invito; gli inviti di riserva no
-// dalla regia: invita in un colpo tutti i "da invitare" (come "Invia inviti" del foglio, senza mail). la conferma resta a ognuno
+// dalla regia: invita in un colpo tutti i "da invitare" (come "Invia inviti" del foglio). La mail parte da sola a lucchetto lasciato;
+// l'SMS / WhatsApp resta da mandare dal pannello. la conferma resta a ognuno
 function invitaTuttiDaRegia_() {
   const sh = foglio_(), righe = dati_(sh);
   const scade = null;
