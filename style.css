@@ -173,3 +173,9 @@ footer p { margin: 0; }
 @font-face { font-family: 'Orbitron'; src: url(assets/font/orbitron-800.woff2) format('woff2'); font-weight: 800; font-display: swap; }
 .ospite { margin: .1rem 0 1.5rem; color: var(--tenue); font-size: .85rem; letter-spacing: .14em; text-transform: uppercase; }
 .ospite b { display: block; margin-top: .35rem; font-family: 'Orbitron', 'Inter', sans-serif; font-weight: 800; font-size: 1.5rem; letter-spacing: .1em; color: #fff; text-shadow: 0 0 8px rgba(255, 255, 255, .3), 0 0 22px rgba(255, 20, 36, .5); }
+
+/* ---------- pulsanti: invito (rosso) e backstage (oro) ---------- */
+.azioni { display: flex; flex-direction: column; align-items: stretch; width: fit-content; max-width: 92vw; margin: 0 auto; gap: .8rem; }
+.azioni .invito { margin-top: 0; white-space: nowrap; }
+.invito.oro { color: #1b1305; background: linear-gradient(135deg, #a9781c, #e6bd55 30%, #fff0b8 45%, #d9a93a 60%, #fff3c8 85%); box-shadow: 0 0 22px rgba(230, 189, 85, .45); }
+.invito.oro:hover, .invito.oro:focus-visible { background: linear-gradient(135deg, #b8862a, #f0c96a 30%, #fff6cf 45%, #e6b94a 60%, #fff8dc 85%); }
