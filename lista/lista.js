@@ -1,6 +1,7 @@
 (() => {
   const SERATA = '2026-11-28';
-  const ETA_MINIMA = 21;
+  const ETA_MINIMA = 21;     // chi ha 21 o 22 anni si può registrare (il foglio lo segna); sul sito si scrive 23+
+  const ETA_VISTA = 23;
   const f = document.getElementById('modulo');
   const err = document.getElementById('errore');
   const btn = document.getElementById('invia');
@@ -69,17 +70,17 @@
     if (!valida(d)) return;
     if (eta(d.nascita) < ETA_MINIMA) {
       // non mandiamo i dati di chi non ha l'età
-      esito('non ancora.', 'serve avere almeno ' + ETA_MINIMA + ' anni. ci vediamo più avanti.');
+      esito('non ancora.', 'serve avere almeno ' + ETA_VISTA + ' anni. ci vediamo più avanti.');
       return;
     }
     btn.disabled = true; btn.textContent = 'un attimo…';
     const r = await zcApi(d);
     btn.disabled = false; btn.textContent = 'richiedi accesso.';
-    if (r.ok && r.gia) return esito('sei già in lista.', 'se tocca a te, il diavolo ti scrive: l\'invito arriva per sms o per mail. controlla anche nello spam. 😈');
-    if (r.ok) return esito('sei in lista.', 'se tocca a te, il diavolo ti scrive: l\'invito arriva per sms o per mail. controlla anche nello spam. 😈');
+    if (r.ok && r.gia) return esito('sei già in lista.', 'niente panico se non lo vedi: l\'invito può finire nello spam. arriva per sms o mail. 😈');
+    if (r.ok) return esito('sei in lista.', 'niente panico se non lo vedi: l\'invito può finire nello spam. arriva per sms o mail. 😈');
     const msg = {
       chiusa: () => chiusa(),
-      eta: () => esito('non ancora.', 'serve avere almeno ' + ETA_MINIMA + ' anni. ci vediamo più avanti.'),
+      eta: () => esito('non ancora.', 'serve avere almeno ' + ETA_VISTA + ' anni. ci vediamo più avanti.'),
       email: () => sbagliato('email', 'controlla l\'email.'),
       telefono: () => sbagliato('telefono', 'controlla il numero.'),
       nascita: () => sbagliato('nascita', 'controlla la data di nascita.'),
