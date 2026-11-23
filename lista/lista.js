@@ -74,8 +74,8 @@
     btn.disabled = true; btn.textContent = 'un attimo…';
     const r = await zcApi(d);
     btn.disabled = false; btn.textContent = 'richiedi accesso.';
-    if (r.ok && r.gia) return esito('sei già in lista.', 'se tocca a te, ti scriviamo. 😈');
-    if (r.ok) return esito('sei in lista.', 'se tocca a te, ti scriviamo. 😈');
+    if (r.ok && r.gia) return esito('sei già in lista.', 'se tocca a te, il diavolo ti scrive: l\'invito arriva per sms o per mail. controlla anche nello spam. 😈');
+    if (r.ok) return esito('sei in lista.', 'se tocca a te, il diavolo ti scrive: l\'invito arriva per sms o per mail. controlla anche nello spam. 😈');
     const msg = {
       chiusa: () => chiusa(),
       eta: () => esito('non ancora.', 'serve avere almeno ' + ETA_MINIMA + ' anni. ci vediamo più avanti.'),
