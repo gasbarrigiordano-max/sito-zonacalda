@@ -168,3 +168,7 @@ footer p { margin: 0; }
 }
 .invito.spento { background: transparent; color: var(--testo); border: 1px solid var(--rosso); box-shadow: 0 0 14px rgba(255, 20, 36, .25); font-weight: 600; }
 .invito.spento:hover, .invito.spento:focus-visible { background: rgba(255, 20, 36, .12); }
+
+/* ---------- ospite della serata ---------- */
+.ospite { margin: -.2rem 0 1.4rem; font-size: 1rem; color: var(--tenue); letter-spacing: .04em; }
+.ospite b { color: var(--testo); font-weight: 700; text-shadow: 0 0 10px rgba(255, 20, 36, .5); }
