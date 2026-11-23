@@ -169,6 +169,7 @@ footer p { margin: 0; }
 .invito.spento { background: transparent; color: var(--testo); border: 1px solid var(--rosso); box-shadow: 0 0 14px rgba(255, 20, 36, .25); font-weight: 600; }
 .invito.spento:hover, .invito.spento:focus-visible { background: rgba(255, 20, 36, .12); }
 
-/* ---------- special guest della serata (neon, come le scritte della locandina) ---------- */
-.ospite { display: flex; flex-direction: column; align-items: center; margin: -.2rem 0 .4rem; color: var(--tenue); font-size: .95rem; letter-spacing: .06em; }
-.ospite img { display: block; width: min(21rem, 88vw); height: auto; margin: -.9rem 0 -1.1rem; }
+/* ---------- special guest della serata (stesso font dei nomi sulla locandina) ---------- */
+@font-face { font-family: 'Patrick Hand'; src: url(assets/font/patrick-hand-400.woff2) format('woff2'); font-weight: 400; font-display: swap; }
+.ospite { margin: -.2rem 0 1.4rem; font-size: 1rem; color: var(--tenue); letter-spacing: .04em; }
+.ospite b { font-family: 'Patrick Hand', 'Segoe Print', 'Bradley Hand', cursive; font-weight: 400; font-size: 1.7rem; letter-spacing: .08em; text-transform: uppercase; color: #f2f2f2; vertical-align: -.08em; text-shadow: 0 0 6px rgba(255, 255, 255, .35), 0 0 18px rgba(255, 20, 36, .45); }
