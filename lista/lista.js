@@ -9,6 +9,7 @@
 
   const esito = (titolo, testo) => {
     f.hidden = true;
+    const intro = document.querySelector('.sotto'); if (intro) intro.hidden = true;   // la frase "richiedi il tuo accesso…" non serve più
     document.getElementById('esito-titolo').textContent = titolo;
     document.getElementById('esito-testo').textContent = testo || '';
     document.getElementById('esito').hidden = false;
