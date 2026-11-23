@@ -23,7 +23,7 @@ const SERATA = {
 // ---------------------------------------------------------------- testi delle mail
 // Potete cambiarli qui. {nome} = nome della persona.
 const MAIL = {
-  mittente: 'Zonacalda',
+  mittente: 'Zonacalda 😈',
   rispondiA: 'info@zonacaldaclubuse.it',
   logo: 'https://zonacaldaclubuse.it/assets/zonacalda-logo-mail.png',
   invito: {
@@ -136,7 +136,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'serata-28';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'serata-28b';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
