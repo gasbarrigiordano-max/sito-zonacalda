@@ -34,7 +34,9 @@
   .paga p { margin: 0; }
   .paga-t { font-weight: 700; font-size: 1.15rem; letter-spacing: .02em; background: linear-gradient(135deg,#c99a2e,#fff0b8 45%,#d9a93a 70%,#fff3c8); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .paga-p { color: var(--testo); font-size: 1rem; margin-top: .25rem; }
-  .paga-s { color: #e6bd55; font-size: .92rem; margin-top: .3rem; font-style: italic; }
+  .paga-a { color: #e6bd55; font-size: .9rem; margin-top: .55rem !important; letter-spacing: .08em; text-transform: uppercase; }
+  .paga-l { list-style: none; margin: .25rem 0 0; padding: 0; color: var(--testo); font-size: .98rem; line-height: 1.45; }
+  .paga-l li { margin-top: .2rem; }
   .listino { display: inline-block; margin-top: .75rem; padding: .55rem 1.1rem; border-radius: 999px; font-weight: 600; font-size: .95rem; text-decoration: none; color: #1b1305;
              background: linear-gradient(135deg,#a9781c,#e6bd55 30%,#fff0b8 45%,#d9a93a 60%,#fff3c8 85%); box-shadow: 0 0 16px rgba(230, 189, 85, .4); }
   .avviso-paga { margin: .4rem 0 .2rem; text-align: center; color: #e6bd55; font-size: .95rem; }
@@ -46,7 +48,7 @@
 <script src="../js/api.js?v=20261115" defer></script>
 <script src="../vendor/qrcode.js" defer></script>
 <script src="../js/pass.js?v=20261118" defer></script>
-<script src="backstage.js?v=20261124c" defer></script>
+<script src="backstage.js?v=20261124d" defer></script>
 <script>if (!/^(localhost|127\.)/.test(location.hostname)) addEventListener('load', function () { var r = (document.referrer || '').split(/[?#]/)[0]; new Image().src = 'https://zonacalda.goatcounter.com/count?p=' + encodeURIComponent(location.pathname) + '&r=' + encodeURIComponent(r) + '&s=' + screen.width + '&rnd=' + Math.random(); });</script>
 </head>
 <body>
@@ -60,7 +62,11 @@
     <div class="paga" role="note">
       <p class="paga-t">il backstage è a pagamento.</p>
       <p class="paga-p">minimo 30 € a persona. si paga in struttura.</p>
-      <p class="paga-s">tranquillo: i 30 € si fanno senza sforzo, bastano 2 click.</p>
+      <p class="paga-a">a scelta:</p>
+      <ul class="paga-l">
+        <li>2 drink e bracciale</li>
+        <li>oppure i 30 € cumulabili e spendibili in bottiglie</li>
+      </ul>
       <a class="listino" id="listino-apri" href="../assets/listino-bottiglie.jpg" target="_blank" rel="noopener">vedi il listino prezzi bottiglie</a>
     </div>
 
