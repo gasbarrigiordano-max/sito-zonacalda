@@ -136,7 +136,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'serata-28b';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'serata-28c';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -190,6 +190,7 @@ function iscrivi_(r) {
   riga[C.stato] = 'in lista';
   if (eta < SERATA.etaMinima) riga[C.note] = 'meno di ' + SERATA.etaMinima + ' anni (' + eta + ')';
   sh.appendRow(riga);
+  dopo_(() => controllaDoppioni_('lista', nome, cognome, telefono, email));
   accoda_('lista', (nome + ' ' + cognome).toLowerCase() + ', ' + eta + ' anni' + (eta < SERATA.etaMinima ? ' (meno di ' + SERATA.etaMinima + ')' : ''),
     'in lista in tutto: ' + (righe.length + 1) + '\n' + contiPista_(righe));
   return { ok: true };
@@ -1264,9 +1265,47 @@ function registraStaff_(r) {
   const token = 's' + (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 31);
   const id = 's' + Utilities.getUuid().replace(/-/g, '').slice(0, 7);
   scriviStaff_(sh, i, { telefono: "'" + telefono, token, id, registrato_il: new Date(), entrato_il: '', wa_inviato: '', stato: 'registrato' }, x);
+  dopo_(() => controllaDoppioni_('staff', x[CS.nome], x[CS.cognome], telefono, ''));
   accoda_('staff', (x[CS.nome] + ' ' + x[CS.cognome]).toLowerCase(),
     'staff registrati: ' + righe.filter((y) => y[CS.token] && y[CS.stato] !== 'abilitato').length + ' su ' + righe.filter((y) => y[CS.cognome]).length);
   return { ok: true, nome: x[CS.nome] };
+}
+
+// ---------------------------------------------------------------- doppioni tra lista, staff e backstage
+// Chi si registra in un posto ed è già in un altro (una ragazza che sbaglia pagina, un amico che prenota due volte):
+// arriva un avviso su Telegram (o per mail se Telegram non c'è), così lo controlli e togli la riga di troppo.
+// Si confronta il telefono, la mail e il nome (anche con nome e cognome scambiati). Nessuna scrittura: solo lettura.
+function controllaDoppioni_(dove, nome, cognome, telefono, email) {
+  try {
+    const ss = SpreadsheetApp.getActive();
+    const n = (v) => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '');
+    const cifre = (v) => String(v || '').replace(/\D/g, '').replace(/^39(?=3\d{8,9}$)/, '');
+    const leggi = (foglio, colonne) => {
+      const sh = ss.getSheetByName(foglio);
+      if (!sh) return [];
+      const k = sh.getLastRow() - 1;
+      return k > 0 ? sh.getRange(2, 1, k, colonne.length).getValues() : [];
+    };
+    const mail = String(email || '').trim().toLowerCase(), tel = cifre(telefono);
+    const trovati = [];
+    const prova = (etichetta, righe, ix, saltaStati) => righe.forEach((x) => {
+      if (!n(x[ix.nome]) && !n(x[ix.cognome])) return;
+      if (saltaStati.indexOf(x[ix.stato]) >= 0) return;
+      const motivi = [];
+      if (tel && ix.telefono >= 0 && cifre(String(x[ix.telefono]).replace(/^'/, '')) === tel) motivi.push('stesso telefono');
+      if (mail && ix.email >= 0 && String(x[ix.email]).trim().toLowerCase() === mail) motivi.push('stessa mail');
+      if ((n(x[ix.nome]) === n(nome) && n(x[ix.cognome]) === n(cognome)) || (n(x[ix.nome]) === n(cognome) && n(x[ix.cognome]) === n(nome))) motivi.push('stesso nome');
+      if (motivi.length) trovati.push(etichetta + ' (' + (x[ix.stato] || 'senza stato') + ': ' + motivi.join(' + ') + ')');
+    });
+    if (dove !== 'lista') prova('lista', leggi(FOGLIO, COL), C, ['escluso']);
+    if (dove !== 'staff') prova('staff', leggi(FOGLIO_STAFF, COL_STAFF), CS, ['escluso']);
+    if (dove !== 'backstage') prova('backstage', leggi(FOGLIO_BACKSTAGE, COL_BK), CB, ['annullato']);
+    if (!trovati.length) return false;
+    const testo = '⚠️ possibile doppione\nnuova registrazione in ' + dove + ': ' + (String(nome) + ' ' + String(cognome)).toLowerCase() +
+      '\nrisulta già in:\n- ' + trovati.join('\n- ') + '\ncontrolla e, se è un errore, elimina la riga di troppo.';
+    if (telegramAttivo_() && tg_(testo)) return true;
+    return notifica_('possibile doppione: ' + (String(nome) + ' ' + String(cognome)).toLowerCase(), testo);
+  } catch (err) { console.error('doppioni', err); return false; }
 }
 
 function leggiPass_(token) {
@@ -1486,6 +1525,7 @@ function prenotaBackstage_(r) {
   riga[CB.token] = "'b" + (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 31);
   sh.appendRow(riga);
   const nb = (st) => righe.filter((y) => y[CB.nome] && y[CB.stato] === st).length;
+  dopo_(() => controllaDoppioni_('backstage', nome, cognome, telefono, ''));
   accoda_('backstage', (nome + ' ' + cognome).toLowerCase() + ', ' + eta + ' anni',
     'richieste da confermare: ' + (nb('richiesta') + 1) + ' · confermati da entrare: ' + nb('confermato') +
     ' · posti ' + (righe.filter((y) => y[CB.nome] && y[CB.stato] !== 'annullato').length + 1) + ' / ' + POSTI_BACKSTAGE);
