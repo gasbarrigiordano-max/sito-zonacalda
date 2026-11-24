@@ -136,7 +136,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'serata-28c';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'serata-28d';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -236,8 +236,11 @@ function rispondi_(token, si) {
     const confermati = dati_(t.sh).filter((y) => y[C.stato] === 'confermato' || y[C.stato] === 'entrato').length;
     if (confermati >= SERATA.confermeMax) return { ok: false, errore: 'pieno' };
   }
-  scrivi_(t, { stato: si ? 'confermato' : 'rifiutato', risposto_il: new Date() });
-  if (si) dopo_(() => mandaConferma_(t));
+  const inCoda = si && String(x[C.email]).trim() && accodaMail_('c', x);
+  const campiRisposta = { stato: si ? 'confermato' : 'rifiutato', risposto_il: new Date() };
+  if (inCoda) campiRisposta.note = aggiungiNota_(x[C.note], 'conferma da inviare');    // la toglie la mail quando parte; se resta, c'è il menu per rimandarla
+  scrivi_(t, campiRisposta);
+  if (si && !inCoda) dopo_(() => mandaConferma_(t));
   if (telegramAttivo_()) {
     const tutti = dati_(t.sh);
     const eta = eta_(dataISO_(x[C.nascita]), SERATA.dataISO);
@@ -428,6 +431,7 @@ function onOpen() {
     .addItem('Invia inviti di riserva', 'inviaRiserva')
     .addItem('Riapri gli inviti scaduti (non scadono più)', 'riapriInviti')
     .addItem('Rimanda gli inviti aperti (li rimette tra i "da mandare")', 'rimandaInviti')
+    .addItem('Mail in coda: manda ora', 'codaMailOra')
     .addItem('Manda le mail di conferma non partite', 'rimandaConferme')
     .addItem('Avvisa chi non è stato invitato', 'avvisaNonInvitati')
     .addSeparator()
@@ -470,6 +474,8 @@ function prepara() {
   sh.hideColumns(C.id + 1, 2);                           // id e token: servono allo script, non a te
   ScriptApp.getProjectTriggers().forEach((t) => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('scadiInviti').timeBased().everyMinutes(15).create();
+  ScriptApp.newTrigger('elaboraCodaMail').timeBased().everyMinutes(1).create();
+  try { CacheService.getScriptCache().remove('coda_lavoro'); } catch (err) { console.error(err); }
   coloraIscritti_(sh);
   SpreadsheetApp.getUi().alert(spostate
     ? 'Colonne riordinate (' + spostate.n + ' iscritti). Una copia di prima è nel foglio "' + spostate.copia + '": quando hai controllato puoi cancellarla.'
@@ -608,7 +614,8 @@ function invitaRiga_(t, scade, riserva, conMail) {
       inviata = true;
     } catch (err) { console.error(err); }
   }
-  const campi = { stato: 'invitato', token, invitato_il: new Date(), scade_il: '', whatsapp: wa };   // nessuna scadenza
+  const campi = { stato: 'invitato', token, invitato_il: new Date(), whatsapp: wa };   // nessuna scadenza
+  if (String(x[C.scade_il]).trim()) campi.scade_il = '';
   if (!String(x[C.id]).trim()) campi.id = Utilities.getUuid().slice(0, 8);   // riga scritta a mano: senza codice la porta non la farebbe entrare
   if (!x[C.creato]) campi.creato = new Date();
   scrivi_(t, campi);
@@ -634,7 +641,7 @@ function invitaDaRegia_(r) {
   const x = righe[i];
   if (x[C.stato] === 'da invitare') {
     invitaRiga_({ sh, n: i + 2, riga: x }, null, false, false);
-    dopo_(() => mandaMailInvito_(x));                    // la mail parte a lucchetto lasciato; l'SMS resta da mandare a mano
+    if (!accodaMail_('i', x)) dopo_(() => mandaMailInvito_(x));      // la mail parte da sola poco dopo; l'SMS resta da mandare a mano
   } else if (x[C.stato] !== 'invitato') return { ok: false, errore: 'stato', stato: x[C.stato] };
   return { ok: true, stato: x[C.stato], id: String(x[C.id]), invito: true,
     sms: { tel: normalizzaTelefono_(String(x[C.telefono] || '').replace(/^'/, '')), testo: testoSms_('invito', x), mandato: !!x[C.wa_inviato] } };
@@ -650,7 +657,7 @@ function invitaTuttiDaRegia_() {
   righe.forEach((x, i) => {
     if (x[C.stato] !== 'da invitare' || !(x[C.nome] || x[C.cognome])) return;
     invitaRiga_({ sh, n: i + 2, riga: x }, scade, false, false);
-    dopo_(() => mandaMailInvito_(x));
+    if (!accodaMail_('i', x)) dopo_(() => mandaMailInvito_(x));
     invitati.push({ id: String(x[C.id]), nome: x[C.nome] + ' ' + x[C.cognome],
       sms: { tel: normalizzaTelefono_(String(x[C.telefono] || '').replace(/^'/, '')), testo: testoSms_('invito', x), mandato: !!x[C.wa_inviato] } });
   });
@@ -985,6 +992,85 @@ function quando_(d) {
   const mesi = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
   const f = (s) => Number(Utilities.formatDate(d, 'Europe/Rome', s));
   return giorni[f('u') % 7] + ' ' + f('d') + ' ' + mesi[f('M') - 1] + ' alle ' + Utilities.formatDate(d, 'Europe/Rome', 'HH:mm');
+}
+
+// ---------------------------------------------------------------- coda delle mail
+// Dalla regia e dalla pagina dell'invito la risposta non aspetta più la mail: l'invito (o la conferma) si salva, la risposta torna
+// subito e la mail va in una coda che un lavoro automatico svuota ogni minuto. Se qualcosa non va (lavoro non installabile),
+// la mail parte come prima, a lucchetto lasciato. Chi resta in coda si recupera dal menu ("Mail in coda: manda ora").
+// Voci: "i|id|n" = mail di invito, "c|id|n" = mail di conferma con il QR; n = tentativi già fatti.
+const CODA_MAIL = 'CODA_MAIL';
+function lavoroCodaAttivo_() {
+  const cache = CacheService.getScriptCache();
+  if (cache.get('coda_lavoro')) return true;
+  try {
+    const c = ScriptApp.getProjectTriggers().some((t) => t.getHandlerFunction && t.getHandlerFunction() === 'elaboraCodaMail');
+    if (!c) ScriptApp.newTrigger('elaboraCodaMail').timeBased().everyMinutes(1).create();
+    cache.put('coda_lavoro', '1', 21600);
+    return true;
+  } catch (err) { console.error('lavoro coda mail', err); return false; }
+}
+// da chiamare dentro il lucchetto. true se la mail è in coda (e partirà da sola), false se va mandata subito
+function accodaMail_(tipo, x) {
+  const id = String(x[C.id] || '').trim();
+  if (!id || !lavoroCodaAttivo_()) return false;
+  try {
+    const p = PropertiesService.getScriptProperties();
+    const coda = JSON.parse(p.getProperty(CODA_MAIL) || '[]');
+    const voce = tipo + '|' + id;
+    if (!coda.some((v) => v.indexOf(voce + '|') === 0)) coda.push(voce + '|0');
+    const testo = JSON.stringify(coda);
+    if (testo.length > 8500) return false;                    // coda troppo lunga per una proprietà (limite 9 KB): questa va subito
+    p.setProperty(CODA_MAIL, testo);
+    return true;
+  } catch (err) { console.error('accoda mail', err); return false; }
+}
+function elaboraCodaMail() {
+  const p = PropertiesService.getScriptProperties();
+  const grezzo = p.getProperty(CODA_MAIL);
+  if (!grezzo || grezzo === '[]') return 0;
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(25000)) return 0;                      // il sito sta lavorando: si riprova al giro dopo
+  let presi = [];
+  try {
+    const coda = JSON.parse(p.getProperty(CODA_MAIL) || '[]');
+    presi = coda.splice(0, 80);
+    p.setProperty(CODA_MAIL, JSON.stringify(coda));
+  } finally { lock.releaseLock(); }
+  if (!presi.length) return 0;
+  const sh = SpreadsheetApp.getActive().getSheetByName(FOGLIO);
+  const k = sh ? sh.getLastRow() - 1 : 0;
+  const righe = k > 0 ? sh.getRange(2, 1, k, COL.length).getValues() : [];      // sola lettura: niente scritture fuori dal lucchetto
+  const inizio = Date.now(), rimesse = [];
+  let mandate = 0;
+  presi.forEach((voce) => {
+    const [tipo, id, n] = voce.split('|'), tentativi = Number(n || 0);
+    if (Date.now() - inizio > 240000) { rimesse.push(voce); return; }     // quasi 4 minuti: il resto al giro dopo
+    const i = righe.findIndex((x) => String(x[C.id]) === id);
+    if (i < 0) return;
+    const x = righe[i];
+    try {
+      if (tipo === 'i') {
+        if (x[C.stato] !== 'invitato' || !String(x[C.email]).trim() || !x[C.token]) return;       // già risposto, eliminato o senza mail
+        if (mandaMailInvito_(x)) mandate++; else if (tentativi < 2) rimesse.push(tipo + '|' + id + '|' + (tentativi + 1));
+      } else {
+        if ((x[C.stato] !== 'confermato' && x[C.stato] !== 'entrato') || !String(x[C.email]).trim()) return;
+        const fresca = sh.getRange(i + 2, 1, 1, COL.length).getValues()[0];       // riga riletta ora: la nota potrebbe essere cambiata nel frattempo
+        mandaConferma_({ sh, n: i + 2, riga: fresca }); mandate++;       // se non parte, lascia la nota "conferma da inviare" (menu per rimandarla)
+      }
+    } catch (err) { console.error('coda mail', err); if (tentativi < 2) rimesse.push(tipo + '|' + id + '|' + (tentativi + 1)); }
+  });
+  if (rimesse.length && lock.tryLock(20000)) {
+    try { p.setProperty(CODA_MAIL, JSON.stringify(JSON.parse(p.getProperty(CODA_MAIL) || '[]').concat(rimesse))); } finally { lock.releaseLock(); }
+  }
+  return mandate;
+}
+function codaMailOra() {
+  const prima = JSON.parse(PropertiesService.getScriptProperties().getProperty(CODA_MAIL) || '[]').length;
+  const n = elaboraCodaMail();
+  const dopo = JSON.parse(PropertiesService.getScriptProperties().getProperty(CODA_MAIL) || '[]').length;
+  SpreadsheetApp.getUi().alert('Mail in coda prima: ' + prima + '\nMandate adesso: ' + n + '\nAncora in coda: ' + dopo +
+    '\nMail ancora inviabili oggi: ' + quotaMail_() + '.');
 }
 
 // mail di conferma con il QR (immagine nel testo + allegato da salvare)
@@ -1835,9 +1921,11 @@ function confermaDaRegia_(r) {
     if (confermati >= SERATA.confermeMax) return { ok: false, errore: 'pieno' };
     const campi = { stato: 'confermato', risposto_il: new Date() };
     if (!String(x[C.token]).trim()) campi.token = nuovoToken_();
+    const conMailConferma = !!String(x[C.email]).trim();
+    const inCoda = conMailConferma && accodaMail_('c', x);
+    campi.note = aggiungiNota_(inCoda ? aggiungiNota_(x[C.note], 'conferma da inviare') : x[C.note], 'confermato dalla regia');
     scrivi_(t, campi);
-    scrivi_(t, { note: aggiungiNota_(x[C.note], 'confermato dalla regia') });
-    if (String(x[C.email]).trim()) dopo_(() => mandaConferma_(t));
+    if (conMailConferma && !inCoda) dopo_(() => mandaConferma_(t));
     if (telegramAttivo_()) {
       const eta = eta_(dataISO_(x[C.nascita]), SERATA.dataISO);
       const testo = '✅ confermato dalla regia: ' + (x[C.nome] + ' ' + x[C.cognome]).toLowerCase() + (eta >= 0 && eta < 100 ? ', ' + eta + ' anni' : '') + '\n' + contiPista_(dati_(sh));
