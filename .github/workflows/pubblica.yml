@@ -1,5 +1,9 @@
 # Pubblica il sito su GitHub Pages a ogni push su main.
 # In Settings → Pages la sorgente deve essere "GitHub Actions".
+#
+# Due lavori separati (come nel modello di GitHub): "prepara" crea e carica il pacchetto del sito, "pubblica" lo mette online.
+# Prima era tutto in un lavoro solo e, a volte, la pubblicazione non trovava il pacchetto appena caricato ("0 artifact").
+# La pubblicazione, se non riesce, riprova da sola due volte prima di dare errore.
 name: pubblica sito
 
 on:
@@ -18,11 +22,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  pubblica:
+  prepara:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - name: Prepara i file del sito (senza strumenti e automazioni)
@@ -34,5 +35,30 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
-      - id: deploy
+
+  pubblica:
+    needs: prepara
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.finale.outputs.page_url || steps.secondo.outputs.page_url || steps.primo.outputs.page_url }}
+    steps:
+      - name: Pubblica (tentativo 1)
+        id: primo
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - name: Attesa prima di riprovare
+        if: steps.primo.outcome == 'failure'
+        run: sleep 40
+      - name: Pubblica (tentativo 2)
+        id: secondo
+        if: steps.primo.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - name: Attesa prima di riprovare
+        if: steps.primo.outcome == 'failure' && steps.secondo.outcome == 'failure'
+        run: sleep 90
+      - name: Pubblica (tentativo 3)
+        id: finale
+        if: steps.primo.outcome == 'failure' && steps.secondo.outcome == 'failure'
         uses: actions/deploy-pages@v4
