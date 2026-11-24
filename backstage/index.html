@@ -29,11 +29,23 @@
   .foto-pass { display: block; width: min(88vw, 380px); height: auto; margin: 1.25rem auto .5rem; border-radius: 14px;
                box-shadow: 0 0 0 1px #2a2626, 0 10px 40px rgba(0, 0, 0, .6); -webkit-touch-callout: default; }
   .tieni { color: var(--tenue); font-size: .85rem; text-align: center; margin: 0 0 1rem; }
+  .paga { margin: 1.1rem auto 1.4rem; padding: .9rem 1rem 1rem; max-width: 26rem; text-align: center; border: 1px solid #d9a93a; border-radius: 14px;
+          background: rgba(217, 169, 58, .08); box-shadow: 0 0 20px rgba(240, 190, 80, .18); }
+  .paga p { margin: 0; }
+  .paga-t { font-weight: 700; font-size: 1.15rem; letter-spacing: .02em; background: linear-gradient(135deg,#c99a2e,#fff0b8 45%,#d9a93a 70%,#fff3c8); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .paga-p { color: var(--testo); font-size: 1rem; margin-top: .25rem; }
+  .listino { display: inline-block; margin-top: .75rem; padding: .55rem 1.1rem; border-radius: 999px; font-weight: 600; font-size: .95rem; text-decoration: none; color: #1b1305;
+             background: linear-gradient(135deg,#a9781c,#e6bd55 30%,#fff0b8 45%,#d9a93a 60%,#fff3c8 85%); box-shadow: 0 0 16px rgba(230, 189, 85, .4); }
+  .avviso-paga { margin: .4rem 0 .2rem; text-align: center; color: #e6bd55; font-size: .95rem; }
+  dialog#listino { padding: 0; border: 0; background: #050505; color: #fff; width: min(96vw, 560px); max-height: 94vh; border-radius: 14px; overflow: auto; }
+  dialog#listino::backdrop { background: rgba(0, 0, 0, .85); }
+  dialog#listino img { display: block; width: 100%; height: auto; }
+  dialog#listino .chiudi { position: sticky; top: 0; float: right; margin: .5rem; padding: .45rem .9rem; border: 1px solid #5a4a22; border-radius: 999px; background: rgba(5, 5, 5, .9); color: #fff; font-size: .9rem; cursor: pointer; z-index: 2; }
 </style>
 <script src="../js/api.js?v=20261115" defer></script>
 <script src="../vendor/qrcode.js" defer></script>
 <script src="../js/pass.js?v=20261118" defer></script>
-<script src="backstage.js?v=20261112" defer></script>
+<script src="backstage.js?v=20261124" defer></script>
 <script>if (!/^(localhost|127\.)/.test(location.hostname)) addEventListener('load', function () { var r = (document.referrer || '').split(/[?#]/)[0]; new Image().src = 'https://zonacalda.goatcounter.com/count?p=' + encodeURIComponent(location.pathname) + '&r=' + encodeURIComponent(r) + '&s=' + screen.width + '&rnd=' + Math.random(); });</script>
 </head>
 <body>
@@ -43,6 +55,17 @@
   <section id="s-modulo">
     <h1 class="oro">backstage.</h1>
     <p class="sotto">dietro la console. posti contati.<br>prenota qui: ti scriviamo noi su whatsapp per confermare.</p>
+
+    <div class="paga" role="note">
+      <p class="paga-t">il backstage è a pagamento.</p>
+      <p class="paga-p">minimo 30 € a persona. si paga in struttura.</p>
+      <a class="listino" id="listino-apri" href="../assets/listino-bottiglie.jpg" target="_blank" rel="noopener">vedi il listino prezzi</a>
+    </div>
+
+    <dialog id="listino" aria-label="listino bottiglie">
+      <form method="dialog"><button class="chiudi" aria-label="chiudi">chiudi ✕</button></form>
+      <img src="../assets/listino-bottiglie.jpg" alt="listino bottiglie: distillati e bollicine, con i prezzi" loading="lazy">
+    </dialog>
 
     <form id="modulo" novalidate>
       <label>nome
@@ -63,6 +86,7 @@
       <label class="spunta"><input type="checkbox" name="informativa" required>
         <span>ho letto l'<a href="../privacy/" target="_blank" rel="noopener">informativa privacy</a> e ho almeno 23 anni.</span>
       </label>
+      <p class="avviso-paga">il backstage è a pagamento: minimo 30 € a persona.</p>
       <p class="errore" id="errore" role="alert"></p>
       <button class="bottone" type="submit" id="invia">prenota.</button>
     </form>

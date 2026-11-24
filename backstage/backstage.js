@@ -91,7 +91,7 @@
     const r = await zcApi(d);
     btn.disabled = false; btn.textContent = 'prenota.';
     if (r.ok && r.gia) return esito('hai già prenotato.', 'ti scriviamo noi su whatsapp. 😈');
-    if (r.ok) return esito('richiesta ricevuta.', 'ti scriviamo su whatsapp per confermare. poi arriva il pass d\'oro. 😈');
+    if (r.ok) return esito('richiesta ricevuta.', 'ti scriviamo su whatsapp per confermare. il backstage è a pagamento: minimo 30 € a persona. poi arriva il pass d\'oro. 😈');
     const msg = {
       pieno: () => esito('posti finiti.', 'il backstage è al completo.'),
       eta: () => esito('non ancora.', 'il backstage è dai 23 anni in su.'),
@@ -103,4 +103,11 @@
     }[r.errore];
     if (msg) msg(); else sbagliato(null, 'qualcosa non va. riprova tra poco.');
   });
+
+  // listino: si apre sopra la pagina; se il browser non sa farlo resta il link normale all'immagine
+  const apri = document.getElementById('listino-apri'), dlg = document.getElementById('listino');
+  if (apri && dlg && typeof dlg.showModal === 'function') {
+    apri.addEventListener('click', (e) => { e.preventDefault(); dlg.showModal(); });
+    dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
+  }
 })();
