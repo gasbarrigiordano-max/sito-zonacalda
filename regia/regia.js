@@ -7,13 +7,17 @@
     scrivi: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* niente */ } },
     togli: (k) => { try { localStorage.removeItem(k); } catch (e) { /* niente */ } },
   };
-  const ORE_ACCESSO = 24;                                     // dopo il PIN si resta dentro 24 ore, anche ricaricando
+  const ORE_ACCESSO = 24 * 90;                                // dopo il PIN questo dispositivo resta autorizzato 90 giorni dall'ultimo uso (si toglie con "esci" o cambiando il PIN)
   let giro = 0, falliti = 0, sessione = '';
   const api = async (dati) => {
     const r = await zcApi({ azione: 'regia', pin, sessione, ...dati });
     if (r && r.sessione) {
       sessione = r.sessione;
       const a = mem.leggi('zc-regia-accesso'); if (a) { a.s = sessione; mem.scrivi('zc-regia-accesso', a); }
+    }
+    if (r && r.ok) {                                          // finché lo usi non scade: il tempo riparte dall'ultimo uso (si riscrive al massimo una volta all'ora)
+      const a = mem.leggi('zc-regia-accesso');
+      if (a && a.pin && Date.now() - (a.r || 0) > 3600e3) { a.scade = Date.now() + ORE_ACCESSO * 3600e3; a.r = Date.now(); mem.scrivi('zc-regia-accesso', a); }
     }
     return r;
   };
