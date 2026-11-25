@@ -91,6 +91,10 @@ function doPost(e) {
   if (req.azione === 'porta' && req.op === 'novita') {
     try { return out_(novitaPorta_(req)); } catch (err) { console.error(err); return out_({ ok: false, errore: 'interno' }); }
   }
+  // "la lista è aperta?" la chiede ogni persona che apre la pagina: legge una sola impostazione, non deve mettersi in fila dietro chi si sta iscrivendo
+  if (req.azione === 'lista') {
+    try { return out_({ ok: true, aperta: listaAperta_() }); } catch (err) { console.error(err); return out_({ ok: false, errore: 'interno' }); }
+  }
   // la regia che legge soltanto (numeri, nomi, elenchi) non aspetta il lucchetto: non resta in coda dietro a chi sta confermando
   if (req.azione === 'regia' && (!req.op || ['nomi', 'invii', 'backstage', 'passlista'].indexOf(req.op) >= 0)) {
     try {
@@ -136,7 +140,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'serata-28d';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'serata-28e';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -190,7 +194,7 @@ function iscrivi_(r) {
   riga[C.stato] = 'in lista';
   if (eta < SERATA.etaMinima) riga[C.note] = 'meno di ' + SERATA.etaMinima + ' anni (' + eta + ')';
   sh.appendRow(riga);
-  dopo_(() => controllaDoppioni_('lista', nome, cognome, telefono, email));
+  accodaDoppioni_('lista', nome, cognome, telefono, email);
   accoda_('lista', (nome + ' ' + cognome).toLowerCase() + ', ' + eta + ' anni' + (eta < SERATA.etaMinima ? ' (meno di ' + SERATA.etaMinima + ')' : ''),
     'in lista in tutto: ' + (righe.length + 1) + '\n' + contiPista_(righe));
   return { ok: true };
@@ -1026,6 +1030,7 @@ function accodaMail_(tipo, x) {
   } catch (err) { console.error('accoda mail', err); return false; }
 }
 function elaboraCodaMail() {
+  elaboraDoppioni_();
   const p = PropertiesService.getScriptProperties();
   const grezzo = p.getProperty(CODA_MAIL);
   if (!grezzo || grezzo === '[]') return 0;
@@ -1351,7 +1356,7 @@ function registraStaff_(r) {
   const token = 's' + (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 31);
   const id = 's' + Utilities.getUuid().replace(/-/g, '').slice(0, 7);
   scriviStaff_(sh, i, { telefono: "'" + telefono, token, id, registrato_il: new Date(), entrato_il: '', wa_inviato: '', stato: 'registrato' }, x);
-  dopo_(() => controllaDoppioni_('staff', x[CS.nome], x[CS.cognome], telefono, ''));
+  accodaDoppioni_('staff', x[CS.nome], x[CS.cognome], telefono, '');
   accoda_('staff', (x[CS.nome] + ' ' + x[CS.cognome]).toLowerCase(),
     'staff registrati: ' + righe.filter((y) => y[CS.token] && y[CS.stato] !== 'abilitato').length + ' su ' + righe.filter((y) => y[CS.cognome]).length);
   return { ok: true, nome: x[CS.nome] };
@@ -1361,6 +1366,32 @@ function registraStaff_(r) {
 // Chi si registra in un posto ed è già in un altro (una ragazza che sbaglia pagina, un amico che prenota due volte):
 // arriva un avviso su Telegram (o per mail se Telegram non c'è), così lo controlli e togli la riga di troppo.
 // Si confronta il telefono, la mail e il nome (anche con nome e cognome scambiati). Nessuna scrittura: solo lettura.
+// Il controllo dei doppioni non rallenta chi si iscrive: si mette in coda e lo fa il lavoro automatico (entro un minuto).
+// Se il lavoro non c'è, o la coda è piena, si controlla subito, come prima.
+const CODA_DOPPIONI = 'CODA_DOPPIONI';
+function accodaDoppioni_(dove, nome, cognome, telefono, email) {
+  try {
+    if (lavoroCodaAttivo_()) {
+      const p = PropertiesService.getScriptProperties();
+      const coda = JSON.parse(p.getProperty(CODA_DOPPIONI) || '[]');
+      coda.push([dove, String(nome || '').slice(0, 40), String(cognome || '').slice(0, 40), String(telefono || '').slice(0, 20), String(email || '').slice(0, 60)]);
+      const testo = JSON.stringify(coda);
+      if (testo.length < 8500) { p.setProperty(CODA_DOPPIONI, testo); return; }
+    }
+  } catch (err) { console.error('coda doppioni', err); }
+  dopo_(() => controllaDoppioni_(dove, nome, cognome, telefono, email));
+}
+function elaboraDoppioni_() {
+  const p = PropertiesService.getScriptProperties();
+  const grezzo = p.getProperty(CODA_DOPPIONI);
+  if (!grezzo || grezzo === '[]') return;
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(25000)) return;
+  let presi = [];
+  try { presi = JSON.parse(p.getProperty(CODA_DOPPIONI) || '[]'); p.setProperty(CODA_DOPPIONI, '[]'); } finally { lock.releaseLock(); }
+  presi.forEach((v) => controllaDoppioni_(v[0], v[1], v[2], v[3], v[4]));
+}
+
 function controllaDoppioni_(dove, nome, cognome, telefono, email) {
   try {
     const ss = SpreadsheetApp.getActive();
@@ -1611,7 +1642,7 @@ function prenotaBackstage_(r) {
   riga[CB.token] = "'b" + (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 31);
   sh.appendRow(riga);
   const nb = (st) => righe.filter((y) => y[CB.nome] && y[CB.stato] === st).length;
-  dopo_(() => controllaDoppioni_('backstage', nome, cognome, telefono, ''));
+  accodaDoppioni_('backstage', nome, cognome, telefono, '');
   accoda_('backstage', (nome + ' ' + cognome).toLowerCase() + ', ' + eta + ' anni',
     'richieste da confermare: ' + (nb('richiesta') + 1) + ' · confermati da entrare: ' + nb('confermato') +
     ' · posti ' + (righe.filter((y) => y[CB.nome] && y[CB.stato] !== 'annullato').length + 1) + ' / ' + POSTI_BACKSTAGE);
