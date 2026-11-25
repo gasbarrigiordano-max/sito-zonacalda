@@ -24,6 +24,7 @@
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const maiuscole = (s) => String(s || '').toLocaleLowerCase('it').replace(/(^|[\s'-])\p{L}/gu, (c) => c.toLocaleUpperCase('it'));
   const metti = (id, v) => { $(id).textContent = v; };
+  const testoGeneri = (m, f, i) => m + (m === 1 ? ' uomo' : ' uomini') + ' · ' + f + (f === 1 ? ' donna' : ' donne') + (i ? ' · ' + i + (i === 1 ? ' incerto' : ' incerti') : '');
 
   const mostra = (r) => {
     const L = r.lista, B = r.backstage, S = r.staff;
@@ -36,6 +37,9 @@
     metti('l-tot', L.totale + ' registrati');
     metti('l-entrati', L.entrato); metti('l-attesi', L.confermato); metti('l-invitati', L.invitato);
     metti('l-inlista', L['in lista']); metti('l-dainvitare', L['da invitare']); metti('l-no', L.rifiutato + L.scaduto);
+    const G = r.generi, gen = (id, o) => metti(id, o ? testoGeneri(o.m, o.f, o.i) : '');
+    if (G && G.lista) { gen('gl-entrati', G.lista.entrato); gen('gl-attesi', G.lista.confermato); gen('gl-invitati', G.lista.invitato); gen('gl-inlista', G.lista['in lista']); gen('gl-dainvitare', G.lista['da invitare']); }
+    if (G && G.backstage) { gen('gb-entrati', G.backstage.entrato); gen('gb-attesi', G.backstage.confermato); gen('gb-richieste', G.backstage.richiesta); }
     metti('b-tot', (B.totale - B.annullato) + ' / ' + B.posti + ' posti');
     metti('b-entrati', B.entrato); metti('b-attesi', B.confermato); metti('b-richieste', B.richiesta);
     metti('b-pagati', B.pagati); metti('b-dapagare', B.daPagare);
@@ -45,7 +49,7 @@
     if (P) {
       metti('p-donne', P.donne); metti('p-uomini', P.uomini); metti('p-eta-d', anni(P.etaDonne)); metti('p-eta-u', anni(P.etaUomini)); metti('p-eta', anni(P.etaTutti));
       metti('p-incerti', (P.incerti ? P.incerti + ' con un nome che non dice se uomo o donna (contati solo nell\'età di tutti). ' : '') + 'uomo o donna è una stima dal nome.');
-      const vi = $('vedi-incerti'); vi.hidden = !P.incerti; vi.textContent = 'assegna i ' + P.incerti + ' incerti';
+      const vi = $('vedi-incerti'); vi.hidden = !P.incerti; vi.textContent = P.incerti === 1 ? 'assegna l\'incerto' : 'assegna i ' + P.incerti + ' incerti';
     }
     $('ultimi').innerHTML = r.ultimi.length
       ? r.ultimi.map((u) => `<li><time>${esc(u.ora)}</time><span>${esc(maiuscole(u.chi))}</span><em class="${esc(u.tipo)}">${esc(u.tipo)}</em></li>`).join('')
@@ -223,7 +227,7 @@
   $('chiudi-invii').addEventListener('click', () => { $('vista-invii').hidden = true; $('pannello').hidden = false; aggiorna(); });
 
   // ------------------------------------------------ i nomi dietro a ogni numero
-  let nomi = [], tipoNomi = ''; let gNomi = '';
+  let nomi = [], tipoNomi = ''; let gNomi = ''; let pannelloAperto = false;
   // ordine dell'elenco della pista: alfabetico, oppure cronologico (dal più vecchio: registrati, invitati o confermati per primi)
   let ordine = mem.leggi('zc-regia-ordine') === 'cron' ? 'cron' : 'az';
   let ultimoAggiunto = '';
@@ -244,8 +248,14 @@
     // uomini e donne (stimati dal nome, come nel riepilogo): solo se il foglio li manda e l'elenco non è già diviso per genere
     const conG = tipoNomi !== 'genere' && nomi.some((x) => typeof x.g === 'string');
     const nG = (g) => nomi.filter((x) => (x.g || '') === g).length;
-    metti('nomi-pubblico', conG ? nG('m') + ' uomini · ' + nG('f') + ' donne' + (nG('') ? ' · ' + nG('') + ' incerti' : '') : '');
+    metti('nomi-pubblico', conG ? testoGeneri(nG('m'), nG('f'), nG('')) : '');
     $('nomi-pubblico').hidden = !conG;
+    { const inc = conG ? nomi.filter((x) => (x.g || '') === '') : [], bt = $('assegna-qui'), pn = $('pannello-assegna');
+      bt.hidden = !inc.length; bt.textContent = pannelloAperto ? 'chiudi' : (inc.length === 1 ? 'assegna l\'incerto di questo elenco' : 'assegna i ' + inc.length + ' incerti di questo elenco');
+      const primo = (v) => String(v || '').trim().toLowerCase().split(/[\s-]+/)[0];
+      const unici = [...new Map(inc.map((x) => [primo(x.nome), x])).values()];
+      pn.hidden = !(pannelloAperto && unici.length);
+      pn.innerHTML = unici.map((x) => `<li><b>${esc(maiuscole(primo(x.nome)))}</b><span class="sesso"><button class="spunta az-sesso" data-az="sesso2" data-g="m" data-nome="${esc(primo(x.nome))}">uomo</button><button class="spunta az-sesso" data-az="sesso2" data-g="f" data-nome="${esc(primo(x.nome))}">donna</button></span></li>`).join(''); }
     mostraTutti();
     $('lista-nomi').innerHTML = righe.length ? righe.map((x) => {
       const info = [x.eta !== null && x.eta !== undefined ? x.eta + ' anni' : '', x.ora ? 'entrato ' + x.ora : '',
@@ -322,6 +332,20 @@
       : `<button class="spunta elimina az-el" data-id="${esc(x.id)}" data-az="elimina">elimina</button>`;
     return `<span class="due">${el}${principale}</span>`;
   };
+  // incerti dentro un elenco (confermati, invitati, da invitare...): "assegna" apre l'elenco dei nomi, un tocco e vale uomo o donna per sempre
+  $('assegna-qui').addEventListener('click', () => { pannelloAperto = !pannelloAperto; disegnaNomi(); });
+  $('pannello-assegna').addEventListener('click', async (e) => {
+    const b = e.target.closest('button[data-az="sesso2"]');
+    if (!b) return;
+    b.disabled = true;
+    const r = await api({ op: 'impostagenere', nome: b.dataset.nome, g: b.dataset.g });
+    if (r.ok) {
+      const primo = (v) => String(v || '').trim().toLowerCase().split(/[\s-]+/)[0];
+      nomi.forEach((x) => { if (primo(x.nome) === r.nome) x.g = r.g; });
+      if (!nomi.some((x) => (x.g || '') === '')) pannelloAperto = false;
+      vecchio('nomi-genere-', 'nomi-genere-m', 'nomi-genere-f'); disegnaNomi(); aggiorna();
+    } else { b.disabled = false; alert(r.errore === 'pieno' ? 'elenco dei nomi pieno.' : 'non salvato: serve il codice del foglio nuovo (serata-28g) o il foglio non ha risposto.'); }
+  });
   // incerti: un tocco e il nome (il primo, per tutti quelli che lo hanno) vale uomo o donna da adesso in poi
   $('lista-nomi').addEventListener('click', async (e) => {
     const b = e.target.closest('button[data-az="sesso"]');
@@ -532,7 +556,7 @@
   $('mano-meno').addEventListener('click', () => cambiaMano(-1));
 
   const apriNomi = async (el) => {
-    tipoNomi = el.dataset.tipo; gNomi = el.dataset.g || '';
+    tipoNomi = el.dataset.tipo; gNomi = el.dataset.g || ''; pannelloAperto = false;
     $('mano').hidden = !(tipoNomi === 'staff' && el.dataset.stati === 'entrato');
     $('azzera-staff').hidden = $('mano').hidden; azzeraStato = ''; mostraAzzera();
     $('barra-nomi').hidden = tipoNomi !== 'lista'; impostaOrdine();                       // pista: ordine a–z / cronologico
@@ -540,7 +564,7 @@
     $('f-piu').hidden = true; $('f-piu').reset(); metti('err-piu', ''); ultimoAggiunto = '';
     if (!$('mano').hidden) { const d = mem.leggi('zc-regia-dati'); mano = (d && d.staff && d.staff.aMano) || 0; mostraMano(); }
     metti('nomi-titolo', el.dataset.titolo); $('nomi-titolo').dataset.stati = el.dataset.stati || '';
-    $('q-nomi').value = ''; nomi = []; $('lista-nomi').innerHTML = '<li>carico…</li>'; metti('nomi-conto', ''); $('nomi-pubblico').hidden = true; tuttiStato = ''; $('invita-tutti').hidden = true;
+    $('q-nomi').value = ''; nomi = []; $('lista-nomi').innerHTML = '<li>carico…</li>'; metti('nomi-conto', ''); $('nomi-pubblico').hidden = true; $('assegna-qui').hidden = true; $('pannello-assegna').hidden = true; tuttiStato = ''; $('invita-tutti').hidden = true;
     $('pannello').hidden = true; $('vista-nomi').hidden = false; window.scrollTo(0, 0);
     if (tipoNomi === 'backstage') {
       mostrati = null; chiediNome = '';

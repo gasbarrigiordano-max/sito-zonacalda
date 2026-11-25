@@ -140,7 +140,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'serata-28f';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'serata-28g';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -1862,7 +1862,17 @@ function regiaLavoro_(r, props) {
       daPagare: bk.filter((x) => !x[CB.pagato] && (x[CB.stato] === 'confermato' || x[CB.stato] === 'entrato')).length }),
     staff: Object.assign(st, { aMano: staffAMano, totale: staff.length }),
     ultimi, pubblico,
+    generi: { lista: generiPerStato_(ospiti, C.nome, C.stato, STATI), backstage: generiPerStato_(bk, CB.nome, CB.stato, STATI_BK) },
   };
+}
+
+// uomini / donne / incerti (stimati dal nome) per ogni stato: li mostra la regia sotto ogni numero
+function generiPerStato_(righe, colNome, colStato, stati) {
+  return Object.fromEntries(stati.map((st) => {
+    const r = righe.filter((x) => x[colStato] === st);
+    const m = r.filter((x) => genere_(x[colNome]) === 'm').length, f = r.filter((x) => genere_(x[colNome]) === 'f').length;
+    return [st, { m, f, i: r.length - m - f }];
+  }));
 }
 
 // Uomo o donna dal nome di battesimo (stima): 'm', 'f' o '' se non è chiaro.

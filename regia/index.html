@@ -11,6 +11,9 @@
 <script>try { var a = JSON.parse(localStorage.getItem('zc-regia-accesso') || 'null'); if (a && a.scade > Date.now()) document.documentElement.classList.add('dentro'); } catch (e) {}</script>
 <style>.dentro #accesso { display: none !important; } .dentro #pannello[hidden] { display: block !important; }  .tieni-pin { color: var(--tenue); font-size: .8rem; line-height: 1.4; text-align: center; margin: .8rem 0 0; }
   .sesso { display: inline-flex; gap: .4rem; margin-left: .6rem; } .sesso button { padding: .25rem .7rem; min-height: 0; font-size: .85rem; }
+  .gen { display: block; margin-top: .3rem; font-size: .7rem; line-height: 1.3; font-style: normal; color: var(--tenue); }
+  #assegna-qui { margin: .4rem 0 .2rem; } #pannello-assegna { list-style: none; margin: .4rem 0 .8rem; padding: 0; } #pannello-assegna li { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding: .35rem 0; border-bottom: 1px solid #222; }
+  #pannello-assegna .sesso { margin-left: 0; }
 </style>
 <link rel="icon" href="../assets/zonacalda-diavolo-linee.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
@@ -153,7 +156,7 @@
   }
 </style>
 <script src="../js/api.js?v=20261115" defer></script>
-<script src="regia.js?v=20261125" defer></script>
+<script src="regia.js?v=20261125b" defer></script>
 </head>
 <body>
 <main class="regia">
@@ -194,13 +197,13 @@
     <div class="blocco a-pista">
       <h2>pista <small id="l-tot"></small></h2>
       <div class="numeri">
-        <div class="n verde apre" data-tipo="lista" data-stati="entrato" data-titolo="pista · entrati" role="button" tabindex="0"><b id="l-entrati">0</b><span>entrati</span></div>
-        <div class="n giallo apre" data-tipo="lista" data-stati="confermato" data-titolo="pista · confermati, da entrare" role="button" tabindex="0"><b id="l-attesi">0</b><span>confermati,<br>da entrare</span></div>
-        <div class="n apre" data-tipo="lista" data-stati="invitato" data-titolo="pista · invitati, non confermati" role="button" tabindex="0"><b id="l-invitati">0</b><span>invitati,<br>non confermati</span></div>
+        <div class="n verde apre" data-tipo="lista" data-stati="entrato" data-titolo="pista · entrati" role="button" tabindex="0"><b id="l-entrati">0</b><span>entrati</span><em class="gen" id="gl-entrati"></em></div>
+        <div class="n giallo apre" data-tipo="lista" data-stati="confermato" data-titolo="pista · confermati, da entrare" role="button" tabindex="0"><b id="l-attesi">0</b><span>confermati,<br>da entrare</span><em class="gen" id="gl-attesi"></em></div>
+        <div class="n apre" data-tipo="lista" data-stati="invitato" data-titolo="pista · invitati, non confermati" role="button" tabindex="0"><b id="l-invitati">0</b><span>invitati,<br>non confermati</span><em class="gen" id="gl-invitati"></em></div>
       </div>
       <div class="numeri" style="margin-top:.5rem">
-        <div class="n grigio apre" data-tipo="lista" data-stati="in lista" data-titolo="pista · registrati, non invitati" role="button" tabindex="0"><b id="l-inlista">0</b><span>registrati,<br>non invitati</span></div>
-        <div class="n grigio apre" data-tipo="lista" data-stati="da invitare" data-titolo="pista · da invitare" role="button" tabindex="0"><b id="l-dainvitare">0</b><span>da invitare<br>(scelti)</span></div>
+        <div class="n grigio apre" data-tipo="lista" data-stati="in lista" data-titolo="pista · registrati, non invitati" role="button" tabindex="0"><b id="l-inlista">0</b><span>registrati,<br>non invitati</span><em class="gen" id="gl-inlista"></em></div>
+        <div class="n grigio apre" data-tipo="lista" data-stati="da invitare" data-titolo="pista · da invitare" role="button" tabindex="0"><b id="l-dainvitare">0</b><span>da invitare<br>(scelti)</span><em class="gen" id="gl-dainvitare"></em></div>
         <div class="n grigio apre" data-tipo="lista" data-stati="rifiutato,scaduto" data-titolo="pista · rifiutati o scaduti" role="button" tabindex="0"><b id="l-no">0</b><span>rifiutati o<br>scaduti</span></div>
       </div>
     </div>
@@ -208,9 +211,9 @@
     <div class="blocco oro tocca a-bk" id="apri-bk" role="button" tabindex="0">
       <h2>backstage <small id="b-tot"></small></h2>
       <div class="numeri">
-        <div class="n verde apre" data-tipo="backstage" data-stati="entrato" data-titolo="backstage · entrati" role="button" tabindex="0"><b id="b-entrati">0</b><span>entrati</span></div>
-        <div class="n giallo apre" data-tipo="backstage" data-stati="confermato" data-titolo="backstage · confermati, da entrare" role="button" tabindex="0"><b id="b-attesi">0</b><span>confermati,<br>da entrare</span></div>
-        <div class="n apre" data-tipo="backstage" data-stati="richiesta" data-titolo="backstage · richieste da confermare" role="button" tabindex="0"><b id="b-richieste">0</b><span>richieste da<br>confermare</span></div>
+        <div class="n verde apre" data-tipo="backstage" data-stati="entrato" data-titolo="backstage · entrati" role="button" tabindex="0"><b id="b-entrati">0</b><span>entrati</span><em class="gen" id="gb-entrati"></em></div>
+        <div class="n giallo apre" data-tipo="backstage" data-stati="confermato" data-titolo="backstage · confermati, da entrare" role="button" tabindex="0"><b id="b-attesi">0</b><span>confermati,<br>da entrare</span><em class="gen" id="gb-attesi"></em></div>
+        <div class="n apre" data-tipo="backstage" data-stati="richiesta" data-titolo="backstage · richieste da confermare" role="button" tabindex="0"><b id="b-richieste">0</b><span>richieste da<br>confermare</span><em class="gen" id="gb-richieste"></em></div>
       </div>
       <p class="piccoli">pagati <b id="b-pagati" style="color:#4ade80">0</b> · da pagare <b id="b-dapagare" style="color:#ffcf7a">0</b></p>
       <span class="apri">vedi tutti e segna i pagamenti →</span>
@@ -244,6 +247,8 @@
     <div class="blocco" style="margin-top:.25rem">
       <h2><span id="nomi-titolo"></span> <small id="nomi-conto"></small></h2>
       <p id="nomi-pubblico" hidden style="margin:-.2rem 0 .7rem;color:var(--tenue);font-size:.9rem"></p>
+      <button class="spunta" id="assegna-qui" type="button" hidden></button>
+      <ul id="pannello-assegna" hidden></ul>
       <button id="invita-tutti" class="spunta conferma" hidden style="width:100%;min-width:0;margin:0 0 .8rem">invita tutti</button>
       <div id="mano" class="mano" hidden>
         <span>contati a mano<br><small>dj, organizzatori, chi non ha il pass</small></span>
