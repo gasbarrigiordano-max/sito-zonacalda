@@ -10,6 +10,7 @@
 <meta name="color-scheme" content="dark">
 <script>try { var a = JSON.parse(localStorage.getItem('zc-regia-accesso') || 'null'); if (a && a.scade > Date.now()) document.documentElement.classList.add('dentro'); } catch (e) {}</script>
 <style>.dentro #accesso { display: none !important; } .dentro #pannello[hidden] { display: block !important; }  .tieni-pin { color: var(--tenue); font-size: .8rem; line-height: 1.4; text-align: center; margin: .8rem 0 0; }
+  .sesso { display: inline-flex; gap: .4rem; margin-left: .6rem; } .sesso button { padding: .25rem .7rem; min-height: 0; font-size: .85rem; }
 </style>
 <link rel="icon" href="../assets/zonacalda-diavolo-linee.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
@@ -152,7 +153,7 @@
   }
 </style>
 <script src="../js/api.js?v=20261115" defer></script>
-<script src="regia.js?v=20261124" defer></script>
+<script src="regia.js?v=20261125" defer></script>
 </head>
 <body>
 <main class="regia">
@@ -232,6 +233,7 @@
         <div class="n grigio"><b id="p-eta">–</b><span>età media<br>di tutti</span></div>
       </div>
       <p class="piccoli" id="p-incerti"></p>
+      <button class="spunta" id="vedi-incerti" type="button" hidden data-tipo="genere" data-g="" data-titolo="dentro · incerti" style="margin-top:.5rem"></button>
     </div>
 
     <p class="stato a-stato" id="stato" aria-live="polite"></p>

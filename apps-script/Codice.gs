@@ -140,7 +140,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'serata-28e';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'serata-28f';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -1807,6 +1807,7 @@ function regiaLavoro_(r, props) {
   if (r.op === 'invitalista') return invitaDaRegia_(r);
   if (r.op === 'invitatutti') return invitaTuttiDaRegia_();
   if (r.op === 'escludilista') return escludiDaRegia_(r);
+  if (r.op === 'impostagenere') return impostaGenere_(r);
   if (r.op === 'sceglilista') return scegliDaRegia_(r);
   if (r.op === 'aggiungilista') return aggiungiDaRegia_(r);
   if (r.op === 'conferma') {                        // richiesta → confermato (o indietro), dalla regia
@@ -1866,11 +1867,31 @@ function regiaLavoro_(r, props) {
 
 // Uomo o donna dal nome di battesimo (stima): 'm', 'f' o '' se non è chiaro.
 const NOMI_M_IN_A = ['andrea', 'luca', 'nicola', 'mattia', 'elia', 'tobia', 'enea', 'gianluca', 'giosuè', 'battista', 'evangelista', 'mosè', 'noah', 'joshua', 'zaccaria', 'geremia', 'isaia', 'misha', 'sasha', 'nikita', 'ilya', 'kosta', 'santa'];
-const NOMI_F = ['beatrice', 'denise', 'elise', 'alice', 'irene', 'adele', 'rachele', 'noemi', 'nicole', 'michelle', 'emanuelle', 'clarice', 'eurydice', 'agnese', 'ester', 'esther', 'matilde', 'geraldine', 'desirè', 'desirée', 'desiree', 'chloe', 'zoe', 'zoé', 'joelle', 'aurore', 'mercedes', 'ines', 'inès', 'carmen', 'miriam', 'myriam', 'ruth', 'sharon', 'karin', 'karen', 'ingrid', 'astrid', 'jasmine', 'yasmine', 'yasmin', 'jasmin', 'kim', 'liz', 'beth', 'ilary', 'mary', 'kelly', 'emily', 'nancy', 'cathy', 'judith', 'margot', 'ivy', 'deborah', 'debora', 'sarah', 'hannah', 'leah', 'naomi', 'eleonor', 'eleanor', 'rose', 'grace', 'jade', 'claire', 'louise', 'sophie', 'charlotte', 'juliette', 'marie', 'annie', 'jennifer', 'vivien', 'vivienne', 'isabel', 'isabelle'];
-const NOMI_M = ['simone', 'daniele', 'gabriele', 'michele', 'davide', 'emanuele', 'raffaele', 'giuseppe', 'salvatore', 'cesare', 'ettore', 'achille', 'ercole', 'oreste', 'giovanni', 'cristian', 'christian', 'kevin', 'ivan', 'manuel', 'samuel', 'samuele', 'nathan', 'gabriel', 'daniel', 'michael', 'mike', 'jonathan', 'john', 'david', 'adam', 'alex', 'axel', 'max', 'fabian', 'denis', 'dennis', 'erik', 'eric', 'mark', 'marc', 'patrick', 'thomas', 'tommy', 'alessandro', 'raoul', 'paul', 'jacopo', 'tancredi', 'ivano', 'william', 'giosue', 'gioele', 'noel', 'joel', 'rayan', 'ryan', 'brian', 'omar', 'amir', 'karim', 'ali', 'yuri', 'dimitri', 'igor', 'boris', 'oscar', 'victor', 'vittore', 'astor', 'nikolas', 'nicolas', 'lucas', 'thiago', 'tiago', 'diego', 'iacopo', 'felice', 'pasquale', 'natale', 'amedeo', 'dante', 'leone', 'lorenzo', 'federico', 'adriano', 'ruben', 'loris', 'luis', 'luigi', 'remo', 'ugo', 'elia', 'nicolò', 'niccolò', 'nicolo', 'niccolo', 'mattèo'];
+const NOMI_F = ['beatrice', 'denise', 'elise', 'alice', 'irene', 'adele', 'rachele', 'noemi', 'nicole', 'michelle', 'emanuelle', 'clarice', 'eurydice', 'agnese', 'ester', 'esther', 'matilde', 'geraldine', 'desirè', 'desirée', 'desiree', 'chloe', 'zoe', 'zoé', 'joelle', 'aurore', 'mercedes', 'ines', 'inès', 'carmen', 'miriam', 'myriam', 'ruth', 'sharon', 'karin', 'karen', 'ingrid', 'astrid', 'jasmine', 'yasmine', 'yasmin', 'jasmin', 'kim', 'liz', 'beth', 'ilary', 'mary', 'kelly', 'emily', 'nancy', 'cathy', 'judith', 'margot', 'ivy', 'deborah', 'debora', 'sarah', 'hannah', 'leah', 'naomi', 'eleonor', 'eleanor', 'rose', 'grace', 'jade', 'claire', 'louise', 'sophie', 'charlotte', 'juliette', 'marie', 'annie', 'jennifer', 'vivien', 'vivienne', 'isabel', 'isabelle', 'nour', 'hanan', 'hanane', 'siham', 'sihem', 'ikram', 'imane', 'safae', 'sanae', 'chaimae', 'meryem', 'meriem', 'kawtar', 'rim', 'sirine', 'sirin', 'lily', 'sandy', 'jenny', 'stefany', 'stephany', 'tiffany', 'brittany', 'lucy', 'amy', 'katy', 'katie', 'sally', 'molly', 'holly', 'abby', 'becky', 'betty', 'bonnie', 'cindy', 'daisy', 'emma', 'elizabeth', 'elisabeth', 'lauren', 'megan', 'susan', 'madison', 'ashley', 'taylor'];
+const NOMI_M = ['simone', 'daniele', 'gabriele', 'michele', 'davide', 'emanuele', 'raffaele', 'giuseppe', 'salvatore', 'cesare', 'ettore', 'achille', 'ercole', 'oreste', 'giovanni', 'cristian', 'christian', 'kevin', 'ivan', 'manuel', 'samuel', 'samuele', 'nathan', 'gabriel', 'daniel', 'michael', 'mike', 'jonathan', 'john', 'david', 'adam', 'alex', 'axel', 'max', 'fabian', 'denis', 'dennis', 'erik', 'eric', 'mark', 'marc', 'patrick', 'thomas', 'tommy', 'alessandro', 'raoul', 'paul', 'jacopo', 'tancredi', 'ivano', 'william', 'giosue', 'gioele', 'noel', 'joel', 'rayan', 'ryan', 'brian', 'omar', 'amir', 'karim', 'ali', 'yuri', 'dimitri', 'igor', 'boris', 'oscar', 'victor', 'vittore', 'astor', 'nikolas', 'nicolas', 'lucas', 'thiago', 'tiago', 'diego', 'iacopo', 'felice', 'pasquale', 'natale', 'amedeo', 'dante', 'leone', 'lorenzo', 'federico', 'adriano', 'ruben', 'loris', 'luis', 'luigi', 'remo', 'ugo', 'elia', 'nicolò', 'niccolò', 'nicolo', 'niccolo', 'mattèo', 'ahmed', 'mohamed', 'mohammed', 'muhammad', 'youssef', 'yousef', 'ismail', 'ibrahim', 'hamza', 'bilal', 'nabil', 'walid', 'said', 'samir', 'adnan', 'mourad', 'hicham', 'reda', 'aymen', 'aymane', 'anis', 'florin', 'marian', 'bogdan', 'catalin', 'vlad', 'marius', 'stefan', 'lucian', 'razvan', 'alin', 'sorin', 'besnik', 'arben', 'gentian', 'ilir', 'dritan', 'agim', 'ermal', 'klevis', 'eldin', 'enis', 'elias', 'matias', 'tobias', 'jonas', 'mathias', 'jordi', 'andy', 'harry', 'tony', 'teddy', 'jimmy', 'johnny', 'billy', 'freddy', 'danny', 'ricky', 'rocco', 'stephan', 'sebastian', 'julian', 'adrian', 'florian', 'lukas', 'tim', 'jan', 'tom', 'ben', 'jacob', 'jakob', 'noah'];
+// Nomi che l'organizzatore ha assegnato a mano dalla regia ("uomo" / "donna"): contano più della stima e valgono per sempre
+let GENERI_MANUALI_ = null;
+function primoNome_(nome) { return String(nome || '').trim().toLowerCase().split(/[\s-]+/)[0].normalize('NFC'); }
+function generiManuali_() {
+  if (GENERI_MANUALI_) return GENERI_MANUALI_;
+  try { GENERI_MANUALI_ = JSON.parse(PropertiesService.getScriptProperties().getProperty('GENERI_MANUALI') || '{}'); } catch (err) { GENERI_MANUALI_ = {}; }
+  return GENERI_MANUALI_;
+}
+function impostaGenere_(r) {
+  const n = primoNome_(r.nome), g = String(r.g || '');
+  if (!n || n.length < 2 || (g !== 'm' && g !== 'f')) return { ok: false, errore: 'dati' };
+  const m = Object.assign({}, generiManuali_()); m[n] = g;
+  const testo = JSON.stringify(m);
+  if (testo.length > 8500) return { ok: false, errore: 'pieno' };
+  PropertiesService.getScriptProperties().setProperty('GENERI_MANUALI', testo);
+  GENERI_MANUALI_ = m;
+  return { ok: true, nome: n, g };
+}
 function genere_(nome) {
-  const n = String(nome || '').trim().toLowerCase().split(/[\s-]+/)[0].normalize('NFC');
+  const n = primoNome_(nome);
   if (!n || n.length < 2) return '';
+  const manuale = generiManuali_()[n];
+  if (manuale === 'm' || manuale === 'f') return manuale;
   if (NOMI_M.includes(n) || NOMI_M_IN_A.includes(n)) return 'm';
   if (NOMI_F.includes(n)) return 'f';
   if (/[aà]$/.test(n)) return 'f';

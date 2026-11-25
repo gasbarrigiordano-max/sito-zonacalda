@@ -45,6 +45,7 @@
     if (P) {
       metti('p-donne', P.donne); metti('p-uomini', P.uomini); metti('p-eta-d', anni(P.etaDonne)); metti('p-eta-u', anni(P.etaUomini)); metti('p-eta', anni(P.etaTutti));
       metti('p-incerti', (P.incerti ? P.incerti + ' con un nome che non dice se uomo o donna (contati solo nell\'età di tutti). ' : '') + 'uomo o donna è una stima dal nome.');
+      const vi = $('vedi-incerti'); vi.hidden = !P.incerti; vi.textContent = 'assegna i ' + P.incerti + ' incerti';
     }
     $('ultimi').innerHTML = r.ultimi.length
       ? r.ultimi.map((u) => `<li><time>${esc(u.ora)}</time><span>${esc(maiuscole(u.chi))}</span><em class="${esc(u.tipo)}">${esc(u.tipo)}</em></li>`).join('')
@@ -222,7 +223,7 @@
   $('chiudi-invii').addEventListener('click', () => { $('vista-invii').hidden = true; $('pannello').hidden = false; aggiorna(); });
 
   // ------------------------------------------------ i nomi dietro a ogni numero
-  let nomi = [], tipoNomi = '';
+  let nomi = [], tipoNomi = ''; let gNomi = '';
   // ordine dell'elenco della pista: alfabetico, oppure cronologico (dal più vecchio: registrati, invitati o confermati per primi)
   let ordine = mem.leggi('zc-regia-ordine') === 'cron' ? 'cron' : 'az';
   let ultimoAggiunto = '';
@@ -251,7 +252,7 @@
         tipoNomi === 'genere' || /,/.test($('nomi-titolo').dataset.stati || '') ? x.stato : '', x.pagato ? '✓ pagato' : '',
         ordine === 'cron' && tipoNomi === 'lista' ? x.quando : ''].filter(Boolean).join(' · ');
       const t = x.tel ? ` <a href="tel:${esc(x.tel.replace(/[^\d+]/g, ''))}">${esc(x.tel)}</a>` : '';
-      return `<li${x.id && x.id === ultimoAggiunto ? ' class="nuovo"' : ''}><b>${esc(maiuscole(x.nome))}</b><small>${esc(info)}</small>${t}${tipoNomi === 'backstage' ? azioneBk(x) : tipoNomi === 'lista' ? azioneLista(x) : tipoNomi === 'staff' ? azioneStaff(x) : ''}</li>`;
+      return `<li${x.id && x.id === ultimoAggiunto ? ' class="nuovo"' : ''}><b>${esc(maiuscole(x.nome))}</b><small>${esc(info)}</small>${t}${tipoNomi === 'backstage' ? azioneBk(x) : tipoNomi === 'lista' ? azioneLista(x) : tipoNomi === 'staff' ? azioneStaff(x) : tipoNomi === 'genere' && gNomi === '' ? `<span class="sesso"><button class="spunta az-sesso" data-az="sesso" data-g="m" data-nome="${esc(x.nome)}">uomo</button><button class="spunta az-sesso" data-az="sesso" data-g="f" data-nome="${esc(x.nome)}">donna</button></span>` : ''}</li>`;
     }).join('') : '<li>nessuno.</li>';
   };
   // backstage: dall'elenco si conferma e poi si manda l'SMS con il pass d'oro
@@ -321,6 +322,18 @@
       : `<button class="spunta elimina az-el" data-id="${esc(x.id)}" data-az="elimina">elimina</button>`;
     return `<span class="due">${el}${principale}</span>`;
   };
+  // incerti: un tocco e il nome (il primo, per tutti quelli che lo hanno) vale uomo o donna da adesso in poi
+  $('lista-nomi').addEventListener('click', async (e) => {
+    const b = e.target.closest('button[data-az="sesso"]');
+    if (!b) return;
+    b.disabled = true;
+    const r = await api({ op: 'impostagenere', nome: b.dataset.nome, g: b.dataset.g });
+    if (r.ok) {
+      const primo = (v) => String(v || '').trim().toLowerCase().split(/[\s-]+/)[0];
+      nomi = nomi.filter((x) => primo(x.nome) !== r.nome);
+      vecchio('nomi-genere-', 'nomi-genere-m', 'nomi-genere-f'); disegnaNomi(); aggiorna();
+    } else { b.disabled = false; alert(r.ok === false && r.errore === 'pieno' ? 'elenco dei nomi pieno.' : 'non salvato: ' + (r.errore === 'dati' ? 'nome non valido' : 'serve il codice del foglio nuovo (serata-28f) o il foglio non ha risposto') + '.'); }
+  });
   $('lista-nomi').addEventListener('click', async (e) => {
     const b = e.target.closest('.az-el');
     if (!b) return;
@@ -519,7 +532,7 @@
   $('mano-meno').addEventListener('click', () => cambiaMano(-1));
 
   const apriNomi = async (el) => {
-    tipoNomi = el.dataset.tipo;
+    tipoNomi = el.dataset.tipo; gNomi = el.dataset.g || '';
     $('mano').hidden = !(tipoNomi === 'staff' && el.dataset.stati === 'entrato');
     $('azzera-staff').hidden = $('mano').hidden; azzeraStato = ''; mostraAzzera();
     $('barra-nomi').hidden = tipoNomi !== 'lista'; impostaOrdine();                       // pista: ordine a–z / cronologico
@@ -547,6 +560,7 @@
       }
     } else if (!g) $('lista-nomi').innerHTML = '<li>il foglio non ha risposto. riprova.</li>';
   };
+  $('vedi-incerti').addEventListener('click', () => apriNomi($('vedi-incerti')));
   document.querySelectorAll('.n.apre').forEach((el) => {
     el.addEventListener('click', (e) => { e.stopPropagation(); apriNomi(el); });   // dentro il blocco backstage non apre l'elenco pagamenti
     el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); apriNomi(el); } });
