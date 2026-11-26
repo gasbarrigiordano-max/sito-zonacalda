@@ -12,7 +12,7 @@ const SERATA = {
   dataISO: '2026-11-28',             // giorno della serata (per calcolare l'età)
   etaMinima: 23,                     // per entrare alla serata
   etaIscrizione: 21,                 // per iscriversi alla lista
-  capienza: 300,                     // totale, staff compreso
+  capienza: 450,                     // totale, staff compreso
   staffPrevisto: 20,
   confermeMax: 315,                  // oltre questo numero: "posti finiti."
   // gli inviti NON scadono: si possono accettare fino alla serata. niente date di scadenza, né nel foglio né nei messaggi.
@@ -140,7 +140,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'serata-28g';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'serata-28h';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -320,6 +320,26 @@ function portaLavoro_(r) {
     const n = Math.max(0, staff + (r.delta > 0 ? 1 : -1));
     props.setProperty('STAFF_DENTRO', String(n));
     return { ok: true, conteggi: conteggi_(righe, n) };
+  }
+  if (r.op === 'ospite') {                              // chi arriva senza invito: la porta lo aggiunge e lo fa entrare, segnato come "senza invito"
+    const c0 = conteggi_(righe, staff);
+    const id = /^p[a-f0-9]{7}$/.test(String(r.id || '')) ? String(r.id) : 'p' + Utilities.getUuid().replace(/-/g, '').slice(0, 7);
+    const gia = righe.find((y) => String(y[C.id]) === id);                    // il telefono può rimandare la stessa richiesta: niente doppioni
+    if (gia) return { ok: true, persona: scheda_(gia), conteggi: c0 };
+    if (c0.dentro >= SERATA.capienza) return { ok: false, errore: 'pieno', conteggi: c0 };
+    const nome = pulisci_(r.nome, 60), cognome = pulisci_(r.cognome, 60);
+    const eta = Number.isInteger(Number(r.eta)) && Number(r.eta) >= 14 && Number(r.eta) <= 99 && String(r.eta).trim() !== '' ? Number(r.eta) : null;
+    const riga = new Array(COL.length).fill('');
+    riga[C.nome] = nome || 'ospite'; riga[C.cognome] = cognome || (nome ? '' : 'senza invito');
+    riga[C.nascita] = eta === null ? '' : "'" + (Number(SERATA.dataISO.slice(0, 4)) - eta) + '-01-01';
+    riga[C.stato] = 'entrato'; riga[C.fonte] = 'porta'; riga[C.prossime_serate] = 'no';
+    riga[C.note] = 'entrato senza invito (aggiunto alla porta)' + (eta === null ? '' : ' (età indicata: ' + eta + ')');
+    riga[C.creato] = new Date(); riga[C.entrato_il] = new Date();
+    riga[C.id] = id;
+    sh.appendRow(riga);
+    segnaNovita_(id);
+    const nuova = riga.slice(); nuova[C.nascita] = eta === null ? '' : (Number(SERATA.dataISO.slice(0, 4)) - eta) + '-01-01';
+    return { ok: true, persona: scheda_(nuova), conteggi: conteggi_(righe.concat([nuova]), staff) };
   }
   if (r.op === 'cerca') {
     const q = String(r.q || '').trim().toLowerCase();

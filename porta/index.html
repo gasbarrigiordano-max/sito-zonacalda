@@ -46,7 +46,7 @@
 </style>
 <script src="../js/api.js?v=20261115" defer></script>
 <script src="../vendor/jsQR.js" defer></script>
-<script src="porta.js?v=20261113" defer></script>
+<script src="porta.js?v=20261126" defer></script>
 </head>
 <body>
 <main class="porta">
@@ -69,7 +69,7 @@
     <div class="barra">
       <img src="../assets/zonacalda-logo-sito.svg" width="1244" height="544" alt="ZONACALDA">
       <div class="contatore" aria-live="polite">
-        <b id="dentro">0</b><b style="color:var(--tenue);font-size:1.25rem"> / <span id="capienza" style="display:inline;font-size:inherit">300</span></b>
+        <b id="dentro">0</b><b style="color:var(--tenue);font-size:1.25rem"> / <span id="capienza" style="display:inline;font-size:inherit">450</span></b>
         <span id="dettaglio">ospiti 0 · staff 0 · attesi 0</span>
         <span id="sync" aria-live="polite"></span>
       </div>
@@ -96,6 +96,20 @@
       <ul class="risultati" id="risultati"></ul>
     </div>
 
+
+    <div class="riga" style="margin-top:1.25rem">
+      <button class="bottone secondario" id="b-ospite">➕ ospite senza invito</button>
+    </div>
+    <form id="f-ospite" hidden autocomplete="off" style="margin:.75rem 0">
+      <p style="margin:.2rem 0 .5rem;color:var(--tenue);font-size:.9rem">entra senza invito: nome e cognome (anche solo uno, o niente) e l'età, se la sai.</p>
+      <input type="text" id="o-nome" placeholder="nome" autocapitalize="words" maxlength="60">
+      <input type="text" id="o-cognome" placeholder="cognome" autocapitalize="words" maxlength="60" style="margin-top:.4rem">
+      <input type="text" id="o-eta" placeholder="età (facoltativa)" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off" style="margin-top:.4rem">
+      <div class="riga" style="margin-top:.6rem">
+        <button class="bottone" type="submit">fai entrare ✓</button>
+        <button class="bottone secondario" type="button" id="o-annulla">annulla</button>
+      </div>
+    </form>
 
     <div class="riga" style="margin-top:1.25rem">
       <button class="bottone secondario" id="staff-meno">staff −1</button>

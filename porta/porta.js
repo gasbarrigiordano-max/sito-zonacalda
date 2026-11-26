@@ -94,8 +94,8 @@
         const r = await api({ op: 'staff', delta });
         if (r.ok) { staffQui -= delta; ricorda(); conteggi(r.conteggi); attesaRete = 1000; continue; }
       } else {
-        const { id, forza } = coda[0];
-        const r = await api({ op: 'entra', id, forza });
+        const { id, forza, ospite } = coda[0];
+        const r = ospite ? await api({ op: 'ospite', id, nome: ospite.nome, cognome: ospite.cognome, eta: ospite.eta }) : await api({ op: 'entra', id, forza });
         if (r.errore === 'pin' || r.errore === 'bloccato') { pinBloccato = true; avvisoCoda = '⚠︎ PIN cambiato: esci e rientra'; }
         if (r.ok || r.errore === 'gia_entrato' || r.errore === 'pieno' || r.errore === 'persona' || r.errore === 'non_confermato') {
           coda.shift(); ricorda();
@@ -442,6 +442,28 @@
       if (!r.ok) { $('risultati').innerHTML = '<li><small>nessuna connessione.</small></li>'; return; }
       elencaRisultati(r.persone);
     }, 300);
+  });
+
+  // ------------------------------------------------ ospite senza invito (subito, salvato in sottofondo: l'id lo scegliamo qui, così un nuovo tentativo non lo duplica)
+  $('b-ospite').addEventListener('click', () => { $('f-ospite').hidden = !$('f-ospite').hidden; if (!$('f-ospite').hidden) $('o-nome').focus(); });
+  $('o-annulla').addEventListener('click', () => { $('f-ospite').hidden = true; $('f-ospite').reset(); });
+  $('f-ospite').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const box = $('scheda');
+    if (server && server.ospiti + coda.length + Math.max(0, server.staff + staffQui) >= server.capienza) {
+      box.hidden = false; box.className = 'scheda no'; box.innerHTML = '<p class="grosso">SALA PIENA</p><p>aspetta che esca qualcuno.</p>'; return;
+    }
+    const nome = $('o-nome').value.trim(), cognome = $('o-cognome').value.trim(), eta = $('o-eta').value.trim();
+    const id = 'p' + Array.from(crypto.getRandomValues(new Uint8Array(4)), (x) => x.toString(16).padStart(2, '0')).join('').slice(0, 7);
+    coda.push({ id, forza: false, staff: false, ospite: { nome, cognome, eta } });
+    entratiQui.set(id, ora());
+    ricorda(); mostraConteggi(); salva();
+    $('f-ospite').hidden = true; $('f-ospite').reset();
+    box.hidden = false; box.className = 'scheda ok';
+    box.innerHTML = `<p class="grosso">DENTRO ✓ senza invito</p><h2>${esc(maiuscole(nome))} ${esc(maiuscole(cognome))}</h2>`;
+    vibra(120);
+    clearTimeout(chiudi);
+    chiudi = setTimeout(() => { box.hidden = true; }, 1500);
   });
 
   // ------------------------------------------------ staff (subito, salvato in sottofondo)
