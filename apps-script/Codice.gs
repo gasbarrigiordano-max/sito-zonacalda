@@ -140,7 +140,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'serata-28n';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'serata-28o';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -1773,7 +1773,7 @@ function elencoBackstageWhatsApp() {
     const pass = SERATA.sito + 'backstage/?t=' + x[CB.token];
     // niente emoji: WhatsApp Web le rovina quando arrivano da un link
     const testo = String(x[CB.nome]).toLowerCase() + ', sei nel backstage.\ndietro la console, a un passo dalla musica.\n\n' +
-      'sat 28.11 · dalle 23:30 · palazzo podestà\n\nil tuo pass d\'oro:\n' + pass +
+      'sat 28.11 · dalle 23:30 · palazzo podestà\n\n*CLICCA IL LINK QUI SOTTO PER SCARICARE IL TUO PASS D\'ACCESSO AL BACKSTAGE:*\n' + pass +
       '\n\nmostralo all\'ingresso: entri senza invito. vale solo per te, porta un documento.';
     return { id: String(x[CB.id]), nome: String(x[CB.nome]) + ' ' + String(x[CB.cognome]), tel,
              link: 'https://wa.me/' + tel.replace(/\D/g, '') + '?text=' + encodeURIComponent(testo), foto: pass, inviato: !!x[CB.wa_inviato] };
@@ -1959,7 +1959,7 @@ function testoSms_(tipo, x) {
       SERATA.sito + 'invito/?t=' + x[C.token] + '\n\nmostralo alla porta. vale solo per te, porta un documento. 23+.';
   }
   if (tipo === 'backstage') {
-    return String(x[CB.nome]).toLowerCase() + ', sei nel backstage.\nzonacalda - sat 28.11 - dalle 23:30.\n\nil tuo pass d\'oro:\n\n' +
+    return String(x[CB.nome]).toLowerCase() + ', sei nel backstage.\nzonacalda - sat 28.11 - dalle 23:30.\n\n*CLICCA IL LINK QUI SOTTO PER SCARICARE IL TUO PASS D\'ACCESSO AL BACKSTAGE:*\n\n' +
       SERATA.sito + 'backstage/?t=' + x[CB.token] + '\n\nmostralo all\'ingresso: entri senza invito. vale solo per te, porta un documento.';
   }
   return String(x[CS.nome]).toLowerCase() + ', sei dello staff.\nzonacalda - sat 28.11 - palazzo podestà.\n\nil tuo pass:\n\n' +
