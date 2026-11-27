@@ -489,18 +489,36 @@
     x.attesa = false; disegnaNomi();
   });
 
-  // ospite aggiunto a mano: già confermato, il QR si vede subito (e si può mandare con WhatsApp o SMS)
+  // ospite aggiunto a mano: già confermato, il QR si vede subito e il pass (la foto da salvare e mandare) si prepara qui, uguale a quello che vede l'invitato
+  let fotoOspite = null;
   const mostraQrOspite = (p, r) => {
+    fotoOspite = null;
     $('oq-nome').textContent = maiuscole(p.nome);
+    $('oq-foto').hidden = true; $('oq-foto').removeAttribute('src'); $('oq-tieni').hidden = true; $('oq-salva').hidden = true; $('oq-copiafoto').hidden = true;
+    $('oq-qr').hidden = false; $('oq-sotto').hidden = false;
     try { const q = qrcode(0, 'M'); q.addData(r.token); q.make(); $('oq-qr').innerHTML = q.createSvgTag(6, 0); } catch (e) { $('oq-qr').textContent = r.pass; }
-    $('oq-invii').innerHTML = r.sms && r.sms.tel ? dueInvii('', '', r.sms.tel, r.sms.testo) : '<span class="piccoli">senza numero: mostragli il QR da qui o copia il link.</span>';
+    $('oq-invii').innerHTML = r.sms && r.sms.tel ? dueInvii('', '', r.sms.tel, r.sms.testo) : '<span class="piccoli">senza numero: salva il pass e mandaglielo tu, o copia il link.</span>';
     $('oq-copia').dataset.link = r.pass || '';
     $('ospite-qr').hidden = false;
+    const nomeFile = 'zonacalda-invito-' + String(p.nome || 'ospite').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.png';
+    if (!window.zcPass) return;
+    zcPass({ token: r.token, nome: p.nome }).then((foto) => {
+      if ($('ospite-qr').hidden || $('oq-nome').textContent !== maiuscole(p.nome)) return;       // nel frattempo l'hai chiusa o ne hai aggiunto un altro
+      fotoOspite = foto;
+      $('oq-foto').src = URL.createObjectURL(foto); $('oq-foto').hidden = false; $('oq-qr').hidden = true; $('oq-sotto').hidden = true;
+      $('oq-tieni').hidden = false; $('oq-salva').hidden = false;
+      $('oq-salva').onclick = () => zcSalvaPass(foto, nomeFile);
+      if (navigator.clipboard && window.ClipboardItem && !/iPhone|iPad|Android/i.test(navigator.userAgent)) {
+        $('oq-copiafoto').hidden = false;
+        $('oq-copiafoto').onclick = async () => { $('oq-copiafoto').textContent = (await zcCopiaPass(foto)) ? 'copiata: incollala nella chat' : 'non riesco: usa "salva il pass"'; };
+      }
+    }).catch((e) => console.error('pass ospite', e));        // se non riesce resta il QR a schermo
   };
-  $('oq-chiudi').addEventListener('click', () => { $('ospite-qr').hidden = true; $('oq-qr').innerHTML = ''; });
+  $('oq-chiudi').addEventListener('click', () => { $('ospite-qr').hidden = true; $('oq-qr').innerHTML = ''; fotoOspite = null; });
   $('oq-copia').addEventListener('click', async () => { const l = $('oq-copia').dataset.link; try { await navigator.clipboard.writeText(l); $('oq-copia').textContent = 'copiato ✓'; setTimeout(() => { $('oq-copia').textContent = 'copia il link'; }, 1500); } catch (e) { prompt('copia il link:', l); } });
   // "+" in "invitati, non confermati": un amico che si aggiunge all'ultimo. nome e cognome bastano
   $('piu-nomi').addEventListener('click', () => {
+    if (window.zcPrecarica) zcPrecarica();                 // font e logo del pass si caricano già adesso
     const f = $('f-piu'); f.hidden = !f.hidden; metti('err-piu', '');
     if (!f.hidden) { f.scrollIntoView({ block: 'nearest' }); f.elements.nome.focus(); }
   });
