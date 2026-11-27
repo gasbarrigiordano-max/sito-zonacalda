@@ -171,7 +171,7 @@
   // ------------------------------------------------ invii SMS dal telefono
   let invii = null, scheda = 'inviti', chiediInv = '', timerInv = 0;
   const iPhone = /iPhone|iPad|iPod/.test(navigator.userAgent);
-  const linkSms = (tel, testo) => 'sms:' + tel.replace(/[^\d+]/g, '') + (iPhone ? '&' : '?') + 'body=' + encodeURIComponent(testo);
+  const linkSms = (tel, testo) => 'sms:' + tel.replace(/[^\d+]/g, '') + (iPhone ? '&' : '?') + 'body=' + encodeURIComponent(String(testo).replace(/\*/g, ''));
   // ogni invio ha due tasti: WhatsApp e SMS, stesso testo. toccare l'uno o l'altro segna la persona come fatta
   const linkWa = (tel, testo) => { let n = String(tel).replace(/\D/g, ''); if (n.length <= 10 && n[0] === '3') n = '39' + n; return 'https://wa.me/' + n + '?text=' + encodeURIComponent(testo); };
   const dueInvii = (cls, attr, tel, testo) => `<a class="sms wa ${cls}" ${attr} href="${esc(linkWa(tel, testo))}" target="_blank" rel="noopener">WhatsApp</a>` +

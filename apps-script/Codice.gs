@@ -29,14 +29,14 @@ const MAIL = {
   invito: {
     oggetto: 'sei dentro. 😈',
     titolo: '{nome}, sei dentro.',
-    righe: ['sat 28.11 · 23:30', 'conferma il tuo invito cliccando il seguente link.'],
+    righe: ['sat 28.11 · 23:30', '*CONFERMA IL TUO INVITO CLICCANDO IL SEGUENTE LINK.*'],
     tasto: 'ci sono.',
     sotto: 'invito personale: vale solo per te. porta un documento. 23+.',
   },
   riserva: {
     oggetto: 'si è liberato un posto. 😈',
     titolo: '{nome}, si è liberato un posto.',
-    righe: ['stasera.', 'conferma il tuo invito cliccando il seguente link.'],
+    righe: ['stasera.', '*CONFERMA IL TUO INVITO CLICCANDO IL SEGUENTE LINK.*'],
     tasto: 'ci sono.',
     sotto: 'invito personale: vale solo per te. porta un documento. 23+.',
   },
@@ -140,7 +140,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'serata-28m';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'serata-28n';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -380,10 +380,9 @@ function portaLavoro_(r) {
     if (telegramAttivo_()) {                                  // avviso su Telegram: è entrato un backstage (a lucchetto lasciato)
       const eta = eta_(dataISO_(x[CB.nascita]), SERATA.dataISO);
       const entrati = bb.filter((y) => y[CB.stato] === 'entrato').length, attesi = bb.filter((y) => y[CB.stato] === 'confermato' || y[CB.stato] === 'entrato').length;
-      const daPagare = bb.filter((y) => !y[CB.pagato] && (y[CB.stato] === 'confermato' || y[CB.stato] === 'entrato')).length;
       const testoBk = '🍾 entrato in backstage: ' + (x[CB.nome] + ' ' + x[CB.cognome]).toLowerCase() + (eta >= 0 && eta < 100 ? ', ' + eta + ' anni' : '') +
-        ' · ' + (x[CB.pagato] ? 'già pagato' : 'DA PAGARE') + '\nbackstage dentro: ' + entrati + ' su ' + attesi + ' · da pagare in tutto: ' + daPagare;
-      dopo_(() => tg_(testoBk, null, null, true));
+        '\nbackstage dentro: ' + entrati + ' su ' + attesi;
+      dopo_(() => tg_(testoBk));
     }
     return { ok: true, persona: schedaBk_(x), conteggi: conteggi_(righe, staff) };
   }
@@ -1003,7 +1002,7 @@ function componiMail_(tpl, dati, link, extra) {
     '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Helvetica,Arial,sans-serif;">' +
     '<tr><td align="center" style="padding:0 0 8px;"><img src="' + MAIL.logo + '" width="420" alt="ZONACALDA" style="display:block;width:100%;max-width:440px;height:auto;border:0;"></td></tr>' +
     '<tr><td align="center" style="padding:8px 8px 4px;color:#f0eded;font-size:28px;line-height:1.25;font-weight:700;">' + esc(titolo) + '</td></tr>' +
-    righe.map((r, i) => '<tr><td align="center" style="padding:6px 8px 0;color:' + (i === 0 ? '#9b9696' : '#f0eded') + ';font-size:' + (i === 0 ? '16' : '17') + 'px;line-height:1.5;">' + esc(r) + '</td></tr>').join('') +
+    righe.map((r, i) => '<tr><td align="center" style="padding:6px 8px 0;color:' + (i === 0 ? '#9b9696' : '#f0eded') + ';font-size:' + (i === 0 ? '16' : '17') + 'px;line-height:1.5;">' + (/^\*.+\*$/.test(r) ? '<b>' + esc(r.slice(1, -1)) + '</b>' : esc(r)) + '</td></tr>').join('') +
     (link ? '<tr><td align="center" style="padding:28px 8px 8px;">' +
       '<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" bgcolor="#ff2634" style="border-radius:12px;">' +
       '<a href="' + link + '" style="display:inline-block;padding:16px 44px;color:#ffffff;font-size:18px;font-weight:700;text-decoration:none;border-radius:12px;">' + esc(tpl.tasto || 'apri.') + '</a>' +
@@ -1211,19 +1210,16 @@ function telegramAttivo_() {
   const p = PropertiesService.getScriptProperties();
   return !!(p.getProperty('TG_TOKEN') && p.getProperty('TG_CHAT')) && p.getProperty('NOTIFICHE') !== 'no';
 }
-function tg_(testo, token, chat, inGrassetto) {          // true se Telegram l'ha ricevuto. inGrassetto: tutto il testo in MAIUSCOLO e in grassetto
+function tg_(testo, token, chat) {                     // true se Telegram l'ha ricevuto
   try {
     const p = PropertiesService.getScriptProperties();
     token = token || p.getProperty('TG_TOKEN'); chat = chat || p.getProperty('TG_CHAT');
     if (!token || !chat) return false;
-    const manda = (corpo) => UrlFetchApp.fetch('https://api.telegram.org/bot' + token + '/sendMessage', { method: 'post', muteHttpExceptions: true, payload: corpo });
-    if (inGrassetto) {
-      const maiuscolo = String(testo).toUpperCase().slice(0, 3900);
-      const html = '<b>' + maiuscolo.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</b>';
-      if (manda({ chat_id: String(chat), text: html, parse_mode: 'HTML', disable_web_page_preview: 'true' }).getResponseCode() === 200) return true;
-      return manda({ chat_id: String(chat), text: maiuscolo, disable_web_page_preview: 'true' }).getResponseCode() === 200;   // se Telegram rifiuta il grassetto, almeno il maiuscolo
-    }
-    return manda({ chat_id: String(chat), text: String(testo).slice(0, 4000), disable_web_page_preview: 'true' }).getResponseCode() === 200;
+    const r = UrlFetchApp.fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
+      method: 'post', muteHttpExceptions: true,
+      payload: { chat_id: String(chat), text: String(testo).slice(0, 4000), disable_web_page_preview: 'true' },
+    });
+    return r.getResponseCode() === 200;
   } catch (err) { console.error('telegram', err); return false; }
 }
 
@@ -1955,7 +1951,7 @@ function elencoBkRegia_() {
 // Testi brevi e senza caratteri speciali: entrano in 1-2 SMS.
 function testoSms_(tipo, x) {
   if (tipo === 'invito') {
-    return String(x[C.nome]).toLowerCase() + ', sei dentro.\nzonacalda - sat 28.11 - 23:30.\n\nconferma il tuo invito cliccando il seguente link:\n\n' +
+    return String(x[C.nome]).toLowerCase() + ', sei dentro.\nzonacalda - sat 28.11 - 23:30.\n\n*CONFERMA IL TUO INVITO CLICCANDO IL SEGUENTE LINK:*\n\n' +
       SERATA.sito + 'invito/?t=' + x[C.token] + '\n\ninvito personale, porta un documento. 23+.';
   }
   if (tipo === 'confermato') {
