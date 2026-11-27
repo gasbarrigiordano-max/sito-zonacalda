@@ -29,15 +29,19 @@ const MAIL = {
   invito: {
     oggetto: 'sei dentro. 😈',
     titolo: '{nome}, sei dentro.',
-    righe: ['sat 28.11 · 23:30', '*CONFERMA IL TUO INVITO CLICCANDO IL SEGUENTE LINK ⬇️*'],
+    righe: ['sat 28.11 · 23:30', '*‼️ CONFERMA IL TUO INVITO CLICCANDO IL SEGUENTE LINK ⬇️*'],
     tasto: 'ci sono.',
+    sottoTasto: "senza conferma l'accesso non è garantito e l'invito passerà a qualcun'altro.",
+    conLuogo: true,
     sotto: 'invito personale: vale solo per te. porta un documento. 23+.',
   },
   riserva: {
     oggetto: 'si è liberato un posto. 😈',
     titolo: '{nome}, si è liberato un posto.',
-    righe: ['stasera.', '*CONFERMA IL TUO INVITO CLICCANDO IL SEGUENTE LINK ⬇️*'],
+    righe: ['stasera.', '*‼️ CONFERMA IL TUO INVITO CLICCANDO IL SEGUENTE LINK ⬇️*'],
     tasto: 'ci sono.',
+    sottoTasto: "senza conferma l'accesso non è garantito e l'invito passerà a qualcun'altro.",
+    conLuogo: true,
     sotto: 'invito personale: vale solo per te. porta un documento. 23+.',
   },
   nonInvitatiProssime: {
@@ -140,7 +144,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'serata-28r';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'serata-28s';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -984,19 +988,22 @@ function riepilogo() {
 // ---------------------------------------------------------------- mail
 function componiMail_(tpl, dati, link, extra) {
   extra = extra || {};
-  const riempi = (s) => String(s).replace(/\{(\w+)\}/g, (_, k) => (k === 'nome' ? String(dati.nome || '').toLowerCase() : dati[k] || ''));
+  const riempi = (s) => String(s).replace(/\{(\w+)\}/g, (_, k) => (k === 'nome' ? String(dati.nome || '').trim().toLowerCase() : dati[k] || ''));
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const titolo = riempi(tpl.titolo);
-  const righe = (tpl.righe || []).map(riempi).concat(extra.luogo ? [extra.luogo] : []);
+  let righe = (tpl.righe || []).map(riempi);
+  if (tpl.conLuogo && !extra.luogo) righe.splice(1, 0, PropertiesService.getScriptProperties().getProperty('LUOGO') || 'via dei prati 4, civitavecchia');
+  else if (extra.luogo) righe = righe.concat([extra.luogo]);
+  const sottoTasto = tpl.sottoTasto ? riempi(tpl.sottoTasto) : '';
   const sotto = tpl.sotto ? riempi(tpl.sotto) : '';
 
   // versione testo (anche per WhatsApp)
-  const testo = [titolo, ''].concat(righe).concat(link ? ['', link] : []).concat(sotto ? ['', sotto] : []).join('\n');
+  const testo = [titolo, ''].concat(righe).concat(link ? ['', link] : []).concat(sottoTasto ? ['', sottoTasto] : []).concat(sotto ? ['', sotto] : []).join('\n');
 
   // versione grafica: tabelle e stili in linea, come vogliono i programmi di posta
   const html =
     '<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
-    '<meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark"></head>' +
+    '<meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark"><style>a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important;font-size:inherit!important;font-family:inherit!important;font-weight:inherit!important;line-height:inherit!important;}</style></head>' +
     '<body style="margin:0;padding:0;background:#050505;">' +
     '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#050505;"><tr><td align="center" style="padding:24px 12px;">' +
     '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Helvetica,Arial,sans-serif;">' +
@@ -1007,6 +1014,7 @@ function componiMail_(tpl, dati, link, extra) {
       '<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" bgcolor="#ff2634" style="border-radius:12px;">' +
       '<a href="' + link + '" style="display:inline-block;padding:16px 44px;color:#ffffff;font-size:18px;font-weight:700;text-decoration:none;border-radius:12px;">' + esc(tpl.tasto || 'apri.') + '</a>' +
       '</td></tr></table></td></tr>' : '') +
+    (link && sottoTasto ? '<tr><td align="center" style="padding:14px 8px 0;color:#ff5a64;font-size:15px;line-height:1.5;font-weight:700;">' + esc(sottoTasto) + '</td></tr>' : '') +
     (extra.qr ? '<tr><td align="center" style="padding:24px 8px 0;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#ffffff" style="padding:14px;border-radius:14px;">' +
       '<img src="cid:qr" width="240" height="240" alt="QR per l\'ingresso" style="display:block;width:240px;height:240px;border:0;"></td></tr></table></td></tr>' : '') +
     (sotto ? '<tr><td align="center" style="padding:20px 8px 0;color:#9b9696;font-size:14px;line-height:1.5;">' + esc(sotto) + '</td></tr>' : '') +
@@ -1951,7 +1959,7 @@ function elencoBkRegia_() {
 // Testi brevi e senza caratteri speciali: entrano in 1-2 SMS.
 function testoSms_(tipo, x) {
   if (tipo === 'invito') {
-    return String(x[C.nome]).toLowerCase() + ', sei dentro.\nzonacalda - sat 28.11 - 23:30.\n\n*CONFERMA IL TUO INVITO CLICCANDO IL SEGUENTE LINK:* ⬇️\n\n' +
+    return String(x[C.nome]).toLowerCase() + ', sei dentro.\nzonacalda - sat 28.11 - 23:30.\n\n*‼️ CONFERMA IL TUO INVITO CLICCANDO IL SEGUENTE LINK:* ⬇️\n\n' +
       SERATA.sito + 'invito/?t=' + x[C.token] + '\n\ninvito personale, porta un documento. 23+.';
   }
   if (tipo === 'confermato') {
