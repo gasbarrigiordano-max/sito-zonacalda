@@ -144,7 +144,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'serata-28s';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'serata-28t';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -488,6 +488,7 @@ function onOpen() {
     .addItem('Manda subito i riepiloghi in attesa', 'mandaRiepiloghiOra')
     .addItem('Collega Brevo (mail)', 'collegaBrevo')
     .addItem('Brevo: manda una mail di prova', 'provaBrevo')
+    .addItem('Mail di prova ai clienti (invito + conferma) a me', 'provaMailClienti')
     .addItem('Scollega Brevo (torna a Gmail)', 'scollegaBrevo')
     .addItem('Collega Telegram', 'collegaTelegram')
     .addItem('Telegram: manda una prova', 'provaTelegram')
@@ -1354,6 +1355,23 @@ function provaBrevo() {
     brevo_({ to: a, subject: 'zonacalda · prova brevo', body: 'se leggi questa mail, brevo funziona. 😈', name: MAIL.mittente, replyTo: MAIL.rispondiA });
     ui.alert('Mail di prova mandata a ' + a + ' da Brevo. Controlla che sia arrivata (guarda anche nello spam).\nMail Brevo usate oggi: ' + brevoUsate_() + '.');
   } catch (err) { ui.alert('Brevo non ha mandato la mail:\n' + err.message); }
+}
+// manda a chi usa il foglio le due mail vere (invito e conferma), con un link di prova: non scrive nulla nel foglio
+function provaMailClienti() {
+  const ui = SpreadsheetApp.getUi();
+  const a = Session.getEffectiveUser().getEmail();
+  try {
+    const link = SERATA.sito + 'invito/?t=prova';
+    const m1 = componiMail_(MAIL.invito, { nome: 'Giordano' }, link);
+    posta_({ to: a, subject: m1.oggetto + ' (prova)', body: m1.testo, htmlBody: m1.html, name: MAIL.mittente, replyTo: MAIL.rispondiA });
+    const luogo = PropertiesService.getScriptProperties().getProperty('LUOGO') || 'via dei prati 4, civitavecchia';
+    const conQr = typeof qrcode === 'function';
+    const m2 = componiMail_(MAIL.conferma, { nome: 'Giordano' }, link, { luogo, qr: conQr });
+    const opz = { to: a, subject: m2.oggetto + ' (prova)', body: m2.testo, htmlBody: m2.html, name: MAIL.mittente, replyTo: MAIL.rispondiA };
+    if (conQr) { const qr = qrBlob_('prova'); opz.inlineImages = { qr: qr }; opz.attachments = [qr.copyBlob().setName('zonacalda-ingresso.gif')]; }
+    posta_(opz);
+    ui.alert('Mandate 2 mail di prova a ' + a + ': invito e conferma. Controlla anche lo spam.');
+  } catch (err) { ui.alert('Non sono riuscito a mandarle:\n' + err.message); }
 }
 function scollegaBrevo() {
   const p = PropertiesService.getScriptProperties();
