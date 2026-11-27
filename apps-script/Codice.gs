@@ -29,14 +29,14 @@ const MAIL = {
   invito: {
     oggetto: 'sei dentro. 😈',
     titolo: '{nome}, sei dentro.',
-    righe: ['sat 28.11 · 23:30', '*CONFERMA IL TUO INVITO CLICCANDO IL SEGUENTE LINK.*'],
+    righe: ['sat 28.11 · 23:30', '*CONFERMA IL TUO INVITO CLICCANDO IL SEGUENTE LINK ⬇️*'],
     tasto: 'ci sono.',
     sotto: 'invito personale: vale solo per te. porta un documento. 23+.',
   },
   riserva: {
     oggetto: 'si è liberato un posto. 😈',
     titolo: '{nome}, si è liberato un posto.',
-    righe: ['stasera.', '*CONFERMA IL TUO INVITO CLICCANDO IL SEGUENTE LINK.*'],
+    righe: ['stasera.', '*CONFERMA IL TUO INVITO CLICCANDO IL SEGUENTE LINK ⬇️*'],
     tasto: 'ci sono.',
     sotto: 'invito personale: vale solo per te. porta un documento. 23+.',
   },
@@ -140,7 +140,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'serata-28o';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'serata-28p';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -1773,7 +1773,7 @@ function elencoBackstageWhatsApp() {
     const pass = SERATA.sito + 'backstage/?t=' + x[CB.token];
     // niente emoji: WhatsApp Web le rovina quando arrivano da un link
     const testo = String(x[CB.nome]).toLowerCase() + ', sei nel backstage.\ndietro la console, a un passo dalla musica.\n\n' +
-      'sat 28.11 · dalle 23:30 · palazzo podestà\n\n*CLICCA IL LINK QUI SOTTO PER SCARICARE IL TUO PASS D\'ACCESSO AL BACKSTAGE:*\n' + pass +
+      'sat 28.11 · dalle 23:30 · palazzo podestà\n\n*CLICCA IL LINK QUI SOTTO PER SCARICARE IL TUO PASS D\'ACCESSO AL BACKSTAGE:* ⬇️\n' + pass +
       '\n\nmostralo all\'ingresso: entri senza invito. vale solo per te, porta un documento.';
     return { id: String(x[CB.id]), nome: String(x[CB.nome]) + ' ' + String(x[CB.cognome]), tel,
              link: 'https://wa.me/' + tel.replace(/\D/g, '') + '?text=' + encodeURIComponent(testo), foto: pass, inviato: !!x[CB.wa_inviato] };
@@ -1951,15 +1951,15 @@ function elencoBkRegia_() {
 // Testi brevi e senza caratteri speciali: entrano in 1-2 SMS.
 function testoSms_(tipo, x) {
   if (tipo === 'invito') {
-    return String(x[C.nome]).toLowerCase() + ', sei dentro.\nzonacalda - sat 28.11 - 23:30.\n\n*CONFERMA IL TUO INVITO CLICCANDO IL SEGUENTE LINK:*\n\n' +
+    return String(x[C.nome]).toLowerCase() + ', sei dentro.\nzonacalda - sat 28.11 - 23:30.\n\n*CONFERMA IL TUO INVITO CLICCANDO IL SEGUENTE LINK:* ⬇️\n\n' +
       SERATA.sito + 'invito/?t=' + x[C.token] + '\n\ninvito personale, porta un documento. 23+.';
   }
   if (tipo === 'confermato') {
-    return String(x[C.nome]).toLowerCase() + ', sei in lista: confermato.\nzonacalda - sat 28.11 - 23:30.\n\nil tuo ingresso:\n\n' +
+    return String(x[C.nome]).toLowerCase() + ', sei in lista: confermato.\nzonacalda - sat 28.11 - 23:30.\n\nil tuo ingresso: ⬇️\n\n' +
       SERATA.sito + 'invito/?t=' + x[C.token] + '\n\nmostralo alla porta. vale solo per te, porta un documento. 23+.';
   }
   if (tipo === 'backstage') {
-    return String(x[CB.nome]).toLowerCase() + ', sei nel backstage.\nzonacalda - sat 28.11 - dalle 23:30.\n\n*CLICCA IL LINK QUI SOTTO PER SCARICARE IL TUO PASS D\'ACCESSO AL BACKSTAGE:*\n\n' +
+    return String(x[CB.nome]).toLowerCase() + ', sei nel backstage.\nzonacalda - sat 28.11 - dalle 23:30.\n\n*CLICCA IL LINK QUI SOTTO PER SCARICARE IL TUO PASS D\'ACCESSO AL BACKSTAGE:* ⬇️\n\n' +
       SERATA.sito + 'backstage/?t=' + x[CB.token] + '\n\nmostralo all\'ingresso: entri senza invito. vale solo per te, porta un documento.';
   }
   return String(x[CS.nome]).toLowerCase() + ', sei dello staff.\nzonacalda - sat 28.11 - palazzo podestà.\n\nil tuo pass:\n\n' +
