@@ -140,7 +140,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'serata-28l';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'serata-28m';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -383,7 +383,7 @@ function portaLavoro_(r) {
       const daPagare = bb.filter((y) => !y[CB.pagato] && (y[CB.stato] === 'confermato' || y[CB.stato] === 'entrato')).length;
       const testoBk = '🍾 entrato in backstage: ' + (x[CB.nome] + ' ' + x[CB.cognome]).toLowerCase() + (eta >= 0 && eta < 100 ? ', ' + eta + ' anni' : '') +
         ' · ' + (x[CB.pagato] ? 'già pagato' : 'DA PAGARE') + '\nbackstage dentro: ' + entrati + ' su ' + attesi + ' · da pagare in tutto: ' + daPagare;
-      dopo_(() => tg_(testoBk));
+      dopo_(() => tg_(testoBk, null, null, true));
     }
     return { ok: true, persona: schedaBk_(x), conteggi: conteggi_(righe, staff) };
   }
@@ -1211,16 +1211,19 @@ function telegramAttivo_() {
   const p = PropertiesService.getScriptProperties();
   return !!(p.getProperty('TG_TOKEN') && p.getProperty('TG_CHAT')) && p.getProperty('NOTIFICHE') !== 'no';
 }
-function tg_(testo, token, chat) {                     // true se Telegram l'ha ricevuto
+function tg_(testo, token, chat, inGrassetto) {          // true se Telegram l'ha ricevuto. inGrassetto: tutto il testo in MAIUSCOLO e in grassetto
   try {
     const p = PropertiesService.getScriptProperties();
     token = token || p.getProperty('TG_TOKEN'); chat = chat || p.getProperty('TG_CHAT');
     if (!token || !chat) return false;
-    const r = UrlFetchApp.fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
-      method: 'post', muteHttpExceptions: true,
-      payload: { chat_id: String(chat), text: String(testo).slice(0, 4000), disable_web_page_preview: 'true' },
-    });
-    return r.getResponseCode() === 200;
+    const manda = (corpo) => UrlFetchApp.fetch('https://api.telegram.org/bot' + token + '/sendMessage', { method: 'post', muteHttpExceptions: true, payload: corpo });
+    if (inGrassetto) {
+      const maiuscolo = String(testo).toUpperCase().slice(0, 3900);
+      const html = '<b>' + maiuscolo.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</b>';
+      if (manda({ chat_id: String(chat), text: html, parse_mode: 'HTML', disable_web_page_preview: 'true' }).getResponseCode() === 200) return true;
+      return manda({ chat_id: String(chat), text: maiuscolo, disable_web_page_preview: 'true' }).getResponseCode() === 200;   // se Telegram rifiuta il grassetto, almeno il maiuscolo
+    }
+    return manda({ chat_id: String(chat), text: String(testo).slice(0, 4000), disable_web_page_preview: 'true' }).getResponseCode() === 200;
   } catch (err) { console.error('telegram', err); return false; }
 }
 
