@@ -29,14 +29,14 @@ const MAIL = {
   invito: {
     oggetto: 'sei dentro. 😈',
     titolo: '{nome}, sei dentro.',
-    righe: ['sat 28.11 · 23:30'],
+    righe: ['sat 28.11 · 23:30', 'conferma il tuo invito cliccando il seguente link.'],
     tasto: 'ci sono.',
     sotto: 'invito personale: vale solo per te. porta un documento. 23+.',
   },
   riserva: {
     oggetto: 'si è liberato un posto. 😈',
     titolo: '{nome}, si è liberato un posto.',
-    righe: ['stasera.'],
+    righe: ['stasera.', 'conferma il tuo invito cliccando il seguente link.'],
     tasto: 'ci sono.',
     sotto: 'invito personale: vale solo per te. porta un documento. 23+.',
   },
@@ -140,7 +140,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'serata-28j';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'serata-28k';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -1944,7 +1944,7 @@ function elencoBkRegia_() {
 // Testi brevi e senza caratteri speciali: entrano in 1-2 SMS.
 function testoSms_(tipo, x) {
   if (tipo === 'invito') {
-    return String(x[C.nome]).toLowerCase() + ', sei dentro.\nzonacalda - sat 28.11 - 23:30.\n\nconferma qui:\n\n' +
+    return String(x[C.nome]).toLowerCase() + ', sei dentro.\nzonacalda - sat 28.11 - 23:30.\n\nconferma il tuo invito cliccando il seguente link:\n\n' +
       SERATA.sito + 'invito/?t=' + x[C.token] + '\n\ninvito personale, porta un documento. 23+.';
   }
   if (tipo === 'confermato') {
