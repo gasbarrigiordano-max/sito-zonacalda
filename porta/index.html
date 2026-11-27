@@ -46,7 +46,7 @@
 </style>
 <script src="../js/api.js?v=20261115" defer></script>
 <script src="../vendor/jsQR.js" defer></script>
-<script src="porta.js?v=20261126" defer></script>
+<script src="porta.js?v=20261127" defer></script>
 </head>
 <body>
 <main class="porta">
@@ -98,18 +98,8 @@
 
 
     <div class="riga" style="margin-top:1.25rem">
-      <button class="bottone secondario" id="b-ospite">➕ ospite senza invito</button>
+      <button class="bottone secondario" id="b-ospite">➕ +1 ospite senza invito</button>
     </div>
-    <form id="f-ospite" hidden autocomplete="off" style="margin:.75rem 0">
-      <p style="margin:.2rem 0 .5rem;color:var(--tenue);font-size:.9rem">entra senza invito: nome e cognome (anche solo uno, o niente) e l'età, se la sai.</p>
-      <input type="text" id="o-nome" placeholder="nome" autocapitalize="words" maxlength="60">
-      <input type="text" id="o-cognome" placeholder="cognome" autocapitalize="words" maxlength="60" style="margin-top:.4rem">
-      <input type="text" id="o-eta" placeholder="età (facoltativa)" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off" style="margin-top:.4rem">
-      <div class="riga" style="margin-top:.6rem">
-        <button class="bottone" type="submit">fai entrare ✓</button>
-        <button class="bottone secondario" type="button" id="o-annulla">annulla</button>
-      </div>
-    </form>
 
     <div class="riga" style="margin-top:1.25rem">
       <button class="bottone secondario" id="staff-meno">staff −1</button>

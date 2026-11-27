@@ -140,7 +140,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'serata-28h';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'serata-28i';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -330,7 +330,7 @@ function portaLavoro_(r) {
     const nome = pulisci_(r.nome, 60), cognome = pulisci_(r.cognome, 60);
     const eta = Number.isInteger(Number(r.eta)) && Number(r.eta) >= 14 && Number(r.eta) <= 99 && String(r.eta).trim() !== '' ? Number(r.eta) : null;
     const riga = new Array(COL.length).fill('');
-    riga[C.nome] = nome || 'ospite'; riga[C.cognome] = cognome || (nome ? '' : 'senza invito');
+    riga[C.nome] = nome || 'ospite'; riga[C.cognome] = cognome || (nome ? '' : 'senza invito ' + (righe.filter((y) => y[C.fonte] === 'porta').length + 1));    // +1 alla porta: numerati, per distinguerli sul foglio
     riga[C.nascita] = eta === null ? '' : "'" + (Number(SERATA.dataISO.slice(0, 4)) - eta) + '-01-01';
     riga[C.stato] = 'entrato'; riga[C.fonte] = 'porta'; riga[C.prossime_serate] = 'no';
     riga[C.note] = 'entrato senza invito (aggiunto alla porta)' + (eta === null ? '' : ' (età indicata: ' + eta + ')');
