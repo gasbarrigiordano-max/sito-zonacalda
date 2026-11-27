@@ -78,7 +78,7 @@ const CS = Object.fromEntries(COL_STAFF.map((n, i) => [n, i]));
 
 // backstage: si prenota dalla pagina /backstage; l'organizzatore mette "confermato" e manda il pass d'oro (si paga in struttura)
 const FOGLIO_BACKSTAGE = 'backstage';
-const POSTI_BACKSTAGE = 50;
+const POSTI_BACKSTAGE = 65;
 const COL_BK = ['nome', 'cognome', 'nascita', 'stato', 'pagato', 'telefono', 'note', 'creato', 'confermato_il', 'entrato_il', 'wa_inviato', 'id', 'token'];
 const STATI_BK = ['richiesta', 'confermato', 'entrato', 'annullato'];
 const CB = Object.fromEntries(COL_BK.map((n, i) => [n, i]));
@@ -140,7 +140,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'serata-28p';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'serata-28q';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
