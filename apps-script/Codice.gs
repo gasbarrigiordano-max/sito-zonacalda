@@ -44,6 +44,15 @@ const MAIL = {
     conLuogo: true,
     sotto: 'invito personale: vale solo per te. porta un documento. 23+.',
   },
+  sollecito: {
+    oggetto: 'ti stiamo aspettando. 😈',
+    titolo: '{nome}, il tuo posto ti aspetta.',
+    righe: ['sat 28.11 · 23:30', '*‼️ CONFERMA ORA IL TUO INVITO CLICCANDO IL SEGUENTE LINK ⬇️*'],
+    tasto: 'ci sono.',
+    sottoTasto: "senza conferma l'accesso non è garantito e l'invito passerà a qualcun'altro.",
+    conLuogo: true,
+    sotto: 'invito personale: vale solo per te. porta un documento. 23+.',
+  },
   nonInvitatiProssime: {
     oggetto: 'zonacalda.',
     titolo: 'questa volta no.',
@@ -144,7 +153,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'serata-28t';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'serata-28u';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -480,6 +489,7 @@ function onOpen() {
     .addItem('Prepara il foglio backstage', 'preparaBackstage')
     .addItem('Pannello pass backstage WhatsApp', 'pannelloBackstage')
     .addSeparator()
+    .addItem('Sollecita i non confermati (rimanda la mail)', 'sollecitaInvitati')
     .addItem('Pannello invii WhatsApp', 'pannelloWhatsApp')
     .addSeparator()
     .addItem('Riepilogo', 'riepilogo')
@@ -589,11 +599,11 @@ function inviaInviti() { invia_(null, false, true); }       // con la mail di in
 function inviaInvitiMail() { invia_(null, false, true); }
 
 // la mail di invito a una persona già "invitato", con la sua scadenza. true se è partita
-function mandaMailInvito_(x) {
+function mandaMailInvito_(x, tpl) {
   if (!String(x[C.email]).trim() || !x[C.token]) return false;
   try {
     if (quotaMail_() < 1) return false;
-    manda_(x[C.email], componiMail_(MAIL.invito, { nome: x[C.nome] }, SERATA.sito + 'invito/?t=' + x[C.token]));
+    manda_(x[C.email], componiMail_(tpl || MAIL.invito, { nome: x[C.nome] }, SERATA.sito + 'invito/?t=' + x[C.token]));
     return true;
   } catch (err) { console.error('mail invito', err); return false; }
 }
@@ -1091,9 +1101,9 @@ function elaboraCodaMail() {
     if (i < 0) return;
     const x = righe[i];
     try {
-      if (tipo === 'i') {
+      if (tipo === 'i' || tipo === 's') {
         if (x[C.stato] !== 'invitato' || !String(x[C.email]).trim() || !x[C.token]) return;       // già risposto, eliminato o senza mail
-        if (mandaMailInvito_(x)) mandate++; else if (tentativi < 2) rimesse.push(tipo + '|' + id + '|' + (tentativi + 1));
+        if (mandaMailInvito_(x, tipo === 's' ? MAIL.sollecito : null)) mandate++; else if (tentativi < 2) rimesse.push(tipo + '|' + id + '|' + (tentativi + 1));
       } else {
         if ((x[C.stato] !== 'confermato' && x[C.stato] !== 'entrato') || !String(x[C.email]).trim()) return;
         const fresca = sh.getRange(i + 2, 1, 1, COL.length).getValues()[0];       // riga riletta ora: la nota potrebbe essere cambiata nel frattempo
@@ -1105,6 +1115,21 @@ function elaboraCodaMail() {
     try { p.setProperty(CODA_MAIL, JSON.stringify(JSON.parse(p.getProperty(CODA_MAIL) || '[]').concat(rimesse))); } finally { lock.releaseLock(); }
   }
   return mandate;
+}
+// rimanda la mail "ti stiamo aspettando" a chi è invitato da giorni e non ha ancora risposto (chi ha già risposto viene saltato)
+function sollecitaInvitati() {
+  const ui = SpreadsheetApp.getUi();
+  const aperti = dati_(foglio_()).filter((x) => x[C.stato] === 'invitato' && String(x[C.email]).trim() && x[C.token]);
+  if (!aperti.length) return ui.alert('Nessun invitato in attesa con una mail: non c\'è nessuno da sollecitare.');
+  const quota = quotaMail_();
+  const r = ui.alert('Sollecita gli invitati', 'Mando la mail "ti stiamo aspettando" a ' + aperti.length + ' invitati che non hanno ancora confermato.\nMail ancora inviabili oggi: ' + quota + (quota < aperti.length ? ' (meno di ' + aperti.length + ': le altre le manderai domani, rilanciando questa voce).' : '.') + '\n\nProcedo?', ui.ButtonSet.YES_NO);
+  if (r !== ui.Button.YES) return;
+  let coda = 0, subito = 0;
+  aperti.forEach((x) => {
+    if (accodaMail_('s', x)) coda++;
+    else if (quotaMail_() > 0 && mandaMailInvito_(x, MAIL.sollecito)) subito++;
+  });
+  ui.alert(coda ? coda + ' mail messe in coda: partono nel giro di pochi minuti (puoi anche usare "Mail in coda: manda ora").' + (subito ? '\nAltre ' + subito + ' già partite.' : '') : subito + ' mail partite.' + (subito < aperti.length ? '\nLe altre non sono partite: quota finita. Rilancia domani.' : ''));
 }
 function codaMailOra() {
   const prima = JSON.parse(PropertiesService.getScriptProperties().getProperty(CODA_MAIL) || '[]').length;
