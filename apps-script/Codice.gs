@@ -140,7 +140,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'serata-28i';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'serata-28j';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -2080,24 +2080,31 @@ function aggiungiDaRegia_(r) {
       (telefono && cifre(x[C.telefono]) && cifre(x[C.telefono]) === cifre(telefono)) || (email && String(x[C.email]).toLowerCase() === email)));
     if (gia) return { ok: false, errore: 'esiste', nome: gia[C.nome] + ' ' + gia[C.cognome], stato: gia[C.stato] };
   }
+  // l'organizzatore sa già che viene: l'ospite aggiunto a mano è subito CONFERMATO, con il suo codice QR pronto (niente invito da accettare)
+  const confermati = righe.filter((y) => y[C.stato] === 'confermato' || y[C.stato] === 'entrato').length;
+  if (!r.forza && confermati >= SERATA.confermeMax) return { ok: false, errore: 'pieno' };
   const token = nuovoToken_(), id = 'm' + Utilities.getUuid().replace(/-/g, '').slice(0, 7);
-  const m = componiMail_(MAIL.invito, { nome }, SERATA.sito + 'invito/?t=' + token);
   const riga = new Array(COL.length).fill('');
   riga[C.nome] = nome; riga[C.cognome] = cognome;
   riga[C.nascita] = eta === null ? '' : "'" + (Number(SERATA.dataISO.slice(0, 4)) - eta) + '-01-01';   // anno di nascita ricavato dall'età: l'età alla serata torna uguale
-  riga[C.stato] = 'invitato';
+  riga[C.stato] = 'confermato';
   riga[C.telefono] = telefono ? "'" + telefono : '';
   riga[C.email] = email;
-  riga[C.note] = 'aggiunto a mano dalla regia' + (eta === null ? '' : ' (età indicata: ' + eta + ')');
+  riga[C.note] = 'aggiunto a mano dalla regia, confermato' + (eta === null ? '' : ' (età indicata: ' + eta + ')');
   riga[C.prossime_serate] = 'no'; riga[C.fonte] = 'regia';
-  riga[C.creato] = new Date(); riga[C.invitato_il] = new Date();
-  riga[C.whatsapp] = telefono ? 'https://wa.me/' + telefono.replace(/\D/g, '') + '?text=' + encodeURIComponent(m.testo) : '';
+  riga[C.creato] = new Date(); riga[C.invitato_il] = new Date(); riga[C.risposto_il] = new Date();
   riga[C.id] = id; riga[C.token] = token;
+  const sms = testoSms_('confermato', riga);                     // "sei in lista: confermato", con il link al suo ingresso (QR)
+  riga[C.whatsapp] = telefono ? 'https://wa.me/' + telefono.replace(/\D/g, '') + '?text=' + encodeURIComponent(sms) : '';
+  const conMail = !!email;
+  const inCoda = conMail && accodaMail_('c', riga);
+  if (inCoda) riga[C.note] = aggiungiNota_(riga[C.note], 'conferma da inviare');
   sh.appendRow(riga);
-  const nuova = righe.concat([riga.slice()]);
-  nuova[nuova.length - 1][C.nascita] = eta === null ? '' : (Number(SERATA.dataISO.slice(0, 4)) - eta) + '-01-01';
-  const x = nuova[nuova.length - 1];
-  return { ok: true, aggiunto: true, persona: Object.assign({ id, nome: nome + ' ' + cognome, eta, tel: telefono, stato: 'invitato', ora: '', g: genere_(nome) }, tempoStato_(x)) };
+  if (conMail && !inCoda) { const t = { sh, n: sh.getLastRow(), riga: riga.slice() }; dopo_(() => mandaConferma_(t)); }
+  const nuova = riga.slice();
+  nuova[C.nascita] = eta === null ? '' : (Number(SERATA.dataISO.slice(0, 4)) - eta) + '-01-01';
+  return { ok: true, aggiunto: true, token, pass: SERATA.sito + 'invito/?t=' + token, sms: { tel: telefono, testo: sms },
+    persona: Object.assign({ id, nome: nome + ' ' + cognome, eta, tel: telefono, stato: 'confermato', ora: '', g: genere_(nome) }, tempoStato_(nuova)) };
 }
 
 // la regia rivede il pass (QR) di chi ha già confermato, per rimandarglielo. solo lettura: non cambia niente nel foglio

@@ -489,13 +489,23 @@
     x.attesa = false; disegnaNomi();
   });
 
+  // ospite aggiunto a mano: già confermato, il QR si vede subito (e si può mandare con WhatsApp o SMS)
+  const mostraQrOspite = (p, r) => {
+    $('oq-nome').textContent = maiuscole(p.nome);
+    try { const q = qrcode(0, 'M'); q.addData(r.token); q.make(); $('oq-qr').innerHTML = q.createSvgTag(6, 0); } catch (e) { $('oq-qr').textContent = r.pass; }
+    $('oq-invii').innerHTML = r.sms && r.sms.tel ? dueInvii('', '', r.sms.tel, r.sms.testo) : '<span class="piccoli">senza numero: mostragli il QR da qui o copia il link.</span>';
+    $('oq-copia').dataset.link = r.pass || '';
+    $('ospite-qr').hidden = false;
+  };
+  $('oq-chiudi').addEventListener('click', () => { $('ospite-qr').hidden = true; $('oq-qr').innerHTML = ''; });
+  $('oq-copia').addEventListener('click', async () => { const l = $('oq-copia').dataset.link; try { await navigator.clipboard.writeText(l); $('oq-copia').textContent = 'copiato ✓'; setTimeout(() => { $('oq-copia').textContent = 'copia il link'; }, 1500); } catch (e) { prompt('copia il link:', l); } });
   // "+" in "invitati, non confermati": un amico che si aggiunge all'ultimo. nome e cognome bastano
   $('piu-nomi').addEventListener('click', () => {
     const f = $('f-piu'); f.hidden = !f.hidden; metti('err-piu', '');
     if (!f.hidden) { f.scrollIntoView({ block: 'nearest' }); f.elements.nome.focus(); }
   });
   $('annulla-piu').addEventListener('click', () => { $('f-piu').hidden = true; $('f-piu').reset(); metti('err-piu', ''); });
-  const ERRORI_PIU = { campi: 'servono nome e cognome.', telefono: 'il numero non sembra giusto: controllalo o lascialo vuoto.', email: 'la mail non sembra giusta: controllala o lasciala vuota.', eta: 'l\'età deve essere un numero tra 14 e 99, o vuota.' };
+  const ERRORI_PIU = { pieno: 'la lista dei confermati è piena: non aggiunto.', campi: 'servono nome e cognome.', telefono: 'il numero non sembra giusto: controllalo o lascialo vuoto.', email: 'la mail non sembra giusta: controllala o lasciala vuota.', eta: 'l\'età deve essere un numero tra 14 e 99, o vuota.' };
   let salvandoPiu = false;
   $('f-piu').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -508,7 +518,10 @@
     if (r && r.errore === 'esiste' && confirm(r.nome + ' è già nel foglio (' + r.stato + '). lo aggiungo lo stesso?')) r = await api(Object.assign({ forza: true }, dati));
     salvandoPiu = false; $('invia-piu').disabled = false; metti('invia-piu', 'aggiungi');
     if (r && r.ok && r.aggiunto) {
-      const p = r.persona; nomi.push(p); aggiunti.add(p.id); ultimoAggiunto = p.id;
+      const p = r.persona; aggiunti.add(p.id); ultimoAggiunto = p.id;
+      if (p.stato === 'confermato' && $('nomi-titolo').dataset.stati === 'confermato') nomi.push(p);           // compare tra i confermati
+      else if (p.stato !== 'confermato' && $('nomi-titolo').dataset.stati === 'invitato') nomi.push(p);
+      if (r.token) mostraQrOspite(p, r);
       f.reset(); f.hidden = true; $('q-nomi').value = '';
       vecchiaLista(); vecchio('invii'); aggiorna();
       disegnaNomi();
@@ -560,7 +573,7 @@
     $('mano').hidden = !(tipoNomi === 'staff' && el.dataset.stati === 'entrato');
     $('azzera-staff').hidden = $('mano').hidden; azzeraStato = ''; mostraAzzera();
     $('barra-nomi').hidden = tipoNomi !== 'lista'; impostaOrdine();                       // pista: ordine a–z / cronologico
-    $('piu-nomi').hidden = !(tipoNomi === 'lista' && el.dataset.stati === 'invitato');     // "+" solo in "invitati, non confermati"
+    $('piu-nomi').hidden = !(tipoNomi === 'lista' && (el.dataset.stati === 'invitato' || el.dataset.stati === 'confermato'));     // "+" in "invitati" e in "confermati": l'ospite aggiunto è già confermato
     $('f-piu').hidden = true; $('f-piu').reset(); metti('err-piu', ''); ultimoAggiunto = '';
     if (!$('mano').hidden) { const d = mem.leggi('zc-regia-dati'); mano = (d && d.staff && d.staff.aMano) || 0; mostraMano(); }
     metti('nomi-titolo', el.dataset.titolo); $('nomi-titolo').dataset.stati = el.dataset.stati || '';
