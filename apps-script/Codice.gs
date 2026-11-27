@@ -14,7 +14,7 @@ const SERATA = {
   etaIscrizione: 21,                 // per iscriversi alla lista
   capienza: 450,                     // totale, staff compreso
   staffPrevisto: 20,
-  confermeMax: 315,                  // oltre questo numero: "posti finiti."
+  confermeMax: 400,                  // oltre questo numero: "posti finiti."
   // gli inviti NON scadono: si possono accettare fino alla serata. niente date di scadenza, né nel foglio né nei messaggi.
   garantitoFino: '2026-11-29T00:30:00+01:00',
   sito: 'https://zonacaldaclubuse.it/',
@@ -140,7 +140,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'serata-28q';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'serata-28r';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
