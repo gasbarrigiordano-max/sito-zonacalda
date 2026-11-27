@@ -140,7 +140,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'serata-28k';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'serata-28l';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -377,6 +377,14 @@ function portaLavoro_(r) {
     if (c.dentro >= SERATA.capienza) return { ok: false, errore: 'pieno', persona: schedaBk_(x), conteggi: c };
     scriviBk_(sh3, i, { stato: 'entrato', entrato_il: new Date() }, x);
     segnaNovita_(x[CB.id]);
+    if (telegramAttivo_()) {                                  // avviso su Telegram: è entrato un backstage (a lucchetto lasciato)
+      const eta = eta_(dataISO_(x[CB.nascita]), SERATA.dataISO);
+      const entrati = bb.filter((y) => y[CB.stato] === 'entrato').length, attesi = bb.filter((y) => y[CB.stato] === 'confermato' || y[CB.stato] === 'entrato').length;
+      const daPagare = bb.filter((y) => !y[CB.pagato] && (y[CB.stato] === 'confermato' || y[CB.stato] === 'entrato')).length;
+      const testoBk = '🍾 entrato in backstage: ' + (x[CB.nome] + ' ' + x[CB.cognome]).toLowerCase() + (eta >= 0 && eta < 100 ? ', ' + eta + ' anni' : '') +
+        ' · ' + (x[CB.pagato] ? 'già pagato' : 'DA PAGARE') + '\nbackstage dentro: ' + entrati + ' su ' + attesi + ' · da pagare in tutto: ' + daPagare;
+      dopo_(() => tg_(testoBk));
+    }
     return { ok: true, persona: schedaBk_(x), conteggi: conteggi_(righe, staff) };
   }
   if (r.op === 'entra' && /^s/.test(String(r.id))) {           // staff con il pass
