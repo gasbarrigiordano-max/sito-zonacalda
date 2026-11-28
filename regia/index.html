@@ -168,7 +168,7 @@
 <script src="../js/api.js?v=20261115" defer></script>
 <script src="../vendor/qrcode.js" defer></script>
 <script src="../js/pass.js?v=20261118" defer></script>
-<script src="regia.js?v=20261128b" defer></script>
+<script src="regia.js?v=20261128c" defer></script>
 </head>
 <body>
 <main class="regia">
@@ -275,7 +275,7 @@
       </div>
       <button type="button" class="piu" id="piu-nomi" aria-label="aggiungi una persona" title="aggiungi una persona" hidden>+</button>
       <form class="f-piu" id="f-piu" hidden autocomplete="off" novalidate>
-        <p class="piccoli" style="margin:0 0 .5rem">un ospite che aggiungi a mano: entra già confermato e ti do subito il QR. bastano nome e cognome.</p>
+        <p class="piccoli" id="testo-piu" style="margin:0 0 .5rem">un ospite che aggiungi a mano: entra già confermato e ti do subito il QR. bastano nome e cognome.</p>
         <input type="text" name="nome" placeholder="nome" required maxlength="60" autocapitalize="words">
         <input type="text" name="cognome" placeholder="cognome" required maxlength="60" autocapitalize="words">
         <input name="telefono" type="tel" inputmode="tel" placeholder="numero (facoltativo)" maxlength="30">

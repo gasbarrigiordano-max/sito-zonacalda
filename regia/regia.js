@@ -531,9 +531,9 @@
     $('oq-invii').innerHTML = r.sms && r.sms.tel ? dueInvii('', '', r.sms.tel, r.sms.testo) : '<span class="piccoli">senza numero: salva il pass e mandaglielo tu, o copia il link.</span>';
     $('oq-copia').dataset.link = r.pass || '';
     $('ospite-qr').hidden = false;
-    const nomeFile = 'zonacalda-invito-' + String(p.nome || 'ospite').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.png';
+    const nomeFile = (p.staff ? 'zonacalda-staff-' : 'zonacalda-invito-') + String(p.nome || 'ospite').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.png';
     if (!window.zcPass) return;
-    zcPass({ token: r.token, nome: p.nome }).then((foto) => {
+    zcPass({ token: r.token, nome: p.nome, staff: !!p.staff }).then((foto) => {
       if ($('ospite-qr').hidden || $('oq-nome').textContent !== maiuscole(p.nome)) return;       // nel frattempo l'hai chiusa o ne hai aggiunto un altro
       fotoOspite = foto;
       $('oq-foto').src = URL.createObjectURL(foto); $('oq-foto').hidden = false; $('oq-qr').hidden = true; $('oq-sotto').hidden = true;
@@ -551,10 +551,12 @@
   $('piu-nomi').addEventListener('click', () => {
     if (window.zcPrecarica) zcPrecarica();                 // font e logo del pass si caricano già adesso
     const f = $('f-piu'); f.hidden = !f.hidden; metti('err-piu', '');
+    const st = tipoNomi === 'staff';                       // nello staff bastano nome, cognome e (se c'è) il numero
+    f.elements.eta.hidden = st; f.elements.email.hidden = st; metti('testo-piu', st ? 'una persona dello staff che aggiungi a mano: è subito registrata e ti do il suo pass con il QR. bastano nome e cognome.' : 'un ospite che aggiungi a mano: entra già confermato e ti do subito il QR. bastano nome e cognome.');
     if (!f.hidden) { f.scrollIntoView({ block: 'center' }); f.elements.nome.focus(); }
   });
   $('annulla-piu').addEventListener('click', () => { $('f-piu').hidden = true; $('f-piu').reset(); metti('err-piu', ''); });
-  const ERRORI_PIU = { pieno: 'la lista dei confermati è piena: non aggiunto.', campi: 'servono nome e cognome.', telefono: 'il numero non sembra giusto: controllalo o lascialo vuoto.', email: 'la mail non sembra giusta: controllala o lasciala vuota.', eta: 'l\'età deve essere un numero tra 14 e 99, o vuota.' };
+  const ERRORI_PIU = { pieno: 'la lista dei confermati è piena: non aggiunto.', campi: 'servono nome e cognome.', telefono: 'il numero non sembra giusto: controllalo o lascialo vuoto.', email: 'la mail non sembra giusta: controllala o lasciala vuota.', non_abilitato: 'manca il foglio "staff": usa Prepara il foglio.', eta: 'l\'età deve essere un numero tra 14 e 99, o vuota.' };
   let salvandoPiu = false;
   $('f-piu').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -562,17 +564,19 @@
     const f = $('f-piu'), v = (k) => f.elements[k].value.trim();
     if (!v('nome') || !v('cognome')) return metti('err-piu', ERRORI_PIU.campi);
     metti('err-piu', ''); salvandoPiu = true; $('invia-piu').disabled = true; metti('invia-piu', 'aggiungo…');
-    const dati = { op: 'aggiungilista', nome: v('nome'), cognome: v('cognome'), telefono: v('telefono'), eta: v('eta'), email: v('email') };
+    const staff = tipoNomi === 'staff';
+    const dati = staff ? { op: 'aggiungistaff', nome: v('nome'), cognome: v('cognome'), telefono: v('telefono') } : { op: 'aggiungilista', nome: v('nome'), cognome: v('cognome'), telefono: v('telefono'), eta: v('eta'), email: v('email') };
     let r = await api(dati);
     if (r && r.errore === 'esiste' && confirm(r.nome + ' è già nel foglio (' + r.stato + '). lo aggiungo lo stesso?')) r = await api(Object.assign({ forza: true }, dati));
     salvandoPiu = false; $('invia-piu').disabled = false; metti('invia-piu', 'aggiungi');
     if (r && r.ok && r.aggiunto) {
       const p = r.persona; aggiunti.add(p.id); ultimoAggiunto = p.id;
-      if (p.stato === 'confermato' && $('nomi-titolo').dataset.stati === 'confermato') nomi.push(p);           // compare tra i confermati
+      if (p.staff) { if ($('nomi-titolo').dataset.stati === 'registrato') nomi.push(p); }                     // compare tra i registrati, da entrare
+      else if (p.stato === 'confermato' && $('nomi-titolo').dataset.stati === 'confermato') nomi.push(p);           // compare tra i confermati
       else if (p.stato !== 'confermato' && $('nomi-titolo').dataset.stati === 'invitato') nomi.push(p);
       if (r.token) mostraQrOspite(p, r);
       f.reset(); f.hidden = true; $('q-nomi').value = '';
-      vecchiaLista(); vecchio('invii'); aggiorna();
+      vecchiaLista(); vecchio('invii'); if (p.staff) { vecchio('nomi-staff-registrato', 'nomi-staff-entrato'); caricaInviiStaff(); } aggiorna();
       disegnaNomi();
       const li = document.querySelector('#lista-nomi li.nuovo'); if (li) li.scrollIntoView({ block: 'center' });
     } else if (r && r.errore === 'esiste') metti('err-piu', 'già nel foglio: non aggiunto.');
@@ -622,7 +626,7 @@
     $('mano').hidden = !(tipoNomi === 'staff' && el.dataset.stati === 'entrato');
     $('azzera-staff').hidden = $('mano').hidden; azzeraStato = ''; mostraAzzera();
     $('barra-nomi').hidden = tipoNomi !== 'lista'; impostaOrdine();                       // pista: ordine a–z / cronologico
-    $('piu-nomi').hidden = !(tipoNomi === 'lista' && (el.dataset.stati === 'invitato' || el.dataset.stati === 'confermato'));     // "+" in "invitati" e in "confermati": l'ospite aggiunto è già confermato
+    $('piu-nomi').hidden = !((tipoNomi === 'lista' && (el.dataset.stati === 'invitato' || el.dataset.stati === 'confermato')) || tipoNomi === 'staff');     // "+" in "invitati" e in "confermati": l'ospite aggiunto è già confermato
     $('f-piu').hidden = true; $('f-piu').reset(); metti('err-piu', ''); ultimoAggiunto = '';
     if (!$('mano').hidden) { const d = mem.leggi('zc-regia-dati'); mano = (d && d.staff && d.staff.aMano) || 0; mostraMano(); }
     metti('nomi-titolo', el.dataset.titolo); $('nomi-titolo').dataset.stati = el.dataset.stati || '';

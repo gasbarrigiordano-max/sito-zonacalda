@@ -153,7 +153,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'serata-28u';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'serata-28v';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -1888,6 +1888,7 @@ function regiaLavoro_(r, props) {
   if (r.op === 'impostagenere') return impostaGenere_(r);
   if (r.op === 'sceglilista') return scegliDaRegia_(r);
   if (r.op === 'aggiungilista') return aggiungiDaRegia_(r);
+  if (r.op === 'aggiungistaff') return aggiungiStaffDaRegia_(r);
   if (r.op === 'conferma') {                        // richiesta → confermato (o indietro), dalla regia
     const sh = foglioBk_();
     const bk = datiBk_();
@@ -2165,6 +2166,38 @@ function aggiungiDaRegia_(r) {
     persona: Object.assign({ id, nome: nome + ' ' + cognome, eta, tel: telefono, stato: 'confermato', ora: '', g: genere_(nome) }, tempoStato_(nuova)) };
 }
 
+// la regia aggiunge una persona dello staff a mano: è subito "registrato", con il suo pass (QR) pronto. nome e cognome bastano
+function aggiungiStaffDaRegia_(r) {
+  const nome = pulisci_(r.nome, 60), cognome = pulisci_(r.cognome, 60);
+  if (!nome || !cognome) return { ok: false, errore: 'campi' };
+  const telGrezzo = pulisci_(r.telefono, 30);
+  const telefono = telGrezzo ? normalizzaTelefono_(telGrezzo) : '';
+  if (telGrezzo && telefono.replace(/\D/g, '').length < 8) return { ok: false, errore: 'telefono' };
+  const sh = foglioStaff_();
+  if (!sh) return { ok: false, errore: 'non_abilitato' };
+  const righe = datiStaff_();
+  const n = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '');
+  const i = righe.findIndex((x) => n(x[CS.cognome]) && x[CS.stato] !== 'escluso' &&
+    ((n(x[CS.nome]) === n(nome) && n(x[CS.cognome]) === n(cognome)) || (n(x[CS.nome]) === n(cognome) && n(x[CS.cognome]) === n(nome))));
+  const gia = i >= 0 ? righe[i] : null;
+  if (gia && gia[CS.token] && gia[CS.stato] !== 'abilitato' && !r.forza) return { ok: false, errore: 'esiste', nome: gia[CS.nome] + ' ' + gia[CS.cognome], stato: gia[CS.stato] };
+  const token = 's' + (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 31);
+  const id = 's' + Utilities.getUuid().replace(/-/g, '').slice(0, 7);
+  const nomeC = gia ? gia[CS.nome] : nome, cognomeC = gia ? gia[CS.cognome] : cognome;
+  const riga = new Array(COL_STAFF.length).fill('');
+  riga[CS.nome] = nomeC; riga[CS.cognome] = cognomeC; riga[CS.stato] = 'registrato';
+  riga[CS.telefono] = telefono ? "'" + telefono : (gia ? gia[CS.telefono] : '');
+  riga[CS.registrato_il] = new Date(); riga[CS.note] = 'aggiunto a mano dalla regia';
+  riga[CS.id] = id; riga[CS.token] = token;
+  if (gia && (!gia[CS.token] || gia[CS.stato] === 'abilitato')) {              // era abilitato e non ancora registrato: si compila la sua riga
+    scriviStaff_(sh, i, { telefono: telefono ? "'" + telefono : gia[CS.telefono], token, id, registrato_il: riga[CS.registrato_il], entrato_il: '', wa_inviato: '', stato: 'registrato' }, gia);
+  } else sh.appendRow(riga);
+  const tel = telefono || normalizzaTelefono_(String(riga[CS.telefono] || '').replace(/^'/, ''));
+  const sms = testoSms_('staff', riga);
+  return { ok: true, aggiunto: true, token, pass: SERATA.sito + 'staff/?t=' + token, sms: { tel, testo: sms },
+    persona: { id, nome: nomeC + ' ' + cognomeC, tel, stato: 'registrato', ora: '', g: genere_(nomeC), staff: true } };
+}
+
 // la regia rivede il pass (QR) di chi ha già confermato, per rimandarglielo. solo lettura: non cambia niente nel foglio
 function passDaRegia_(r) {
   const x = String(r.id || '').trim() ? dati_(foglio_()).find((y) => String(y[C.id]) === String(r.id)) : null;
@@ -2189,7 +2222,7 @@ function nomiRegia_(r) {
       .map((x) => ({ nome: x[CB.nome] + ' ' + x[CB.cognome], eta: anni(x[CB.nascita]), tel: tel(x[CB.telefono]), stato: x[CB.stato], ora: ora(x[CB.entrato_il]), pagato: !!x[CB.pagato], g: genere_(x[CB.nome]) }));
   } else if (r.tipo === 'staff') {
     out = datiStaff_().filter((x) => x[CS.nome] && stati.includes(x[CS.stato]))
-      .map((x) => ({ nome: x[CS.nome] + ' ' + x[CS.cognome], tel: tel(x[CS.telefono]), stato: x[CS.stato], ora: ora(x[CS.entrato_il]), g: genere_(x[CS.nome]) }));
+      .map((x) => ({ id: String(x[CS.id] || ''), nome: x[CS.nome] + ' ' + x[CS.cognome], tel: tel(x[CS.telefono]), stato: x[CS.stato], ora: ora(x[CS.entrato_il]), g: genere_(x[CS.nome]) }));
   } else if (r.tipo === 'genere') {                     // chi è dentro, uomini / donne / incerti
     const g = String(r.g || '');
     out = lista().filter((x) => x[C.stato] === 'entrato').map((x) => [x[C.nome], x[C.cognome], x[C.nascita], x[C.entrato_il], 'pista'])
