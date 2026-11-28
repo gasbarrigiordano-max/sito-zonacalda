@@ -438,6 +438,15 @@
       fattiLista.set(id, { sms: r.sms, invito: invita, mandato: !!(r.sms && r.sms.mandato) });
       vecchio('invii');
       vecchiaLista();
+      if (!invita) {                                      // confermato dalla regia: oltre a WhatsApp e SMS esce subito anche il QR
+        if (window.zcPrecarica) zcPrecarica();
+        const pr = await api({ op: 'passlista', id });
+        if (pr && pr.ok && pr.pass) {
+          fattiLista.set(id, { pass: pr.pass, sms: pr.sms || r.sms });
+          const x = nomi.find((y) => y.id === id) || {};
+          mostraQrOspite({ nome: x.nome || '' }, { token: (pr.pass.match(/[?&]t=([A-Za-z0-9]+)/) || [])[1] || '', pass: pr.pass, sms: pr.sms || r.sms });
+        }
+      }
     } else {
       fattiLista.delete(id);
       alert(r.ok ? 'serve il codice del foglio nuovo (tg-7).' : r.errore === 'pieno' ? 'non confermato: la lista dei confermati è piena.'
