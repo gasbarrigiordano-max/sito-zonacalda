@@ -585,6 +585,28 @@
     else metti('err-piu', 'il foglio non ha risposto: controlla nel foglio prima di riprovare.');
   });
 
+
+  // ------------------------------------------------ ricerca globale: pista, backstage e staff, in qualunque stato
+  { let timerR = 0, contaR = 0;
+    const box = $('r-globale'), campo = $('q-globale');
+    const disegnaR = (v, q) => {
+      box.hidden = false;
+      box.innerHTML = v.length ? v.map((x) => `<li><span class="r-dove ${esc(x.dove)}">${esc(x.dove)}</span><b>${esc(maiuscole(x.nome))}</b><small>${esc(x.stato)}${x.ora ? ' · ' + esc(x.ora) : ''}${x.tel ? ' · ' + esc(x.tel) : ''}</small>${x.link ? `<span class="due"><a class="sms qr" href="${esc(x.link)}" target="_blank" rel="noopener">QR</a></span>` : ''}</li>`).join('')
+        : '<li>' + (q === null ? 'cerco…' : 'nessuno trovato.') + '</li>';
+    };
+    const cerca = async () => {
+      const q = campo.value.trim();
+      if (q.length < 2) { box.hidden = true; box.innerHTML = ''; return; }
+      const n = ++contaR; disegnaR([], null);
+      const r = await api({ op: 'ricerca', q });
+      if (n !== contaR) return;                            // nel frattempo hai scritto altro
+      if (r && r.ok && r.trovati) disegnaR(r.trovati, q);
+      else box.innerHTML = '<li>' + (r && r.ok ? 'serve il codice del foglio nuovo (ricerca).' : 'il foglio non ha risposto. riprova.') + '</li>';
+    };
+    campo.addEventListener('input', () => { clearTimeout(timerR); timerR = setTimeout(cerca, 350); });
+    campo.addEventListener('search', cerca);
+  }
+
   // staff contato a mano: si vede in "staff · entrati"
   let mano = 0, manoInVolo = 0;
   const mostraMano = () => { metti('mano-n', mano); };

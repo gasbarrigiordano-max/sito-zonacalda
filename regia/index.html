@@ -75,6 +75,9 @@
   .blocco.tocca { cursor: pointer; }
   .apri { display: block; text-align: right; color: #f0c860; font-size: .85rem; margin-top: .6rem; }
   .indietro { background: none; border: 0; color: var(--tenue); font: inherit; padding: .4rem 0; cursor: pointer; }
+  .ricerca { margin: 0 0 .6rem; } .ricerca .cerca-bk { margin: 0 0 .4rem; } #r-globale { background: #0f0e0e; border: 1px solid #262424; border-radius: 12px; padding: .1rem .8rem; } #r-globale[hidden] { display: none; }
+  .r-dove { font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; padding: .15rem .5rem; border-radius: 999px; border: 1px solid #3a3636; color: var(--tenue); }
+  .r-dove.pista { color: #8fd0ff; border-color: #2c4a63; } .r-dove.backstage { color: #ffd77a; border-color: #6b5016; } .r-dove.staff { color: #b9f0c8; border-color: #2c5a3d; }
   .cerca-bk { width: 100%; margin: .5rem 0 .75rem; }
   .barra-nomi { display: flex; gap: .5rem; align-items: center; margin: .25rem 0 .5rem; }
   .barra-nomi[hidden], .f-piu[hidden], .piu[hidden] { display: none; }
@@ -168,7 +171,7 @@
 <script src="../js/api.js?v=20261115" defer></script>
 <script src="../vendor/qrcode.js" defer></script>
 <script src="../js/pass.js?v=20261118" defer></script>
-<script src="regia.js?v=20261128c" defer></script>
+<script src="regia.js?v=20261128d" defer></script>
 </head>
 <body>
 <main class="regia">
@@ -193,6 +196,11 @@
     </div>
 
     <a class="bottone a-sms" id="apri-invii" href="#" style="margin:.25rem 0 .5rem">📱 invii WhatsApp e SMS</a>
+
+    <div class="ricerca" id="ricerca">
+      <input class="cerca-bk" id="q-globale" type="search" placeholder="🔍 cerca ovunque: nome, cognome o numero" autocomplete="off" enterkeyhint="search">
+      <ol class="nomi" id="r-globale" hidden></ol>
+    </div>
 
     <div class="tot a-tot" aria-live="polite">
       <b id="dentro">0</b> <span>/ <span id="capienza">0</span> dentro</span>

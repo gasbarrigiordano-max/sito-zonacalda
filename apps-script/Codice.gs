@@ -109,7 +109,7 @@ function doPost(e) {
     try { return out_({ ok: true, aperta: listaAperta_() }); } catch (err) { console.error(err); return out_({ ok: false, errore: 'interno' }); }
   }
   // la regia che legge soltanto (numeri, nomi, elenchi) non aspetta il lucchetto: non resta in coda dietro a chi sta confermando
-  if (req.azione === 'regia' && (!req.op || ['nomi', 'invii', 'backstage', 'passlista'].indexOf(req.op) >= 0)) {
+  if (req.azione === 'regia' && (!req.op || ['nomi', 'invii', 'backstage', 'passlista', 'ricerca'].indexOf(req.op) >= 0)) {
     try {
       SOLO_LETTURA_ = true; DA_COMPLETARE_ = false;
       const letto = regia_(req);
@@ -153,7 +153,7 @@ let DOPO_ = null;                                         // lavori lenti da far
 let SOLO_LETTURA_ = false, DA_COMPLETARE_ = false;
 function dopo_(fn) { if (DOPO_) DOPO_.push(fn); else fn(); }
 
-const VERSIONE = 'serata-28v';                 // si legge aprendo l'indirizzo /exec nel browser
+const VERSIONE = 'serata-28w';                 // si legge aprendo l'indirizzo /exec nel browser
 
 function doGet() {
   return out_({ ok: true, servizio: 'zonacalda', versione: VERSIONE });
@@ -1857,6 +1857,7 @@ function regiaLavoro_(r, props) {
   if (r.op === 'backstage') return { ok: true, persone: elencoBkRegia_() };
   if (r.op === 'invii') return { ok: true, invii: elencoInvii_() };
   if (r.op === 'nomi') return { ok: true, persone: nomiRegia_(r) };
+  if (r.op === 'ricerca') return { ok: true, trovati: ricercaRegia_(r) };
   if (r.op === 'azzerastaff') {                       // staff: tutti gli ingressi a zero (chi era entrato col pass torna "registrato", i contati a mano a 0)
     const sh = foglioStaff_(), st = datiStaff_();      // e si toglie il segno "pass mandato": le righe tornano bianche, i pass da rimandare
     let n = 0;
@@ -2205,6 +2206,39 @@ function passDaRegia_(r) {
   if ((x[C.stato] !== 'confermato' && x[C.stato] !== 'entrato') || !String(x[C.token]).trim()) return { ok: false, errore: 'stato', stato: x[C.stato] };
   return { ok: true, stato: x[C.stato], id: String(x[C.id]), pass: SERATA.sito + 'invito/?t=' + x[C.token],
     sms: { tel: normalizzaTelefono_(String(x[C.telefono] || '').replace(/^'/, '')), testo: testoSms_('confermato', x) } };
+}
+
+// ricerca per la regia: nome, cognome o numero, in pista, backstage e staff, qualunque sia lo stato. solo lettura
+function ricercaRegia_(r) {
+  const norm = (v) => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ');
+  const parole = norm(r.q).split(/\s+/).filter(Boolean);
+  const cifre = String(r.q || '').replace(/\D/g, '');
+  if (!parole.length || (String(r.q || '').trim().length < 2)) return [];
+  const ora = (d) => (d ? Utilities.formatDate(new Date(d), 'Europe/Rome', 'HH:mm') : '');
+  const tel = (v) => String(v || '').replace(/^'/, '');
+  const trova = (nome, cognome, telefono) => {
+    const testo = norm(nome + ' ' + cognome);
+    if (parole.every((w) => testo.indexOf(w) >= 0)) return true;
+    return cifre.length >= 4 && String(telefono || '').replace(/\D/g, '').indexOf(cifre) >= 0;
+  };
+  const out = [];
+  dati_(foglio_()).forEach((x) => {
+    if ((x[C.nome] || x[C.cognome]) && trova(x[C.nome], x[C.cognome], x[C.telefono]))
+      out.push({ dove: 'pista', nome: x[C.nome] + ' ' + x[C.cognome], stato: x[C.stato], tel: tel(x[C.telefono]), ora: ora(x[C.entrato_il]),
+        link: x[C.token] && (x[C.stato] === 'confermato' || x[C.stato] === 'entrato') ? SERATA.sito + 'invito/?t=' + x[C.token] : '' });
+  });
+  datiBk_().forEach((x) => {
+    if (x[CB.nome] && trova(x[CB.nome], x[CB.cognome], x[CB.telefono]))
+      out.push({ dove: 'backstage', nome: x[CB.nome] + ' ' + x[CB.cognome], stato: x[CB.stato] + (x[CB.pagato] ? ' · pagato' : ''), tel: tel(x[CB.telefono]), ora: ora(x[CB.entrato_il]),
+        link: x[CB.token] && (x[CB.stato] === 'confermato' || x[CB.stato] === 'entrato') ? SERATA.sito + 'backstage/?t=' + x[CB.token] : '' });
+  });
+  datiStaff_().forEach((x) => {
+    if (x[CS.nome] && trova(x[CS.nome], x[CS.cognome], x[CS.telefono]))
+      out.push({ dove: 'staff', nome: x[CS.nome] + ' ' + x[CS.cognome], stato: x[CS.stato], tel: tel(x[CS.telefono]), ora: ora(x[CS.entrato_il]),
+        link: x[CS.token] && x[CS.stato] !== 'abilitato' ? SERATA.sito + 'staff/?t=' + x[CS.token] : '' });
+  });
+  out.sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'it'));
+  return out.slice(0, 60);
 }
 
 function nomiRegia_(r) {
