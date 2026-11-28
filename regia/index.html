@@ -77,11 +77,11 @@
   .indietro { background: none; border: 0; color: var(--tenue); font: inherit; padding: .4rem 0; cursor: pointer; }
   .cerca-bk { width: 100%; margin: .5rem 0 .75rem; }
   .barra-nomi { display: flex; gap: .5rem; align-items: center; margin: .25rem 0 .5rem; }
-  .barra-nomi[hidden], .f-piu[hidden], .barra-nomi .piu[hidden] { display: none; }
+  .barra-nomi[hidden], .f-piu[hidden], .piu[hidden] { display: none; }
   .ordine { display: flex; flex: 1; gap: .4rem; }
   .ordine button { flex: 1; min-height: 42px; border-radius: 10px; border: 1px solid #3a3636; background: #161414; color: var(--testo); font: inherit; font-size: .85rem; cursor: pointer; }
   .ordine button[aria-pressed="true"] { background: #ff2634; border-color: #ff2634; color: #fff; font-weight: 700; }
-  .barra-nomi .piu { flex: none; width: 52px; height: 42px; border-radius: 12px; border: 1px solid #e2b84a; background: #3a2a05; color: #ffd77a; font-size: 1.8rem; line-height: 1; cursor: pointer; padding: 0; }
+  .piu { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(18px, calc(env(safe-area-inset-bottom) + 10px)); z-index: 40; width: 60px; height: 60px; border-radius: 50%; border: 2px solid #e2b84a; background: #3a2a05; color: #ffd77a; font-size: 2rem; line-height: 1; cursor: pointer; padding: 0; box-shadow: 0 6px 22px rgba(0,0,0,.65), 0 0 16px rgba(240,190,80,.35); }
   .f-piu { display: grid; gap: .5rem; background: #161414; border: 1px solid #3a3636; border-radius: 12px; padding: .8rem; margin: 0 0 .75rem; }
   .f-piu input { width: 100%; box-sizing: border-box; }
   .f-piu .errore { margin: 0; min-height: 1.1em; }
@@ -168,7 +168,7 @@
 <script src="../js/api.js?v=20261115" defer></script>
 <script src="../vendor/qrcode.js" defer></script>
 <script src="../js/pass.js?v=20261118" defer></script>
-<script src="regia.js?v=20261127c" defer></script>
+<script src="regia.js?v=20261128a" defer></script>
 </head>
 <body>
 <main class="regia">
@@ -272,8 +272,8 @@
           <button type="button" data-o="az" aria-pressed="true">a–z</button>
           <button type="button" data-o="cron" aria-pressed="false">cronologico</button>
         </div>
-        <button type="button" class="piu" id="piu-nomi" aria-label="aggiungi una persona" title="aggiungi una persona" hidden>+</button>
       </div>
+      <button type="button" class="piu" id="piu-nomi" aria-label="aggiungi una persona" title="aggiungi una persona" hidden>+</button>
       <form class="f-piu" id="f-piu" hidden autocomplete="off" novalidate>
         <p class="piccoli" style="margin:0 0 .5rem">un ospite che aggiungi a mano: entra già confermato e ti do subito il QR. bastano nome e cognome.</p>
         <input type="text" name="nome" placeholder="nome" required maxlength="60" autocapitalize="words">

@@ -304,7 +304,9 @@
           : f.sms && f.sms.tel ? dueInvii('az-li', `data-id="${esc(x.id)}" data-az="sms"`, f.sms.tel, f.sms.testo) : '';
         return `<span class="due"><a class="sms qr" href="${esc(f.pass)}" target="_blank" rel="noopener">vedi QR</a>${s}</span>`;
       }
-      if (f.mandato) return '<span class="sms fatto">✓ mandato</span>';
+      const qrSubito = f.invito ? `<button class="spunta az-li" data-id="${esc(x.id)}" data-az="qrsub">genera QR</button>` : '';   // dopo "invita": conferma dalla regia e mostra il QR, senza altri passaggi
+      if (f.mandato) return `<span class="due">${qrSubito}<span class="sms fatto">✓ mandato</span></span>`;
+      if (qrSubito) return `<span class="due">${qrSubito}${f.sms && f.sms.tel ? dueInvii('az-li', `data-id="${esc(x.id)}" data-az="sms"`, f.sms.tel, f.sms.testo) : ''}</span>`;
       return f.sms && f.sms.tel ? `<span class="due">${dueInvii('az-li', `data-id="${esc(x.id)}" data-az="sms"`, f.sms.tel, f.sms.testo)}</span>` : '<span class="sms fatto">✓ confermato</span>';
     }
     if (x.stato === 'confermato' && $('nomi-titolo').dataset.stati === 'confermato') return `<button class="spunta az-li" data-id="${esc(x.id)}" data-az="pass" data-ok="1">QR / pass</button>`;
@@ -380,6 +382,26 @@
     const b = e.target.closest('.az-li');
     if (!b) return;
     const id = b.dataset.id;
+    if (b.dataset.az === 'qrsub') {                       // invitato da poco: lo confermo dalla regia e mostro subito il QR
+      if (window.zcPrecarica) zcPrecarica();
+      const prima = fattiLista.get(id) || {};
+      fattiLista.set(id, { attesa: true, leggo: true }); disegnaNomi();
+      const c = await api({ op: 'confermalista', id });
+      const r = c && c.ok && c.stato ? await api({ op: 'passlista', id }) : null;
+      if (r && r.ok && r.pass) {
+        fattiLista.set(id, { pass: r.pass, sms: r.sms });
+        vecchio('invii'); vecchiaLista(); aggiorna();
+        const x = nomi.find((y) => y.id === id) || {}; x.stato = 'confermato';
+        mostraQrOspite({ nome: x.nome || '' }, { token: (r.pass.match(/[?&]t=([A-Za-z0-9]+)/) || [])[1] || '', pass: r.pass, sms: r.sms });
+      } else {
+        fattiLista.set(id, prima);
+        alert(c && c.errore === 'pieno' ? 'non confermato: la lista dei confermati è piena.'
+          : c && c.ok === false && (c.errore === 'stato' || c.errore === 'persona') ? 'non fatto: ' + spiega(c, id) + '. ricarica l\'elenco.'
+          : 'non riuscito: il foglio non ha risposto (o la rete è caduta). riprova.');
+      }
+      disegnaNomi();
+      return;
+    }
     if (b.dataset.az === 'sms') {
       setTimeout(async () => {
         const f = fattiLista.get(id); if (!f) return;
@@ -520,7 +542,7 @@
   $('piu-nomi').addEventListener('click', () => {
     if (window.zcPrecarica) zcPrecarica();                 // font e logo del pass si caricano già adesso
     const f = $('f-piu'); f.hidden = !f.hidden; metti('err-piu', '');
-    if (!f.hidden) { f.scrollIntoView({ block: 'nearest' }); f.elements.nome.focus(); }
+    if (!f.hidden) { f.scrollIntoView({ block: 'center' }); f.elements.nome.focus(); }
   });
   $('annulla-piu').addEventListener('click', () => { $('f-piu').hidden = true; $('f-piu').reset(); metti('err-piu', ''); });
   const ERRORI_PIU = { pieno: 'la lista dei confermati è piena: non aggiunto.', campi: 'servono nome e cognome.', telefono: 'il numero non sembra giusto: controllalo o lascialo vuoto.', email: 'la mail non sembra giusta: controllala o lasciala vuota.', eta: 'l\'età deve essere un numero tra 14 e 99, o vuota.' };
